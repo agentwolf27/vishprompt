@@ -90,21 +90,36 @@ struct RoutingGenerator: TextGenerating {
         self.api = api
     }
 
+    /// Which provider a request goes to, and whether it was escalated from local.
+    struct Choice: Equatable, Sendable {
+        var provider: ProviderChoice
+        var escalated: Bool
+    }
+
+    /// The routing decision on its own, so the overlay can say where the words went using the
+    /// same rule that sent them there.
+    ///
+    /// The local path handles disfluencies and punctuation, not judgement. When the transcript
+    /// contains a self-correction, resolving it wrongly would silently change what the user
+    /// meant, so it goes to whichever model the compile path uses.
+    static func choice(policy: ProviderPolicy, level: EditLevel, transcript: String?) -> Choice {
+        let planned = policy.provider(for: level)
+        if planned == .local, policy.compilePath != .local,
+           let transcript, LocalCleanup.needsModel(transcript) {
+            return Choice(provider: policy.compilePath, escalated: true)
+        }
+        return Choice(provider: planned, escalated: false)
+    }
+
     func generate(
         _ request: GenerationRequest,
         onDelta: @escaping @Sendable (String) -> Void
     ) async throws -> String {
-        var choice = policy.provider(for: level)
-
-        // The local path handles disfluencies and punctuation, not judgement. When the
-        // transcript contains a self-correction, resolving it wrongly would silently change
-        // what the user meant, so hand it to whichever model the compile path uses.
-        if choice == .local,
-           let transcript = LocalGenerator.transcript(in: request.user),
-           LocalCleanup.needsModel(transcript) {
+        let decision = Self.choice(policy: policy, level: level, transcript: LocalGenerator.transcript(in: request.user))
+        if decision.escalated {
             Log.compile.info("Self-correction detected; escalating from local to \(self.policy.compilePath.rawValue, privacy: .public)")
-            choice = policy.compilePath == .local ? .local : policy.compilePath
         }
+        let choice = decision.provider
 
         switch choice {
         case .local:

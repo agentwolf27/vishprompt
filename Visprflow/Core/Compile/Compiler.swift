@@ -27,6 +27,13 @@ struct Compiler: PromptCompiling {
         self.guardrails = guardrails
     }
 
+    /// Reads the policy on every request, so a provider changed in Settings applies to the next
+    /// dictation, and the overlay's "sent to" line, which reads the same source, stays true.
+    init(policySource: @escaping @Sendable () -> ProviderPolicy, guardrails: Guardrails = .default) {
+        self.generatorForLevel = { level in RoutingGenerator(policy: policySource(), level: level) }
+        self.guardrails = guardrails
+    }
+
     func compile(
         _ request: CompileRequest,
         onPartial: @escaping @Sendable (String) -> Void

@@ -82,7 +82,7 @@ final class DictationController {
 
     init(
         transcriber: any Transcriber = ParakeetTranscriber(),
-        compiler: any PromptCompiling = Compiler(policy: ProviderSettings().policy()),
+        compiler: any PromptCompiling = Compiler(policySource: ProviderSettings.live),
         inserter: Inserter = Inserter(),
         settings: DestinationSettings = DestinationSettings(),
         trigger: TriggerKey = .fn,
@@ -95,7 +95,7 @@ final class DictationController {
         self.currentTrigger = trigger
         // Optional rather than a closure default: Swift 6.1 crashes in SILGen on a closure
         // default argument reached through AppDelegate's lazy property.
-        self.makePaster = makePaster ?? { SmartPaster(policy: ProviderSettings().policy()) }
+        self.makePaster = makePaster ?? { SmartPaster(policy: ProviderSettings.live()) }
 
         // The monitor needs a callback at construction, but that callback needs the controller.
         // A box breaks the cycle without leaving either side optional for the rest of its life.
@@ -185,7 +185,8 @@ final class DictationController {
                 level: capture.currentLevel,
                 seconds: elapsed,
                 locked: true,
-                partial: livePartial
+                partial: livePartial,
+                mode: pasteRead != nil ? .paste : .dictate
             ))
 
         case .smartPaste:
@@ -308,6 +309,8 @@ final class DictationController {
         let fallbackContext = capturedContext
         let pasteForThisRun = pasteRead
         pasteRead = nil
+        // Whatever was transcribed, kept so a failure after this point can still hand it back.
+        var spokenForThisRun = ""
         do {
             // The streaming model runs alongside the capture purely to show words as they are
             // spoken. The final transcript comes from the batch model, deliberately.
@@ -318,8 +321,15 @@ final class DictationController {
             // the integration tests. FluidAudio's own documentation says the offline model has
             // better long-form recall. Accuracy wins a trade that costs 80 ms.
             await streaming.stop()
-            let transcript = try await transcriber.transcribe(samples: samples, hints: .none)
+            let transcript: Transcript
+            do {
+                transcript = try await transcriber.transcribe(samples: samples, hints: .none)
+            } catch TranscriberError.audioTooShort where pasteForThisRun != nil {
+                // A quick fn+V tap is a complete request with nothing said.
+                transcript = Transcript(text: "", confidence: 1, audioDuration: 0, processingTime: 0)
+            }
             trace.mark(.transcriptReady)
+            spokenForThisRun = transcript.text
             let context = await contextForThisRun?.value ?? fallbackContext
             let destination = settings.apply(to: DestinationResolver.resolve(context))
 
@@ -339,7 +349,7 @@ final class DictationController {
                 return
             }
 
-            let compiled = try await compile(
+            let (compiled, attempted) = try await compile(
                 transcript: transcript.text,
                 destination: destination,
                 context: context,
@@ -357,7 +367,7 @@ final class DictationController {
                 monitor.setPreviewMode(true)
                 startPreviewTimeout()
                 trace.mark(.previewShown)
-                show(.ready(text: compiled.text, level: compiled.level, destination: destination.displayName))
+                show(.preview(dictationPreview(compiled, destination: destination, attempted: attempted, transcript: transcript.text)))
                 Log.timing.info("Preview ready: \(self.trace.summary(), privacy: .public)")
             } else {
                 try await insert(
@@ -372,7 +382,8 @@ final class DictationController {
             // Superseded by a newer dictation, which now owns the overlay. Touching it here
             // would hide the overlay of the recording that is still in progress.
         } catch {
-            report(error)
+            // The words were heard; a provider failing must not lose them.
+            report(error, rescuing: pasteForThisRun == nil ? spokenForThisRun : nil)
         }
     }
 
@@ -395,8 +406,8 @@ final class DictationController {
             hide(after: 2.5)
             return
         case .empty:
-            show(.failed(message: "Nothing on the clipboard to paste"))
-            hide(after: 2.0)
+            show(.failed(message: HUDCopy.emptyClipboard))
+            hide(after: 3.0)
             return
         case let .refused(reason):
             show(.failed(message: reason.message))
@@ -423,6 +434,14 @@ final class DictationController {
             show(.failed(message: error.localizedDescription))
             hide(after: 5.0)
             return
+        } catch where Self.isCancellation(error) {
+            throw error
+        } catch {
+            // The provider failed or could not be reached. Offer the clip unchanged rather
+            // than a blank or a vanished overlay.
+            let paster = makePaster()
+            let reason = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            result = paster.unchanged(request, note: HUDCopy.providerFailed(paster.provider, reason: reason))
         }
         trace.mark(.compileDone)
 
@@ -437,18 +456,29 @@ final class DictationController {
         monitor.setPreviewMode(true)
         startPreviewTimeout()
         trace.mark(.previewShown)
-        showPaste(paste, destination: destination)
+        showPaste(paste, destination: destination, heard: transcript.text)
     }
 
-    private func showPaste(_ paste: PastePreview, destination: Destination) {
-        let flippable = paste.result.asCopiedText != paste.result.insertText
-        show(.pasteReady(
-            text: paste.showingAsCopied ? paste.result.asCopiedText : paste.result.insertText,
-            label: paste.showingAsCopied || paste.result.outcome != .rewritten ? "As copied" : "Rewritten",
+    private func showPaste(_ paste: PastePreview, destination: Destination, heard: String) {
+        let result = paste.result
+        let flippable = result.asCopiedText != result.insertText
+        let rewritten = !paste.showingAsCopied && result.outcome == .rewritten
+        var notes: [String] = []
+        if let note = result.note { notes.append(note) }
+        if rewritten, let numbers = result.numberSummary { notes.append(numbers) }
+        show(.preview(PreviewHUD(
+            text: paste.showingAsCopied ? result.asCopiedText : result.insertText,
+            mode: .paste,
             destination: destination.displayName,
-            note: paste.result.note,
-            canFlip: flippable
-        ))
+            label: rewritten ? "Rewritten" : "As copied",
+            heard: heard,
+            notes: notes,
+            // Honest about the request even when the original is on screen: the clip was sent.
+            source: HUDCopy.pasteSource(for: result.sentTo, rewritten: result.sentTo != nil),
+            hints: flippable
+                ? (paste.showingAsCopied ? "⏎ paste · ⇥ rewritten · esc" : "⏎ paste · ⇥ paste original · esc")
+                : "⏎ paste · esc"
+        )))
     }
 
     /// Tab in a Smart Paste preview: as copied ⇄ rewritten. Nothing is sent again.
@@ -460,7 +490,7 @@ final class DictationController {
         updated.compiled.text = paste.showingAsCopied ? paste.result.asCopiedText : paste.result.insertText
         self.pending = updated
         startPreviewTimeout()
-        showPaste(paste, destination: pending.destination)
+        showPaste(paste, destination: pending.destination, heard: pending.transcript.text)
     }
 
     /// Runs the compiler, streaming partial text into the overlay as it arrives.
@@ -469,7 +499,7 @@ final class DictationController {
         destination: Destination,
         context: FocusContext,
         modifiers: GestureModifiers
-    ) async throws -> CompiledPrompt {
+    ) async throws -> (CompiledPrompt, attempted: EditLevel) {
         // Shift with the trigger means "insert exactly what I said"; Control forces a full
         // compile even for a short utterance.
         let override: EditLevel? = modifiers.contains(.shift) ? .verbatim
@@ -483,15 +513,47 @@ final class DictationController {
         Log.compile.info("Level \(decision.level.rawValue, privacy: .public) for \(destination.id, privacy: .public): \(decision.reason, privacy: .public)")
 
         guard decision.level != .verbatim else {
-            return CompiledPrompt(text: decision.transcript, level: .verbatim)
+            return (CompiledPrompt(text: decision.transcript, level: .verbatim), .verbatim)
         }
 
         show(.compiling(partial: ""))
-        return try await runCompiler(
+        let compiled = try await runCompiler(
             transcript: decision.transcript,
             level: decision.level,
             destination: destination,
             workspace: context.workspace
+        )
+        return (compiled, decision.level)
+    }
+
+    /// The preview for a dictation, with the line that says where the words went. Worked out
+    /// with the same routing rule that sent them, from the level that was attempted: a
+    /// guardrail fallback still sent the words, even though the raw transcript is shown.
+    private func dictationPreview(
+        _ compiled: CompiledPrompt,
+        destination: Destination,
+        attempted: EditLevel,
+        transcript: String
+    ) -> PreviewHUD {
+        let source: String
+        if attempted == .verbatim {
+            source = HUDCopy.source(for: nil)
+        } else {
+            let choice = RoutingGenerator.choice(policy: ProviderSettings.live(), level: attempted, transcript: transcript)
+            source = HUDCopy.source(for: choice.provider, escalated: choice.escalated)
+        }
+        var notes: [String] = []
+        if compiled.usedRawFallback {
+            notes.append("The rewrite failed a check, so this is exactly what you said.")
+        }
+        return PreviewHUD(
+            text: compiled.text,
+            mode: .dictate,
+            destination: destination.displayName,
+            label: compiled.level.displayName,
+            notes: notes,
+            source: source,
+            hints: "⏎ insert · ⇥ level · esc"
         )
     }
 
@@ -540,8 +602,11 @@ final class DictationController {
            let front = NSWorkspace.shared.frontmostApplication?.bundleIdentifier,
            front != intended {
             Log.insert.info("Focus moved from \(intended, privacy: .public) to \(front, privacy: .public); not inserting")
-            show(.failed(message: "Focus moved, so nothing was inserted"))
-            hide(after: 2.0)
+            // A dictation is handed back on the clipboard. A Smart Paste is not: the user's
+            // own clip is still there, and replacing it would lose the thing they copied.
+            if paste == nil { TextRescue.copy(compiled.text) }
+            show(.failed(message: HUDCopy.focusMoved(to: destination.displayName, isPaste: paste != nil)))
+            hide(after: HUDCopy.rescueDuration)
             record(
                 transcript: transcript,
                 compiled: compiled,
@@ -643,15 +708,16 @@ final class DictationController {
                 // The preview is being used, so give it a fresh 90 s. Otherwise a few level
                 // changes run the original deadline out mid-decision and the prompt vanishes.
                 self.startPreviewTimeout()
-                self.show(.ready(
-                    text: compiled.text,
-                    level: compiled.level,
-                    destination: pending.destination.displayName
-                ))
+                self.show(.preview(self.dictationPreview(
+                    compiled,
+                    destination: pending.destination,
+                    attempted: level,
+                    transcript: pending.transcript.text
+                )))
             } catch where Self.isCancellation(error) {
                 // Superseded by another key press.
             } catch {
-                self.report(error)
+                self.report(error, rescuing: pending.transcript.text)
             }
         }
     }
@@ -669,11 +735,12 @@ final class DictationController {
         previewTimeout?.cancel()
         previewTimeout = Task { [weak self] in
             try? await Task.sleep(for: .seconds(Self.previewLifetime))
-            guard !Task.isCancelled, let self, self.pending != nil else { return }
+            guard !Task.isCancelled, let self, let pending = self.pending else { return }
             Log.app.info("Preview expired without an answer; releasing the preview keys")
             self.clearPending()
-            self.show(.failed(message: "Preview expired"))
-            self.hide(after: 1.0)
+            if pending.paste == nil { TextRescue.copy(pending.compiled.text) }
+            self.show(.failed(message: HUDCopy.previewExpired(isPaste: pending.paste != nil)))
+            self.hide(after: HUDCopy.rescueDuration)
         }
     }
 
@@ -692,9 +759,14 @@ final class DictationController {
         return false
     }
 
-    private func report(_ error: any Error) {
-        let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+    private func report(_ error: any Error, rescuing words: String? = nil) {
+        var message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         lastError = message
+        if let words, !words.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+           !(error is InsertionError) {
+            TextRescue.copy(words)
+            message = HUDCopy.failedWithWordsCopied(message)
+        }
         // Critical: an error while a preview is up must release the preview keys. Leaving
         // them captured swallows Return, Tab, Escape and R across every app, with no visible
         // overlay explaining why, and the user's natural recovery (pressing Return) would
@@ -702,7 +774,7 @@ final class DictationController {
         clearPending()
         show(.failed(message: message))
         // Secure input leaves the transcript on the clipboard, so that message needs longer.
-        hide(after: error is InsertionError ? 3.5 : 2.5)
+        hide(after: words != nil || error is InsertionError ? HUDCopy.rescueDuration : 2.5)
         Log.app.error("Dictation failed: \(message, privacy: .public)")
     }
 
@@ -786,7 +858,7 @@ final class DictationController {
                     seconds: self.elapsed,
                     locked: locked,
                     partial: self.livePartial,
-                    pasting: self.pasteRead != nil
+                    mode: self.pasteRead != nil ? .paste : .dictate
                 )
                 // Hands-free stops itself once the room goes quiet.
                 if locked, self.capture.silenceSeconds >= self.silenceStopAfter {

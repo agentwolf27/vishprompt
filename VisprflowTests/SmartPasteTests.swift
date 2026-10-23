@@ -121,6 +121,7 @@ final class SmartPasteTests: XCTestCase {
         XCTAssertEqual(generator.requests.count, 0)
         XCTAssertEqual(result.insertText, clip)
         XCTAssertTrue(result.note?.contains("too large") ?? false)
+        XCTAssertNil(result.sentTo)
     }
 
     // MARK: Consent
@@ -215,6 +216,37 @@ final class SmartPasteTests: XCTestCase {
         let generator = RecordingGenerator { _ in "Look at src/payments/stripeWebhook.ts first." }
         let result = try await paster(generator).paste(.init(clip: "error in checkout", instruction: "ask claude about this", destination: .claudeCode))
         guard case .fellBack = result.outcome else { return XCTFail("expected a fallback, got \(result.outcome)") }
+    }
+
+    func testAChangedNumberFallsBack() async throws {
+        let generator = RecordingGenerator { _ in "Signups: 1,420. Churn: 3.1%." }
+        let result = try await paster(generator).paste(.init(clip: "signups 1240, churn 3.1 percent", instruction: "tidy", destination: .message))
+        guard case let .fellBack(reason) = result.outcome else { return XCTFail("expected a fallback, got \(result.outcome)") }
+        XCTAssertTrue(reason.contains("1420"))
+        XCTAssertEqual(result.insertText, "signups 1240, churn 3.1 percent")
+    }
+
+    func testAFaithfulRewriteReportsItsNumbers() async throws {
+        let generator = RecordingGenerator { _ in "• Signups: 1,240\n• Churn: 3.1%" }
+        let result = try await paster(generator).paste(.init(clip: "signups 1240, churn 3.1 percent", instruction: "bullet points", destination: .message))
+        XCTAssertEqual(result.outcome, .rewritten)
+        XCTAssertEqual(result.numberSummary, "Numbers checked: all 2 from your clip are in the result, none added.")
+        XCTAssertEqual(result.sentTo, .apiKey)
+    }
+
+    func testUnchangedIsTheClipForTheDestination() {
+        let smart = paster(RecordingGenerator())
+        XCTAssertEqual(smart.unchanged(.init(clip: "a\nb", instruction: "x", destination: .message), note: nil).insertText, "a\nb")
+        XCTAssertTrue(smart.unchanged(.init(clip: "a\nb", instruction: "x", destination: .claudeCode), note: nil).insertText.hasPrefix("Pasted content"))
+        XCTAssertEqual(smart.unchanged(.init(clip: "ls -la", instruction: "x", destination: .shell), note: nil).insertText, "ls -la")
+    }
+
+    func testSecretsNoteNamesTheKinds() {
+        let redaction = Redactor.redact("key=\(apiKey) and postgres://u:hunter2hunter2@h/db", nonce: "n")
+        let note = SmartPaster.secretsNote(redaction, toModel: true)
+        XCTAssertTrue(note.hasPrefix("2 secrets removed before sending:"), note)
+        XCTAssertTrue(note.contains("an API key"))
+        XCTAssertTrue(note.contains("a password"))
     }
 
     func testAForgedPlaceholderFallsBack() async throws {

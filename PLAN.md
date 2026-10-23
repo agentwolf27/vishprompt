@@ -27,16 +27,18 @@ Tick one only when its VERIFY passes, not when someone says it is done.
 - [x] The speech model costs under 300 MB of our own heap, not 1.2 GB — `make verify-memory`
 - [ ] The 40-item golden set exercised end to end (plan.html's phase-2 bar; 8 fixtures today) — `test "$(find Fixtures/golden -name '*.json' | wc -l)" -ge 40`
 
-- [ ] PR 1: `make test` and every `verify-*` can fail — `make verify-test-can-fail`
-- [ ] PR 1: `test-class` fails on a missing class or a skip — `make verify-test-class-can-fail`
-- [ ] PR 1: V within 1.0 s converts for fn, Right Option and Right Command; extra ⌘/⌃, a late V and hands-free V are ignored; tap+V finishes; a bare tap is discarded — `make test-class C=HotkeyGestureTests`
-- [ ] PR 1: The corpus is caught, the known-miss list is exact, SHAs and UUIDs are kept, and bad nonce tokens fall back — `make test-class C=RedactorTests`
-- [ ] PR 1: Concealed, transient and auto-generated clips are refused; image+text gives text — `make test-class C=ClipboardReaderTests`
-- [ ] PR 1: Zero calls for silence, shell, local mode, over 20k characters and before consent; consent per provider; no corpus secret in a request; a guardrail failure inserts the clip — `make test-class C=SmartPasteTests`
-- [ ] PR 1: No restored secret in any history column, through the pipeline — `make test-class C=SmartPasteHistoryTests`
-- [ ] PR 1: No Return is posted; the fallback entry is concealed and transient — `make test-class C=InserterTests`
-- [ ] PR 1: The memory ceiling holds under pipefail — `make verify-memory`
-- [ ] PR 1: Release builds — `make release`
+- [x] PR 1: `make test` and every `verify-*` can fail — `make verify-test-can-fail`
+- [x] PR 1: `test-class` fails on a missing class or a skip — `make verify-test-class-can-fail`
+- [x] PR 1: V within 1.0 s converts for fn, Right Option and Right Command; extra ⌘/⌃, a late V and hands-free V are ignored; tap+V finishes; a bare tap is discarded — `make test-class C=HotkeyGestureTests`
+- [x] PR 1: The corpus is caught, the known-miss list is exact, SHAs and UUIDs are kept, and bad nonce tokens fall back — `make test-class C=RedactorTests`
+- [x] PR 1: Concealed, transient and auto-generated clips are refused; image+text gives text — `make test-class C=ClipboardReaderTests`
+- [x] PR 1: Zero calls for silence, shell, local mode, over 20k characters and before consent; consent per provider; no corpus secret in a request; a guardrail failure inserts the clip — `make test-class C=SmartPasteTests`
+- [x] PR 1: No restored secret in any history column, through the pipeline — `make test-class C=SmartPasteHistoryTests`
+- [x] PR 1: No Return is posted; the fallback entry is concealed and transient — `make test-class C=InserterTests`
+- [x] PR 1: The memory ceiling holds under pipefail — `make verify-memory`
+- [x] PR 1: Release builds — `make release`
+- [x] PR 1: UI/UX item 1, never lose text: endings that don't insert copy the text and say so — `make test-class C=HUDCopyTests`
+- [x] PR 1: Smart Paste numbers check: an added number falls back, a dropped one is reported — `make test-class C=NumberCheckTests`
 - [ ] PR 2: Real Vision on committed fixtures finds the substrings, the O/0 key is redacted, and a blank image is empty — `make verify-ocr`
 - [ ] PR 2: The OCR block is fenced, verbatim and redacted; no OCR text appears in any request — `make test-class C=ScreenshotPromptTests`
 
