@@ -61,6 +61,11 @@ Tick one only when its VERIFY passes, not when someone says it is done.
 - [ ] Speed S2a: the claude CLI is started at key-down, so the subscription path's first words come sooner — `make test-class C=ClaudeCLIPrespawnTests`
 - [ ] Speed S2b: workspace probes read process info in-process instead of spawning ps and lsof — `make test-class C=ProcessProbeTests`
 
+- [ ] Edit selection: trigger + R within 1.0 s asks to edit the selection; it never collides with fn+V, and a quick tap with R finishes — `make test-class C=HotkeyGestureTests`
+- [ ] Edit selection: the selection is read through Accessibility, or by a ⌘C that puts the clipboard back; secure fields and concealed copies are refused — `make test-class C=SelectionReaderTests`
+- [ ] Edit selection: it reuses Smart Paste's consent, redaction and numbers check; silence and terminals are refused with a next step; History keeps the redacted form, marked as an edit — `make test-class C=SelectionEditTests`
+- [ ] Edit selection: release builds — `make release`
+
 ## Later
 
 From plan.html's phases 3–5. docs/roadmap.html supersedes that plan and, with its twelve items shipped or declined, queues none of these yet.
@@ -261,18 +266,18 @@ New objections. Each one is about a check the resolution added but did not give 
 - **Lines 16 and 27 rest on `|| true`.** Once pipefail lands, re-run both and untick whichever fails.
 
 **Done looks like**
-- [ ] PR 1: `make test` and every `verify-*` can fail — `make verify-test-can-fail`
-- [ ] PR 1: `test-class` fails on a missing class or a skip — `make verify-test-class-can-fail`
-- [ ] PR 1: V within 1.0 s converts for fn, Right Option and Right Command; extra ⌘/⌃, a late V and hands-free V are ignored; tap+V finishes; a bare tap is discarded — `make test-class C=HotkeyGestureTests`
-- [ ] PR 1: The corpus is caught, the known-miss list is exact, SHAs and UUIDs are kept, and bad nonce tokens fall back — `make test-class C=RedactorTests`
-- [ ] PR 1: Concealed, transient and auto-generated clips are refused; image+text gives text — `make test-class C=ClipboardReaderTests`
-- [ ] PR 1: Zero calls for silence, shell, local mode, over 20k characters and before consent; consent per provider; no corpus secret in a request; a guardrail failure inserts the clip — `make test-class C=SmartPasteTests`
-- [ ] PR 1: No restored secret in any history column, through the pipeline — `make test-class C=SmartPasteHistoryTests`
-- [ ] PR 1: No Return is posted; the fallback entry is concealed and transient — `make test-class C=InserterTests`
-- [ ] PR 1: The memory ceiling holds under pipefail — `make verify-memory`
-- [ ] PR 1: Release builds — `make release`
-- [ ] PR 2: Real Vision on committed fixtures finds the substrings, the O/0 key is redacted, and a blank image is empty — `make verify-ocr`
-- [ ] PR 2: The OCR block is fenced, verbatim and redacted; no OCR text appears in any request — `make test-class C=ScreenshotPromptTests`
+- [x] PR 1: `make test` and every `verify-*` can fail — `make verify-test-can-fail`
+- [x] PR 1: `test-class` fails on a missing class or a skip — `make verify-test-class-can-fail`
+- [x] PR 1: V within 1.0 s converts for fn, Right Option and Right Command; extra ⌘/⌃, a late V and hands-free V are ignored; tap+V finishes; a bare tap is discarded — `make test-class C=HotkeyGestureTests`
+- [x] PR 1: The corpus is caught, the known-miss list is exact, SHAs and UUIDs are kept, and bad nonce tokens fall back — `make test-class C=RedactorTests`
+- [x] PR 1: Concealed, transient and auto-generated clips are refused; image+text gives text — `make test-class C=ClipboardReaderTests`
+- [x] PR 1: Zero calls for silence, shell, local mode, over 20k characters and before consent; consent per provider; no corpus secret in a request; a guardrail failure inserts the clip — `make test-class C=SmartPasteTests`
+- [x] PR 1: No restored secret in any history column, through the pipeline — `make test-class C=SmartPasteHistoryTests`
+- [x] PR 1: No Return is posted; the fallback entry is concealed and transient — `make test-class C=InserterTests`
+- [x] PR 1: The memory ceiling holds under pipefail — `make verify-memory`
+- [x] PR 1: Release builds — `make release`
+- [x] PR 2: Real Vision on committed fixtures finds the substrings, the O/0 key is redacted, and a blank image is empty — `make verify-ocr`
+- [x] PR 2: The OCR block is fenced, verbatim and redacted; no OCR text appears in any request — `make test-class C=ScreenshotPromptTests`
 
 TURN: lead
 
@@ -320,3 +325,14 @@ The review is at [docs/research/speed-plan-2026-10-23.md](docs/research/speed-pl
 - **Not in this round.** Item 6 (the event tap off the main thread) touches AVAudioEngine's thread rules and needs its own investigation. Item 9 (Haiku 5.5) needs the 40-case golden set to judge quality. Item 12's bigger bets are left as written.
 
 PLAN FROZEN: 2026-10-23 — speed section. Signed Vish (chat: "go ahead with the speedups too").
+
+### Edit selection by voice · 2026-10-23
+
+Research idea #1, "speak-to-transform the selection". Select text in any app, hold the trigger, press **R** within a second, and say what to do: "shorter", "make it a bug report", "reply no politely". The usual preview appears. Return replaces the selection, Escape leaves it untouched, and ⌘Z in the app restores it.
+
+- **The gesture.** R, for rewrite, mirrors V for Smart Paste: the same one-second window, the same modifier rules, and only one per hold. Apple's shortcut list (support.apple.com/102650, read 2026-10-23) gives fn with A, C, D, E, H, N, Q and Shift-A, and no fn-R, so it does not collide with the system either. Holding Shift or Control with the trigger stays verbatim or full compile, so a modifier gesture would have collided with those.
+- **Reading the selection.** Accessibility's selected text first. If an app does not expose it, a ⌘C is sent and the clipboard is put back afterwards. Secure input and concealed copies are refused.
+- **The pipeline is Smart Paste's.** The selection is the clip, and what you said is the instruction. It shares consent per provider, on-device redaction of known secret shapes, the numbers check, "You said: …", the source line, History storing only the redacted form, and never losing text. Silence is refused with a next step, because an edit needs an instruction. Terminals are refused, because replacing a selection there is not reliable.
+- **Checked by hand:** that Return replaces the selection and ⌘Z restores it in Notes, Slack and Mail; that an app without Accessibility selection (a browser text area) falls back to ⌘C and the clipboard comes back.
+
+PLAN FROZEN: 2026-10-23 — edit selection section. Signed Vish (chat: "start both, alarm first then edit selected text by voice").
