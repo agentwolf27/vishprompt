@@ -43,7 +43,7 @@ Tick one only when its VERIFY passes, not when someone says it is done.
 - [x] PR 2: The OCR block is fenced, verbatim and redacted; no OCR text appears in any request — `make test-class C=ScreenshotPromptTests`
 - [x] PR 2: A screenshot copied in the last 2 minutes is picked up by "fix this" in an agent; Visprflow's own clipboard writes never look fresh — `make test-class C=ClipboardWatcherTests`
 
-- [ ] UI/UX Q1: every ending that doesn't insert names the cause and the next step, and keeps the text (copied, or in History for a long cancelled recording) — `make test-class C=HUDCopyTests`
+- [x] UI/UX Q1: every ending that doesn't insert names the cause and the next step, and keeps the text (copied, or in History for a long cancelled recording) — `make test-class C=HUDCopyTests`
 - [ ] UI/UX Q2: the preview scrolls to its end, each level's result is kept so Tab back is instant, ⇧Tab goes back, R is shown — `make test-class C=PreviewLevelCacheTests`
 - [ ] UI/UX Q3: every overlay state has a VoiceOver announcement and labels; Reduce Motion drops the animation — `make test-class C=AccessibilityAnnouncementTests`
 - [ ] UI/UX Q4: the compiling and preview headers name the provider, escalations included — `make test-class C=ProviderLabelTests`

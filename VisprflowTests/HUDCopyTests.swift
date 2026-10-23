@@ -59,4 +59,38 @@ final class HUDCopyTests: XCTestCase {
         XCTAssertEqual(RoutingGenerator.choice(policy: policy, level: .full, transcript: "anything"), .init(provider: .subscription, escalated: false))
         XCTAssertEqual(RoutingGenerator.choice(policy: .offline, level: .light, transcript: "no wait"), .init(provider: .local, escalated: false))
     }
+
+    // MARK: Q1, raw errors become a cause and a next step
+
+    func testProviderErrorsNameACauseNotARawBody() {
+        let body = #"{"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}"#
+        for status in [401, 403, 429, 500, 502, 503, 529, 418] {
+            let text = GenerationError.http(status: status, message: body).localizedDescription
+            XCTAssertFalse(text.contains("overloaded_error"), "raw body reached the overlay: \(text)")
+            XCTAssertTrue(text.contains("\(status)"), "the status is kept for searching: \(text)")
+        }
+        XCTAssertTrue(GenerationError.http(status: 401, message: body).localizedDescription.contains("Setup"))
+        XCTAssertTrue(GenerationError.missingAPIKey.localizedDescription.contains("Setup"))
+    }
+
+    func testInsertionErrorsSayWhatToDo() {
+        XCTAssertTrue(InsertionError.notTrusted.localizedDescription.contains("Setup"))
+        XCTAssertTrue(InsertionError.secureInputActive.localizedDescription.contains("⌘V"))
+        XCTAssertTrue(HUDCopy.insertFailed(InsertionError.eventCreationFailed.localizedDescription, isPaste: false).contains("⌘V"))
+        XCTAssertTrue(HUDCopy.insertFailed("x", isPaste: true).contains("clip is still on the clipboard"))
+    }
+
+    func testEveryMessageEndsAsASentence() {
+        XCTAssertEqual(HUDCopy.sentence("No Anthropic API key is set"), "No Anthropic API key is set.")
+        XCTAssertEqual(HUDCopy.sentence("Done!"), "Done!")
+        XCTAssertTrue(HUDCopy.failedWithWordsCopied(GenerationError.emptyResponse.localizedDescription)
+            .hasPrefix("The rewrite came back empty. Your words are copied"))
+    }
+
+    func testLongRecordingsAreKeptWhenCancelled() {
+        XCTAssertFalse(HUDCopy.keepsCancelled(seconds: 29.9))
+        XCTAssertTrue(HUDCopy.keepsCancelled(seconds: 30))
+        XCTAssertTrue(HUDCopy.cancelledKept.contains("History"))
+        XCTAssertTrue(HUDCopy.cancelledKept.contains("⌘V"))
+    }
 }

@@ -39,19 +39,30 @@ enum GenerationError: Error, LocalizedError, Equatable {
     case cancelled
     case transport(String)
 
+    /// What happened, in words someone can act on. The raw status and body stay in the log;
+    /// the overlay gets the cause and, from the caller, the way out.
     var errorDescription: String? {
         switch self {
         case .missingAPIKey:
-            "No Anthropic API key. Add one in Visprflow's setup window."
+            "No Anthropic API key is set. Add one in Setup, or send rewrites to your subscription"
         case let .http(status, message):
-            status == 401 ? "The Anthropic API key was rejected."
-                          : "Anthropic returned \(status): \(message)"
+            Self.describe(status: status, message: message)
         case .emptyResponse:
-            "The model returned nothing."
+            "The rewrite came back empty"
         case .cancelled:
-            "Cancelled."
+            "Cancelled"
         case let .transport(message):
             message
+        }
+    }
+
+    static func describe(status: Int, message: String) -> String {
+        switch status {
+        case 401, 403: "Anthropic rejected the API key (\(status)). Check it in Setup"
+        case 429: "Anthropic is limiting requests on this key right now (429)"
+        case 500, 502, 503, 529: "Claude is overloaded or unavailable right now (Anthropic \(status))"
+        case 200: "The rewrite stopped before it finished (\(message))"
+        default: "Anthropic returned an error (\(status))"
         }
     }
 }
