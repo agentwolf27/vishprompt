@@ -79,13 +79,21 @@ struct HUDView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        // While talking and while it works, the smallest honest thing: a capsule. A card only
-        // when there is something to decide.
-        if let capsule = CapsuleModel.make(state, context: context) {
-            CapsuleView(model: capsule, reduceMotion: reduceMotion)
-        } else {
-            card
+        // The capsule is always the anchor. A card drops from it only when there is something
+        // to decide: a preview to accept or an error to read.
+        VStack(spacing: 6) {
+            if let capsule = CapsuleModel.make(state, context: context) {
+                CapsuleView(model: capsule, reduceMotion: reduceMotion)
+            }
+            if HUDLayout.showsCard(state) {
+                card
+                    .transition(HUDLayout.cardArrivesByCrossfade(reduceMotion: reduceMotion)
+                        ? .opacity
+                        : .move(edge: .top).combined(with: .opacity))
+            }
         }
+        .animation(reduceMotion ? .easeInOut(duration: 0.12) : .spring(response: HUDLayout.dropDuration, dampingFraction: 0.85),
+                   value: HUDLayout.showsCard(state))
     }
 
     @ViewBuilder
@@ -95,20 +103,20 @@ struct HUDView: View {
             case let .preview(model):
                 preview(model)
             case let .failed(message):
-                row(icon: "exclamationmark.triangle.fill", tint: .orange) {
-                    // Messages carry the cause and the way out, so they get the room.
-                    Text(message)
-                        .lineLimit(4)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+                // The capsule above carries the warning glyph; the card is the cause and the
+                // way out, and gets the room.
+                Text(message)
+                    .lineLimit(5)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(14)
             default:
                 EmptyView()
             }
         }
-        .frame(width: 460, alignment: .leading)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .frame(width: HUDLayout.cardWidth, alignment: .leading)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .strokeBorder(.white.opacity(0.08), lineWidth: 1)
         )
     }
@@ -117,21 +125,20 @@ struct HUDView: View {
 
     private func preview(_ model: PreviewHUD) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                ModeChip(mode: model.mode)
-                Text("into \(model.destination)")
-                    .font(.caption.weight(.medium))
+            // Mode and destination are on the capsule above; the card adds the level and what
+            // was heard.
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(model.label.uppercased())
                     .font(.caption2.monospaced())
                     .padding(.horizontal, 6).padding(.vertical, 2)
                     .background(.tint.opacity(0.15), in: Capsule())
-                Spacer()
-            }
-            if let heard = model.heard, !heard.isEmpty {
-                Text("You said: “\(heard)”")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
+                if let heard = model.heard, !heard.isEmpty {
+                    Text("You said: “\(heard)”")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+                Spacer(minLength: 0)
             }
             PreviewText(text: model.text, scrollLine: model.scrollLine)
                 .opacity(model.isStale ? 0.45 : 1)
@@ -141,16 +148,15 @@ struct HUDView: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(model.source)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                Spacer(minLength: 8)
-                Text(model.hints)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+            // What left the Mac on its own line, then the keys: each readable in one glance.
+            Text(model.source)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(model.hints)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .trailing)
         }
         .padding(14)
     }
@@ -195,7 +201,7 @@ private struct PreviewText: View {
     private var contentHeight: CGFloat {
         let font = NSFont.preferredFont(forTextStyle: .callout)
         let bounds = (text as NSString).boundingRect(
-            with: NSSize(width: 432, height: CGFloat.greatestFiniteMagnitude),
+            with: NSSize(width: HUDLayout.cardWidth - 28, height: CGFloat.greatestFiniteMagnitude),
             options: [.usesLineFragmentOrigin, .usesFontLeading],
             attributes: [.font: font]
         )
@@ -313,6 +319,8 @@ private struct CapsuleView: View {
             Image(systemName: "checkmark.circle.fill").foregroundStyle(.green).accessibilityHidden(true)
         case .cancelled:
             Image(systemName: "xmark.circle").foregroundStyle(.secondary).accessibilityHidden(true)
+        case .failed:
+            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange).accessibilityHidden(true)
         }
     }
 }

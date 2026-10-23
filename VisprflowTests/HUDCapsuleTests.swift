@@ -53,9 +53,7 @@ final class HUDCapsuleTests: XCTestCase {
         XCTAssertEqual(Landing(destinationID: "message"), .undoable)
     }
 
-    func testDecisionsAreCardsNotCapsules() {
-        XCTAssertNil(CapsuleModel.make(.preview(PreviewHUD(text: "x", mode: .dictate, destination: "Slack", label: "Light", source: "", hints: "")), context: slack))
-        XCTAssertNil(CapsuleModel.make(.failed(message: "x"), context: slack))
+    func testOnlyHiddenHasNoCapsule() {
         XCTAssertNil(CapsuleModel.make(.hidden, context: slack))
         XCTAssertEqual(CapsuleModel.make(.cancelled, context: slack)?.status, "Cancelled")
     }
@@ -81,12 +79,7 @@ final class HUDCapsuleTests: XCTestCase {
         ]
         try FileManager.default.createDirectory(atPath: directory, withIntermediateDirectories: true)
         for (name, state, context) in states {
-            let view = HUDView(state: state, context: context).padding(20).background(Color(white: 0.85))
-            let renderer = ImageRenderer(content: view)
-            renderer.scale = 2
-            guard let image = renderer.nsImage, let tiff = image.tiffRepresentation,
-                  let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]) else { continue }
-            try png.write(to: URL(filePath: directory).appending(path: "\(name).png"))
+            try HUDSnapshot.write(HUDView(state: state, context: context), to: URL(filePath: directory).appending(path: "\(name).png"))
         }
     }
 }
