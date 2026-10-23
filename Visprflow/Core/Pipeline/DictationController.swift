@@ -44,6 +44,10 @@ final class DictationController {
     private(set) var triggerWarning: String?
     /// The dictation waiting for the user to press Return.
     @ObservationIgnored private var pending: Pending?
+    /// Set when V turned this capture into a Smart Paste: reads the clipboard as it was then.
+    @ObservationIgnored private var pasteRead: Task<ClipContent, Never>?
+    /// Builds the paster per request, so a provider changed in Settings applies immediately.
+    @ObservationIgnored private let makePaster: @Sendable () -> SmartPaster
 
     private struct Pending {
         var transcript: Transcript
@@ -51,6 +55,17 @@ final class DictationController {
         var destination: Destination
         /// The app this text was compiled for, so it is never pasted somewhere else.
         var bundleIdentifier: String?
+        /// Present when this preview is a Smart Paste rather than a dictation.
+        var paste: PastePreview?
+    }
+
+    /// A Smart Paste waiting in the preview. Tab flips between the two forms.
+    private struct PastePreview {
+        var result: SmartPasteResult
+        var showingAsCopied: Bool
+
+        /// What history should keep for whichever form is on screen. Never a restored secret.
+        var historyResult: SmartPasteResult { result.showing(asCopied: showingAsCopied) }
     }
 
     /// How long hands-free recording tolerates silence before stopping on its own.
@@ -70,13 +85,17 @@ final class DictationController {
         compiler: any PromptCompiling = Compiler(policy: ProviderSettings().policy()),
         inserter: Inserter = Inserter(),
         settings: DestinationSettings = DestinationSettings(),
-        trigger: TriggerKey = .fn
+        trigger: TriggerKey = .fn,
+        makePaster: (@Sendable () -> SmartPaster)? = nil
     ) {
         self.transcriber = transcriber
         self.compiler = compiler
         self.inserter = inserter
         self.settings = settings
         self.currentTrigger = trigger
+        // Optional rather than a closure default: Swift 6.1 crashes in SILGen on a closure
+        // default argument reached through AppDelegate's lazy property.
+        self.makePaster = makePaster ?? { SmartPaster(policy: ProviderSettings().policy()) }
 
         // The monitor needs a callback at construction, but that callback needs the controller.
         // A box breaks the cycle without leaving either side optional for the rest of its life.
@@ -169,6 +188,14 @@ final class DictationController {
                 partial: livePartial
             ))
 
+        case .smartPaste:
+            // Read now, while the user's copy is certainly still there: by key-up a paste or
+            // another copy could have replaced it. But not inside this callback: an app that
+            // promised its data lazily is asked for it on read, which can take long enough
+            // for macOS to disable the tap. The task runs as soon as the callback returns.
+            pasteRead = Task { @MainActor in ClipboardReader.read() }
+            Log.app.info("Smart Paste requested")
+
         case let .finishCapture(modifiers, _):
             trace.mark(.keyUp)
             stopMeter()
@@ -194,6 +221,7 @@ final class DictationController {
                 noteCaptureLength(0)
                 hide(after: 0)
             case .escape, .resynchronise:
+                pasteRead = nil
                 show(.failed(message: "Cancelled"))
                 hide(after: 0.8)
             case .tooLong:
@@ -218,6 +246,7 @@ final class DictationController {
         trace.mark(.keyDown)
         startedAt = Date()
         lastError = nil
+        pasteRead = nil
         // Only the cheap half here: this runs inside the event-tap callback, and a slow
         // callback makes macOS disable the tap, which loses the key-up and the dictation.
         let frontmost = FocusContextProvider.frontmost()
@@ -277,6 +306,8 @@ final class DictationController {
         // dictation the workspace of the one that superseded it.
         let contextForThisRun = contextTask
         let fallbackContext = capturedContext
+        let pasteForThisRun = pasteRead
+        pasteRead = nil
         do {
             // The streaming model runs alongside the capture purely to show words as they are
             // spoken. The final transcript comes from the batch model, deliberately.
@@ -291,6 +322,16 @@ final class DictationController {
             trace.mark(.transcriptReady)
             let context = await contextForThisRun?.value ?? fallbackContext
             let destination = settings.apply(to: DestinationResolver.resolve(context))
+
+            if let pasteForThisRun {
+                try await runSmartPaste(
+                    clip: await pasteForThisRun.value,
+                    transcript: transcript,
+                    destination: destination,
+                    context: context
+                )
+                return
+            }
 
             guard !transcript.isEmpty else {
                 show(.failed(message: "Nothing was said"))
@@ -333,6 +374,93 @@ final class DictationController {
         } catch {
             report(error)
         }
+    }
+
+    // MARK: Smart Paste
+
+    /// The clipboard is the content and what was said is the instruction. Always previews:
+    /// the text was not typed by the user, so they see it before it lands.
+    private func runSmartPaste(
+        clip: ClipContent,
+        transcript: Transcript,
+        destination: Destination,
+        context: FocusContext
+    ) async throws {
+        let text: String
+        switch clip {
+        case let .text(value):
+            text = value
+        case .image:
+            show(.failed(message: "Images come in the next version of Smart Paste"))
+            hide(after: 2.5)
+            return
+        case .empty:
+            show(.failed(message: "Nothing on the clipboard to paste"))
+            hide(after: 2.0)
+            return
+        case let .refused(reason):
+            show(.failed(message: reason.message))
+            hide(after: 3.0)
+            return
+        }
+
+        show(.compiling(partial: ""))
+        let request = SmartPasteRequest(
+            clip: text,
+            instruction: transcript.text,
+            destination: destination,
+            vocabulary: vocabulary.terms(for: context.workspace)
+        )
+        let result: SmartPasteResult
+        do {
+            result = try await makePaster().paste(request) { [weak self] partial in
+                Task { @MainActor in
+                    guard let self, case .compiling = self.hud else { return }
+                    self.hud = .compiling(partial: partial)
+                }
+            }
+        } catch let error as SmartPasteError {
+            show(.failed(message: error.localizedDescription))
+            hide(after: 5.0)
+            return
+        }
+        trace.mark(.compileDone)
+
+        let paste = PastePreview(result: result, showingAsCopied: false)
+        pending = Pending(
+            transcript: transcript,
+            compiled: CompiledPrompt(text: result.insertText, level: .medium, requestJSON: result.requestJSON),
+            destination: destination,
+            bundleIdentifier: context.bundleIdentifier,
+            paste: paste
+        )
+        monitor.setPreviewMode(true)
+        startPreviewTimeout()
+        trace.mark(.previewShown)
+        showPaste(paste, destination: destination)
+    }
+
+    private func showPaste(_ paste: PastePreview, destination: Destination) {
+        let flippable = paste.result.asCopiedText != paste.result.insertText
+        show(.pasteReady(
+            text: paste.showingAsCopied ? paste.result.asCopiedText : paste.result.insertText,
+            label: paste.showingAsCopied || paste.result.outcome != .rewritten ? "As copied" : "Rewritten",
+            destination: destination.displayName,
+            note: paste.result.note,
+            canFlip: flippable
+        ))
+    }
+
+    /// Tab in a Smart Paste preview: as copied ⇄ rewritten. Nothing is sent again.
+    private func flipPaste(_ pending: Pending) {
+        guard var paste = pending.paste, paste.result.asCopiedText != paste.result.insertText else { return }
+        paste.showingAsCopied.toggle()
+        var updated = pending
+        updated.paste = paste
+        updated.compiled.text = paste.showingAsCopied ? paste.result.asCopiedText : paste.result.insertText
+        self.pending = updated
+        startPreviewTimeout()
+        showPaste(paste, destination: pending.destination)
     }
 
     /// Runs the compiler, streaming partial text into the overlay as it arrives.
@@ -401,7 +529,8 @@ final class DictationController {
         _ compiled: CompiledPrompt,
         transcript: Transcript,
         destination: Destination,
-        intendedFor bundleIdentifier: String? = nil
+        intendedFor bundleIdentifier: String? = nil,
+        paste: PastePreview? = nil
     ) async throws {
         // The text was shaped for one particular app. A compile takes seconds, and the user is
         // free to switch windows while it runs, so paste only where the dictation was aimed.
@@ -417,7 +546,8 @@ final class DictationController {
                 transcript: transcript,
                 compiled: compiled,
                 destination: destination,
-                status: .cancelled
+                status: .cancelled,
+                paste: paste
             )
             return
         }
@@ -425,7 +555,7 @@ final class DictationController {
         trace.mark(.inserted)
         show(.inserted(characters: compiled.text.count))
         hide(after: 1.0)
-        record(transcript: transcript, compiled: compiled, destination: destination, status: .inserted)
+        record(transcript: transcript, compiled: compiled, destination: destination, status: .inserted, paste: paste)
         Log.timing.info("Dictation timings: \(self.trace.summary(), privacy: .public)")
     }
 
@@ -455,7 +585,8 @@ final class DictationController {
                         pending.compiled,
                         transcript: pending.transcript,
                         destination: pending.destination,
-                        intendedFor: pending.bundleIdentifier
+                        intendedFor: pending.bundleIdentifier,
+                        paste: pending.paste
                     )
                 } catch {
                     self.report(error)
@@ -463,7 +594,11 @@ final class DictationController {
             }
 
         case .cycleLevel:
-            recompile(pending, at: pending.compiled.level.cycled)
+            if pending.paste != nil {
+                flipPaste(pending)
+            } else {
+                recompile(pending, at: pending.compiled.level.cycled)
+            }
 
         case .cancel:
             clearPending()
@@ -471,7 +606,8 @@ final class DictationController {
                 transcript: pending.transcript,
                 compiled: pending.compiled,
                 destination: pending.destination,
-                status: .cancelled
+                status: .cancelled,
+                paste: pending.paste
             )
             show(.failed(message: "Cancelled"))
             hide(after: 0.6)
@@ -574,10 +710,18 @@ final class DictationController {
         transcript: Transcript,
         compiled: CompiledPrompt,
         destination: Destination,
-        status: DictationRecord.Status
+        status: DictationRecord.Status,
+        paste: PastePreview? = nil
     ) {
         guard let queue = Database.queue else { return }
-        let record = DictationRecord(
+        // A Smart Paste writes its own row: what went into the field may hold a secret the
+        // user copied, put back on this Mac, and history must never keep that.
+        let record = paste?.historyResult.record(
+            id: trace.id.uuidString,
+            instruction: transcript.text,
+            destination: destination,
+            status: status
+        ) ?? DictationRecord(
             id: trace.id.uuidString,
             createdAt: Date(),
             destination: destination.id,
@@ -641,7 +785,8 @@ final class DictationController {
                     level: self.capture.currentLevel,
                     seconds: self.elapsed,
                     locked: locked,
-                    partial: self.livePartial
+                    partial: self.livePartial,
+                    pasting: self.pasteRead != nil
                 )
                 // Hands-free stops itself once the room goes quiet.
                 if locked, self.capture.silenceSeconds >= self.silenceStopAfter {

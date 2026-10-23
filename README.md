@@ -19,6 +19,7 @@ is installed at `~/Applications/Visprflow.app`.
 | Destination detection and per-destination instructions | Selected text and screen OCR as context |
 | Prompt compilation with guardrails and a raw fallback | Snippets and a prompt library |
 | Preview with Return to insert, Tab to change level | Notarised distribution and Sparkle updates |
+| Smart Paste: hold the trigger, press V, say how | Screenshots in Smart Paste |
 | Repository vocabulary from your git workspace | |
 
 ## What you have to do first
@@ -68,6 +69,24 @@ the grants to the exact binary and every rebuild loses them.
 Hold `shift` with the trigger for verbatim, `control` for a full compile. Say "verbatim:" or
 "prompt mode" to do the same with your voice.
 
+## Smart Paste
+
+Copy something, then hold the trigger and press `V` within a second. Say how you want it
+pasted ("as bullet points", "shorter", "ask Claude why this fails"), or say nothing, and release.
+The preview shows the result. Return pastes it, Tab flips between rewritten and as copied, and
+Escape cancels. Your clipboard is put back afterwards, so what you copied never changes.
+
+| What you do | What happens |
+|---|---|
+| Say nothing | The clip is pasted as copied. Nothing is sent anywhere. Into Claude Code, Cursor, Codex or a chat window, a multi-line clip is fenced and labelled as pasted data, and known secret shapes are replaced with `[redacted …]`. |
+| Say an instruction | The clip goes to your compile-path provider with known secret shapes removed first. The first time for each provider, the overlay asks before sending anything. |
+| Paste into a shell | Always exactly as copied, whatever you said. |
+| Copy a password | A clip marked concealed by a password manager is never read. |
+| Copy something huge | Over 20,000 characters is pasted as copied and never sent. |
+
+With the compile path set to "On this Mac", an instruction cannot be followed and nothing is
+sent. The overlay says so.
+
 ## Requirements
 
 - macOS 15 or later, Apple Silicon
@@ -99,6 +118,7 @@ Visprflow/
   Core/Destination/      Destination model, resolver, focus context, process tree
   Core/Context/          Workspace probe, repository vocabulary
   Core/Insert/           Paste with clipboard restore, keycode resolution
+  Core/Paste/            Smart Paste: clipboard reader, redactor, paste prompt
   Core/Pipeline/         DictationController, the orchestrator
   Core/Storage/          GRDB history and timings
   UI/                    Menu bar, setup window, overlay, destination settings
@@ -112,7 +132,18 @@ docs/plan.html           The plan
 Audio never leaves the machine. The only thing sent anywhere is the transcript, the vocabulary
 list, the destination name and your own instruction, and only when an edit level above verbatim
 applies and the provider for that level is not local. Set both providers to "On this Mac" and
-nothing leaves at all. Every dictation is stored locally in
+nothing leaves at all.
+
+Smart Paste adds one thing to that list: **the clipboard text**, and only when you speak an
+instruction. It goes to the compile-path provider after you have allowed it once for that
+provider. Before it goes, known secret shapes are swapped for placeholders on this Mac: API
+keys and tokens, JWTs, private key blocks, passwords in URLs and headers, `password = …`
+assignments, and long random strings. For a message, email or document the real values are
+put back locally once the model returns. For Claude Code, Cursor, Codex and chat windows they
+stay redacted, because those destinations are models too. "Known shapes" is the claim: a
+password written in a sentence is not caught, and
+[Fixtures/secrets/known-misses.json](Fixtures/secrets/known-misses.json) lists what else is not.
+History keeps only the redacted form. Every dictation is stored locally in
 `~/Library/Application Support/Visprflow/visprflow.sqlite` together with the exact request that
 was sent, so the claim is inspectable rather than promised.
 

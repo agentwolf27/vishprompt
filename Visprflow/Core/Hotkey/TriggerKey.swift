@@ -96,6 +96,22 @@ struct TriggerKey: Codable, Sendable, Equatable, Hashable {
 
     var isSuitable: Bool { unsuitableReason == nil }
 
+    /// The general modifier flag this key sets while held, such as `.maskCommand` for Right
+    /// Command. Empty for an ordinary key.
+    ///
+    /// Needed wherever another key is read while the trigger is down: with Right Command as the
+    /// trigger every key arrives with ⌘ set, and that ⌘ is the trigger, not a shortcut.
+    var generalFlag: CGEventFlags {
+        switch Int(keyCode) {
+        case kVK_Command, kVK_RightCommand: .maskCommand
+        case kVK_Control, kVK_RightControl: .maskControl
+        case kVK_Option, kVK_RightOption: .maskAlternate
+        case kVK_Shift, kVK_RightShift: .maskShift
+        case kVK_Function: .maskSecondaryFn
+        default: []
+        }
+    }
+
     // MARK: Recognising a pressed key
 
     /// Device-dependent flag bits. macOS sets one of these alongside the general mask (such as

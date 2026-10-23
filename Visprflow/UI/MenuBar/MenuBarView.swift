@@ -31,6 +31,9 @@ struct MenuBarView: View {
                 Text("Hold \(state.triggerKey.displayName) to dictate")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                Text("Hold \(state.triggerKey.displayName) and press V for Smart Paste")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             } else if let error = state.startupError {
                 Text(error)
                     .font(.caption)

@@ -35,26 +35,55 @@ enum InsertionError: Error, LocalizedError {
     }
 }
 
+/// Sends the synthetic paste chord. A seam so tests can record exactly which keys were posted
+/// (in particular, that Return never is) without sending real events.
+@MainActor
+protocol KeyEventPosting {
+    func postChord(key: CGKeyCode, flags: CGEventFlags) async throws
+}
+
 /// Puts text into whatever field is focused, then leaves the user's clipboard exactly as it was.
 @MainActor
 final class Inserter {
     private let policy: PasteRestorePolicy
+    private let pasteboard: NSPasteboard
+    private let poster: any KeyEventPosting
+    private let isTrusted: () -> Bool
+    private let isSecureInput: () -> Bool
     /// Marks our own pasteboard entry so we never restore over someone else's copy.
     private static let sessionType = NSPasteboard.PasteboardType("com.vish.visprflow.session")
     private static let transientType = NSPasteboard.PasteboardType("org.nspasteboard.TransientType")
     private static let concealedType = NSPasteboard.PasteboardType("org.nspasteboard.ConcealedType")
 
-    init(policy: PasteRestorePolicy = .default) {
+    /// Everything but `policy` is injectable for tests, which use a private named pasteboard
+    /// and a recording poster so they never touch the user's clipboard or keyboard.
+    init(
+        policy: PasteRestorePolicy = .default,
+        pasteboard: NSPasteboard = .general,
+        poster: any KeyEventPosting = SystemKeyPoster(),
+        isTrusted: @escaping () -> Bool = { AXIsProcessTrusted() },
+        isSecureInput: @escaping () -> Bool = { SecureInput.isActive }
+    ) {
         self.policy = policy
+        self.pasteboard = pasteboard
+        self.poster = poster
+        self.isTrusted = isTrusted
+        self.isSecureInput = isSecureInput
     }
 
     /// Inserts `text`, choosing the mechanism the target app tolerates.
     func insert(_ text: String, strategy: InsertionStrategy) async throws {
         guard !text.isEmpty else { return }
-        guard AXIsProcessTrusted() else { throw InsertionError.notTrusted }
-        if SecureInput.isActive {
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(text, forType: .string)
+        guard isTrusted() else { throw InsertionError.notTrusted }
+        if isSecureInput() {
+            // Left on the clipboard so the user can paste it themselves, but marked so
+            // clipboard managers do not keep it: a Smart Paste can carry a secret the user
+            // copied, and this entry would otherwise outlive the moment.
+            pasteboard.clearContents()
+            pasteboard.declareTypes([.string, Self.concealedType, Self.transientType], owner: nil)
+            pasteboard.setString(text, forType: .string)
+            pasteboard.setString("", forType: Self.concealedType)
+            pasteboard.setString("", forType: Self.transientType)
             throw InsertionError.secureInputActive
         }
 
@@ -107,16 +136,20 @@ final class Inserter {
     }
 
     private func paste(_ text: String, chord: PasteChord) async throws {
-        let pasteboard = NSPasteboard.general
+        let pasteboard = self.pasteboard
         let snapshot = PasteboardSnapshot.capture(from: pasteboard)
 
         await waitForModifiersToClear()
 
         let owner = PasteOwner(text: text)
-        let ourChangeCount = pasteboard.clearContents()
+        pasteboard.clearContents()
         pasteboard.declareTypes([.string, Self.sessionType, Self.transientType], owner: owner)
         // Clipboard managers honour these markers and skip the entry entirely.
         pasteboard.setString("", forType: Self.transientType)
+        // Read after the last write, not from clearContents(): declareTypes bumps the count
+        // again, so the clearContents() value never matched and every paste concluded that
+        // someone else had written to the clipboard, leaving the user's copy unrestored.
+        let ourChangeCount = pasteboard.changeCount
 
         do {
             try await postPasteChord(chord)
@@ -175,18 +208,6 @@ final class Inserter {
     }
 
     private func postPasteChord(_ chord: PasteChord) async throws {
-        // A private source does not inherit the hardware modifier state the way
-        // `.combinedSessionState` does, so the chord is exactly what we set below.
-        guard let source = CGEventSource(stateID: .privateState) else {
-            throw InsertionError.eventCreationFailed
-        }
-        // Suppress local keyboard events for a moment so a key the user is still holding
-        // cannot combine with our synthetic chord.
-        source.setLocalEventsFilterDuringSuppressionState(
-            [.permitLocalMouseEvents, .permitSystemDefinedEvents],
-            state: .eventSuppressionStateSuppressionInterval
-        )
-
         let key: CGKeyCode
         let flags: CGEventFlags
         switch chord {
@@ -197,18 +218,7 @@ final class Inserter {
             key = CGKeyCode(kVK_Help) // Insert shares its keycode with Help on Apple layouts.
             flags = .maskShift
         }
-
-        guard let down = CGEvent(keyboardEventSource: source, virtualKey: key, keyDown: true),
-              let up = CGEvent(keyboardEventSource: source, virtualKey: key, keyDown: false)
-        else { throw InsertionError.eventCreationFailed }
-
-        down.flags = flags
-        up.flags = flags
-        down.post(tap: .cgAnnotatedSessionEventTap)
-        // Some Electron and Java apps drop a chord whose down and up land in the same run
-        // loop turn, so leave a gap. Async rather than usleep: this is the main actor.
-        try? await Task.sleep(for: .milliseconds(8))
-        up.post(tap: .cgAnnotatedSessionEventTap)
+        try await poster.postChord(key: key, flags: flags)
     }
 
     // MARK: Typing
@@ -233,6 +243,38 @@ final class Inserter {
             usleep(1_500)
         }
         Log.insert.info("Typed \(text.count) characters")
+    }
+}
+
+// MARK: - Posting the chord
+
+/// Posts real key events.
+@MainActor
+struct SystemKeyPoster: KeyEventPosting {
+    func postChord(key: CGKeyCode, flags: CGEventFlags) async throws {
+        // A private source does not inherit the hardware modifier state the way
+        // `.combinedSessionState` does, so the chord is exactly what we set below.
+        guard let source = CGEventSource(stateID: .privateState) else {
+            throw InsertionError.eventCreationFailed
+        }
+        // Suppress local keyboard events for a moment so a key the user is still holding
+        // cannot combine with our synthetic chord.
+        source.setLocalEventsFilterDuringSuppressionState(
+            [.permitLocalMouseEvents, .permitSystemDefinedEvents],
+            state: .eventSuppressionStateSuppressionInterval
+        )
+
+        guard let down = CGEvent(keyboardEventSource: source, virtualKey: key, keyDown: true),
+              let up = CGEvent(keyboardEventSource: source, virtualKey: key, keyDown: false)
+        else { throw InsertionError.eventCreationFailed }
+
+        down.flags = flags
+        up.flags = flags
+        down.post(tap: .cgAnnotatedSessionEventTap)
+        // Some Electron and Java apps drop a chord whose down and up land in the same run
+        // loop turn, so leave a gap. Async rather than usleep: this is the main actor.
+        try? await Task.sleep(for: .milliseconds(8))
+        up.post(tap: .cgAnnotatedSessionEventTap)
     }
 }
 

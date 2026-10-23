@@ -250,6 +250,17 @@ final class HotkeyMonitor: @unchecked Sendable {
                 return false
             }
 
+            // V while the trigger is held asks for a Smart Paste. Swallowed only when it
+            // counts, so a V typed later in a dictation still reaches the app as before.
+            if Self.isPasteKey(keyCode: keyCode, flags: event.flags, trigger: trigger, pasteKeyCode: pasteKeyCode) {
+                let now = Double(DispatchTime.now().uptimeNanoseconds) / 1_000_000_000
+                let (action, requested) = gesture.withLock { machine in
+                    (machine.handle(.pasteKey(at: now)), machine.pasteRequested)
+                }
+                deliver(action)
+                if requested { return false }
+            }
+
             if previewMode.withLock({ $0 }), let key = Self.previewKey(for: keyCode, flags: event.flags) {
                 deliver(.preview(key))
                 // Swallow it: the overlay owns these keys while a preview is up.
@@ -281,6 +292,24 @@ final class HotkeyMonitor: @unchecked Sendable {
         guard action != .none else { return }
         Log.hotkey.debug("Gesture produced \(String(describing: action), privacy: .public)")
         onAction(action)
+    }
+
+    /// The key that types "v" on the current layout, resolved once: the tap callback must not
+    /// read the keyboard layout on every key press.
+    private let pasteKeyCode: CGKeyCode = KeycodeResolver.keyCode(for: "v") ?? KeycodeResolver.qwertyV
+
+    /// True when a key-down is the Smart Paste key: V, with no ⌘ or ⌃ beyond what the trigger
+    /// itself holds. Option and Shift are ignored, because with Right Option as the trigger
+    /// every key arrives with Option set, and a V during a hold has no other meaning.
+    static func isPasteKey(
+        keyCode: CGKeyCode,
+        flags: CGEventFlags,
+        trigger: TriggerKey,
+        pasteKeyCode: CGKeyCode
+    ) -> Bool {
+        guard keyCode == pasteKeyCode, keyCode != trigger.keyCode else { return false }
+        let blockers = CGEventFlags([.maskCommand, .maskControl]).subtracting(trigger.generalFlag)
+        return flags.intersection(blockers).isEmpty
     }
 
     /// Maps a key press to a preview action. Modified presses are left alone so shortcuts
