@@ -67,6 +67,8 @@ final class DictationController {
 
     /// The preview on screen, so ↑ and ↓ can redraw it scrolled.
     @ObservationIgnored private var lastPreview: PreviewHUD?
+    /// The app in front at key-down, named while listening so the user sees where it will go.
+    @ObservationIgnored private var listeningApp: String?
 
     /// A screenshot prompt waiting in the preview. Tab drops or restores the screenshot text.
     private struct FixPreview {
@@ -212,7 +214,8 @@ final class DictationController {
                 seconds: elapsed,
                 locked: true,
                 partial: livePartial,
-                mode: pasteRead != nil ? .paste : .dictate
+                mode: pasteRead != nil ? .paste : .dictate,
+                app: listeningApp
             ))
 
         case .smartPaste:
@@ -291,6 +294,7 @@ final class DictationController {
         // callback makes macOS disable the tap, which loses the key-up and the dictation.
         let frontmost = FocusContextProvider.frontmost()
         capturedContext = frontmost
+        listeningApp = NSWorkspace.shared.frontmostApplication?.localizedName
         // The expensive half (ps, lsof, git, AppleScript) runs while the user is still
         // speaking and is joined only when the transcript is ready.
         contextTask?.cancel()
@@ -302,7 +306,7 @@ final class DictationController {
             try capture.start()
             trace.mark(.captureStarted)
             livePartial = ""
-            show(.listening(level: 0, seconds: 0, locked: false))
+            show(.listening(level: 0, seconds: 0, locked: false, app: listeningApp))
             startMeter()
             // Transcribe while the user is still talking, so the words are already decoded when
             // the key comes up rather than the whole utterance waiting until then.
@@ -491,7 +495,10 @@ final class DictationController {
 
         let override: EditLevel? = modifiers.contains(.control) ? .full : nil
         let decision = LevelHeuristic.decide(transcript: transcript.text, destination: destination, override: override)
-        show(.compiling(partial: transcript.isEmpty ? "" : "Writing the prompt…"))
+        let fixProvider = transcript.isEmpty || decision.level == .verbatim
+            ? nil
+            : HUDCopy.providerLabel(RoutingGenerator.choice(policy: ProviderSettings.live(), level: decision.level, transcript: decision.transcript))
+        show(.compiling(partial: transcript.isEmpty ? "" : "Writing the prompt…", provider: fixProvider))
         let prompter = ScreenshotPrompter(compiler: compiler)
         let result = try await prompter.build(
             ask: decision.transcript,
@@ -501,8 +508,8 @@ final class DictationController {
             vocabulary: vocabulary.terms(for: context.workspace)
         ) { [weak self] partial in
             Task { @MainActor in
-                guard let self, case .compiling = self.hud else { return }
-                self.hud = .compiling(partial: partial)
+                guard let self, case let .compiling(_, provider) = self.hud else { return }
+                self.hud = .compiling(partial: partial, provider: provider)
             }
         }
         trace.mark(.compileDone)
@@ -602,7 +609,8 @@ final class DictationController {
             return
         }
 
-        show(.compiling(partial: ""))
+        let pasteProvider = transcript.isEmpty ? nil : HUDCopy.providerLabel(.init(provider: makePaster().provider, escalated: false))
+        show(.compiling(partial: "", provider: pasteProvider))
         let request = SmartPasteRequest(
             clip: text,
             instruction: transcript.text,
@@ -613,8 +621,8 @@ final class DictationController {
         do {
             result = try await makePaster().paste(request) { [weak self] partial in
                 Task { @MainActor in
-                    guard let self, case .compiling = self.hud else { return }
-                    self.hud = .compiling(partial: partial)
+                    guard let self, case let .compiling(_, provider) = self.hud else { return }
+                    self.hud = .compiling(partial: partial, provider: provider)
                 }
             }
         } catch let error as SmartPasteError {
@@ -703,7 +711,8 @@ final class DictationController {
             return (CompiledPrompt(text: decision.transcript, level: .verbatim), .verbatim)
         }
 
-        show(.compiling(partial: ""))
+        let choice = RoutingGenerator.choice(policy: ProviderSettings.live(), level: decision.level, transcript: decision.transcript)
+        show(.compiling(partial: "", provider: HUDCopy.providerLabel(choice)))
         let compiled = try await runCompiler(
             transcript: decision.transcript,
             level: decision.level,
@@ -765,8 +774,8 @@ final class DictationController {
             )
         ) { [weak self] partial in
             Task { @MainActor in
-                guard let self, case .compiling = self.hud else { return }
-                self.hud = .compiling(partial: partial)
+                guard let self, case let .compiling(_, provider) = self.hud else { return }
+                self.hud = .compiling(partial: partial, provider: provider)
                 if self.trace.offset(of: .compileFirstToken) == nil {
                     self.trace.mark(.compileFirstToken)
                 }
@@ -1105,7 +1114,8 @@ final class DictationController {
                     seconds: self.elapsed,
                     locked: locked,
                     partial: self.livePartial,
-                    mode: self.pasteRead != nil ? .paste : .dictate
+                    mode: self.pasteRead != nil ? .paste : .dictate,
+                    app: self.listeningApp
                 )
                 // Hands-free stops itself once the room goes quiet.
                 if locked, self.capture.silenceSeconds >= self.silenceStopAfter {

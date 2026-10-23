@@ -66,6 +66,16 @@ enum HUDCopy {
         return "Couldn't reach \(provider.displayName) (\(trimmed)). Return pastes the clip unchanged."
     }
 
+    /// Where the rewrite is running, for the header while it works.
+    static func providerLabel(_ choice: RoutingGenerator.Choice) -> String {
+        let place = switch choice.provider {
+        case .local: "on this Mac"
+        case .subscription: "via your Claude subscription"
+        case .apiKey: "via the Anthropic API"
+        }
+        return choice.escalated ? "\(place), because you corrected yourself" : place
+    }
+
     /// Where the words went, for the line under a preview.
     static func source(for provider: ProviderChoice?, escalated: Bool = false) -> String {
         guard let provider, provider != .local else { return "Stayed on this Mac." }

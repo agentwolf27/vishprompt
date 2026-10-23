@@ -55,10 +55,11 @@ struct PreviewHUD: Equatable, Sendable {
 enum HUDState: Equatable, Sendable {
     case hidden
     /// Recording. `locked` means hands-free, so the key is not being held.
-    case listening(level: Float, seconds: TimeInterval, locked: Bool, partial: String = "", mode: HUDMode = .dictate)
+    case listening(level: Float, seconds: TimeInterval, locked: Bool, partial: String = "", mode: HUDMode = .dictate, app: String? = nil)
     case transcribing
     /// The compiler is streaming its result in. Phase 2 fills this with real text.
-    case compiling(partial: String)
+    /// `provider` says where it is running: "via your Claude subscription".
+    case compiling(partial: String, provider: String? = nil)
     /// Waiting for the user to press Return to insert.
     case preview(PreviewHUD)
     case inserted(characters: Int)
@@ -74,17 +75,26 @@ struct HUDView: View {
             switch state {
             case .hidden:
                 EmptyView()
-            case let .listening(level, seconds, locked, partial, mode):
-                listening(level: level, seconds: seconds, locked: locked, partial: partial, mode: mode)
+            case let .listening(level, seconds, locked, partial, mode, app):
+                listening(level: level, seconds: seconds, locked: locked, partial: partial, mode: mode, app: app)
             case .transcribing:
                 row(icon: "waveform", tint: .secondary) {
                     Text("Transcribing…").foregroundStyle(.secondary)
                 }
-            case let .compiling(partial):
+            case let .compiling(partial, provider):
                 row(icon: "sparkles", tint: .accentColor) {
-                    Text(partial.isEmpty ? "Compiling…" : partial)
-                        .lineLimit(3)
-                        .truncationMode(.tail)
+                    VStack(alignment: .leading, spacing: 4) {
+                        if let provider {
+                            Text("Rewriting \(provider)")
+                                .font(.caption.weight(.medium))
+                                .foregroundStyle(.secondary)
+                        }
+                        // The newest words, not the first three lines: a long prompt that
+                        // only ever shows its opening reads as stalled.
+                        Text(partial.isEmpty ? (provider == nil ? "Working…" : "Waiting for the first words…") : partial)
+                            .lineLimit(3)
+                            .truncationMode(.head)
+                    }
                 }
             case let .preview(model):
                 preview(model)
@@ -116,7 +126,8 @@ struct HUDView: View {
         seconds: TimeInterval,
         locked: Bool,
         partial: String,
-        mode: HUDMode
+        mode: HUDMode,
+        app: String?
     ) -> some View {
         row(icon: locked ? "lock.fill" : mode.icon, tint: .red) {
             VStack(alignment: .leading, spacing: 6) {
@@ -124,6 +135,12 @@ struct HUDView: View {
                     ModeChip(mode: mode)
                     Text(locked ? "Hands-free" : "Listening")
                         .font(.callout.weight(.medium))
+                    if let app {
+                        Text("into \(app)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
                     Text(Self.elapsed(seconds))
                         .font(.caption.monospacedDigit())
                         .foregroundStyle(.secondary)
