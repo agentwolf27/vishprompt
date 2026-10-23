@@ -58,7 +58,7 @@ Tick one only when its VERIFY passes, not when someone says it is done.
 - [-] Speed S1c: key-up no longer waits for the streaming model to reset before the batch transcription starts — declined on measurement: the stop costs about 6 ms, and the live preview showed no cost interleaved (790 against 830 ms median, n=20 each); see docs/research/latency/README.md
 - [x] Speed S1d: a self-correction in a quick message no longer escalates silently to the 6–10 s subscription path — `make test-class C=EscalationTests`
 - [x] Speed S1e: a guardrail rejection retries on this Mac, not with a second model call — `make test-class C=CompilerTests`
-- [ ] Speed S2a: the claude CLI is started at key-down, so the subscription path's first words come sooner — `make test-class C=ClaudeCLIPrespawnTests`
+- [x] Speed S2a: the claude CLI is started at key-down, so the subscription path's first words come sooner — `make test-class C=ClaudeCLIPrespawnTests`
 - [x] Speed S2b: workspace probes read process info in-process instead of spawning ps and lsof — `make test-class C=ProcessProbeTests`
 
 - [x] Edit selection: trigger + R within 1.0 s asks to edit the selection; it never collides with fn+V, and a quick tap with R finishes — `make test-class C=HotkeyGestureTests`

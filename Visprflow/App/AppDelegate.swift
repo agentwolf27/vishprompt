@@ -60,6 +60,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         dictation.stop()
+        CLIPrespawner.shared.discard()
     }
 
     /// Launching the app again while it is already running should bring the setup window back.

@@ -14,14 +14,21 @@ struct ClaudeCLIGenerator: TextGenerating {
     /// Working directory for the CLI. A directory with no project config starts faster and
     /// keeps the rewrite free of any repository's own instructions.
     var workingDirectory: URL
+    /// Where a process started at key-down waits. Tests pass their own.
+    var prespawner: CLIPrespawner
 
     init(
-        executable: String = ClaudeCLIGenerator.findExecutable() ?? "/usr/local/bin/claude",
-        workingDirectory: URL = FileManager.default.temporaryDirectory
+        executable: String = ClaudeCLIGenerator.resolvedExecutable ?? "/usr/local/bin/claude",
+        workingDirectory: URL = FileManager.default.temporaryDirectory,
+        prespawner: CLIPrespawner = .shared
     ) {
         self.executable = executable
         self.workingDirectory = workingDirectory
+        self.prespawner = prespawner
     }
+
+    /// The executable, found once: a key-down must not search the disk.
+    static let resolvedExecutable: String? = findExecutable()
 
     /// A compile that has produced nothing by now is stuck, not slow. Measured runs finish in
     /// 6-10 s, so this is generous.
@@ -68,13 +75,45 @@ struct ClaudeCLIGenerator: TextGenerating {
             "--strict-mcp-config",
             "--exclude-dynamic-system-prompt-sections",
             "--no-session-persistence",
-            // An empty settings object keeps the user's own hooks and plugins out of the
-            // dictation path; otherwise every rewrite fires their session hooks.
-            "--settings", "{}",
+            "--settings", Self.settings,
             "--disallowed-tools",
-            "Bash", "Read", "Write", "Edit", "Glob", "Grep",
-            "WebFetch", "WebSearch", "Task", "TodoWrite", "NotebookEdit",
-        ]
+        ] + Self.disallowedTools
+    }
+
+    /// Keeps the user's own hooks out of the dictation path. An empty settings object did not:
+    /// measured on this Mac, six SessionStart hooks still ran before every rewrite, costing
+    /// about 0.14 s warm and a second cold, and running the user's hooks on their dictation.
+    static let settings = #"{"disableAllHooks": true}"#
+
+    static let disallowedTools = [
+        "Bash", "Read", "Write", "Edit", "Glob", "Grep",
+        "WebFetch", "WebSearch", "Task", "TodoWrite", "NotebookEdit",
+    ]
+
+    /// The same, for a process started before the prompt is known: the prompt arrives on stdin
+    /// as one stream-json message, so start-up happens while the user is still speaking.
+    static func streamingArguments(system: String, model: String) -> [String] {
+        [
+            "-p",
+            "--input-format", "stream-json",
+            "--system-prompt", system,
+            "--model", model,
+            "--output-format", "stream-json",
+            "--include-partial-messages",
+            "--verbose",
+            "--strict-mcp-config",
+            "--exclude-dynamic-system-prompt-sections",
+            "--no-session-persistence",
+            "--settings", settings,
+            "--disallowed-tools",
+        ] + disallowedTools
+    }
+
+    /// The prompt as the single stream-json message a pre-started process waits for.
+    static func streamMessage(_ prompt: String) -> String {
+        let payload: [String: Any] = ["type": "user", "message": ["role": "user", "content": prompt]]
+        let data = (try? JSONSerialization.data(withJSONObject: payload)) ?? Data()
+        return String(decoding: data, as: UTF8.self) + "\n"
     }
 
     func generate(
@@ -85,26 +124,41 @@ struct ClaudeCLIGenerator: TextGenerating {
             throw GenerationError.transport("The claude command line tool was not found. Install it, or switch to an API key in settings.")
         }
 
-        let process = Process()
-        process.executableURL = URL(filePath: executable)
-        process.arguments = Self.arguments(
-            prompt: request.user,
-            system: request.system,
-            model: request.model.identifier
-        )
-        process.currentDirectoryURL = workingDirectory
-        // Closing stdin matters: the CLI otherwise waits three seconds for piped input.
-        process.standardInput = FileHandle.nullDevice
+        let process: Process
+        let output: Pipe
+        let errorPipe: Pipe
+        let key = CLIPrespawner.Key(executable: executable, system: request.system, model: request.model.identifier)
+        if let spawned = prespawner.take(key) {
+            // Started at key-down for exactly this system prompt and model: send the prompt.
+            process = spawned.process
+            output = spawned.output
+            errorPipe = spawned.errors
+            let handle = spawned.input.fileHandleForWriting
+            handle.write(Data(Self.streamMessage(request.user).utf8))
+            try? handle.close()
+            Log.compile.info("Using the pre-started claude command")
+        } else {
+            process = Process()
+            process.executableURL = URL(filePath: executable)
+            process.arguments = Self.arguments(
+                prompt: request.user,
+                system: request.system,
+                model: request.model.identifier
+            )
+            process.currentDirectoryURL = workingDirectory
+            // Closing stdin matters: the CLI otherwise waits three seconds for piped input.
+            process.standardInput = FileHandle.nullDevice
 
-        let output = Pipe()
-        let errorPipe = Pipe()
-        process.standardOutput = output
-        process.standardError = errorPipe
+            output = Pipe()
+            errorPipe = Pipe()
+            process.standardOutput = output
+            process.standardError = errorPipe
 
-        do {
-            try process.run()
-        } catch {
-            throw GenerationError.transport("Could not run the claude command: \(error.localizedDescription)")
+            do {
+                try process.run()
+            } catch {
+                throw GenerationError.transport("Could not run the claude command: \(error.localizedDescription)")
+            }
         }
 
         // Both pipes are drained by readability handlers on background queues. Reading stdout
@@ -117,10 +171,14 @@ struct ClaudeCLIGenerator: TextGenerating {
         let errHandle = errorPipe.fileHandleForReading
 
         let lines = LineBuffer()
+        // Signalled when the handler has read to the end of stdout, so the result is read only
+        // after every delta has been processed, not while the last chunk is still in flight.
+        let stdoutDrained = DispatchSemaphore(value: 0)
         outHandle.readabilityHandler = { handle in
             let chunk = handle.availableData
             guard !chunk.isEmpty else {
                 handle.readabilityHandler = nil
+                stdoutDrained.signal()
                 return
             }
             for line in lines.append(chunk) {
@@ -141,6 +199,9 @@ struct ClaudeCLIGenerator: TextGenerating {
 
         let finished = DispatchSemaphore(value: 0)
         process.terminationHandler = { _ in finished.signal() }
+        // A pre-started process may already have exited (an auth failure, say) before the
+        // handler was set; then nothing would ever signal.
+        if !process.isRunning { finished.signal() }
 
         // Cancellation and the wall-clock ceiling both have to be able to interrupt a CLI that
         // is waiting on auth or a stalled network, where no output ever arrives.
@@ -152,6 +213,8 @@ struct ClaudeCLIGenerator: TextGenerating {
                         process.terminate()
                         _ = finished.wait(timeout: .now() + 1)
                     }
+                    // The process has ended; let the handler finish reading what it wrote.
+                    _ = stdoutDrained.wait(timeout: .now() + 2)
                     continuation.resume()
                 }
             }
@@ -161,6 +224,13 @@ struct ClaudeCLIGenerator: TextGenerating {
 
         outHandle.readabilityHandler = nil
         errHandle.readabilityHandler = nil
+        // A last line with no newline after it.
+        for line in lines.remainder() {
+            if let delta = Self.textDelta(in: line) {
+                collected.append(delta)
+                onDelta(delta)
+            }
+        }
 
         if Task.isCancelled { throw GenerationError.cancelled }
 
@@ -226,6 +296,14 @@ private final class LineBuffer: @unchecked Sendable {
             }
         }
         return lines
+    }
+
+    /// A last line with no newline after it, once the stream has ended.
+    func remainder() -> [String] {
+        lock.lock(); defer { lock.unlock() }
+        guard !buffer.isEmpty, let text = String(data: buffer, encoding: .utf8) else { return [] }
+        buffer.removeAll()
+        return [text]
     }
 }
 
