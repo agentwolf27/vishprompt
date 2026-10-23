@@ -81,6 +81,15 @@ actor StreamingTranscriber {
         draining capture: AudioCapture,
         onPartial: @escaping @Sendable (String) -> Void
     ) async throws {
+        try await begin(drainingSamples: { capture.drainNewSamples() }, onPartial: onPartial)
+    }
+
+    /// Starts consuming audio from any source of 16 kHz mono samples. The latency harness
+    /// feeds synthesised speech through here, at the pace it would be spoken.
+    func begin(
+        drainingSamples source: @escaping @Sendable () -> [Float],
+        onPartial: @escaping @Sendable (String) -> Void
+    ) async throws {
         idleUnload?.cancel()
         idleUnload = nil
         let manager = try await prepare()
@@ -92,15 +101,15 @@ actor StreamingTranscriber {
             while !Task.isCancelled {
                 try? await Task.sleep(for: Self.drainInterval)
                 guard !Task.isCancelled else { break }
-                await self?.feed(from: capture, into: manager)
+                await self?.feed(from: source, into: manager)
             }
         }
     }
 
     /// Hands whatever has been captured since the last pass to the model.
-    private func feed(from capture: AudioCapture, into manager: any StreamingAsrManager) async {
+    private func feed(from source: @Sendable () -> [Float], into manager: any StreamingAsrManager) async {
         do {
-            guard try await append(capture.drainNewSamples(), to: manager) else { return }
+            guard try await append(source(), to: manager) else { return }
             try await manager.processBufferedAudio()
         } catch {
             // A failed chunk is not fatal: the batch transcriber still runs on the full audio

@@ -11,6 +11,12 @@ enum Stage: String, CaseIterable, Codable, Sendable {
     case compileDone
     case previewShown
     case inserted
+    /// The fixed wait after key-up for the last audio buffers to arrive.
+    case postRollDone
+    /// The streaming preview model has stopped; the batch transcription can start.
+    case streamStopped
+    /// The paste keystroke was sent: the moment the text lands, before the clipboard restore.
+    case pasted
 }
 
 /// Timing trace for a single dictation. Offsets are measured from `start`, which the
