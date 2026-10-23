@@ -200,4 +200,125 @@ final class HotkeyGestureTests: XCTestCase {
         }
         XCTAssertFalse(g.isRecording)
     }
+
+    // MARK: Smart Paste
+
+    func testVSoonAfterTriggerDownConvertsTheHold() {
+        var g = makeGesture()
+        _ = g.handle(.triggerDown(at: 0, modifiers: .none))
+        XCTAssertEqual(g.handle(.pasteKey(at: 0.2)), .smartPaste)
+        XCTAssertTrue(g.pasteRequested)
+        XCTAssertEqual(g.handle(.triggerUp(at: 2.0, modifiers: .none)),
+                       .finishCapture(modifiers: .none, locked: false))
+        XCTAssertFalse(g.pasteRequested, "the request belongs to one hold only")
+    }
+
+    func testQuickTapWithVFinishesInsteadOfBeingDiscarded() {
+        var g = makeGesture()
+        _ = g.handle(.triggerDown(at: 0, modifiers: .none))
+        _ = g.handle(.pasteKey(at: 0.05))
+        // 0.15 s is under the 0.3 s minimum press that discards a bare tap.
+        XCTAssertEqual(g.handle(.triggerUp(at: 0.15, modifiers: .none)),
+                       .finishCapture(modifiers: .none, locked: false))
+    }
+
+    func testBareShortTapIsStillDiscarded() {
+        var g = makeGesture()
+        _ = g.handle(.triggerDown(at: 0, modifiers: .none))
+        XCTAssertEqual(g.handle(.triggerUp(at: 0.15, modifiers: .none)),
+                       .discardCapture(reason: .tooShort))
+    }
+
+    func testLateVIsIgnored() {
+        var g = makeGesture()
+        _ = g.handle(.triggerDown(at: 0, modifiers: .none))
+        XCTAssertEqual(g.handle(.pasteKey(at: 1.5)), .none)
+        XCTAssertFalse(g.pasteRequested)
+        XCTAssertEqual(g.handle(.triggerUp(at: 3, modifiers: .none)),
+                       .finishCapture(modifiers: .none, locked: false))
+    }
+
+    func testVAtTheEdgeOfTheWindowCounts() {
+        var g = makeGesture()
+        _ = g.handle(.triggerDown(at: 0, modifiers: .none))
+        XCTAssertEqual(g.handle(.pasteKey(at: 1.0)), .smartPaste)
+    }
+
+    func testVDuringHandsFreeIsIgnored() {
+        var g = makeGesture()
+        _ = g.handle(.triggerDown(at: 0, modifiers: .none))
+        _ = g.handle(.triggerUp(at: 0.1, modifiers: .none))
+        _ = g.handle(.triggerDown(at: 0.3, modifiers: .none))
+        XCTAssertEqual(g.handle(.triggerUp(at: 0.4, modifiers: .none)), .lockedOn)
+        XCTAssertEqual(g.handle(.pasteKey(at: 0.6)), .none)
+        XCTAssertFalse(g.pasteRequested)
+    }
+
+    func testVWhileIdleIsIgnored() {
+        var g = makeGesture()
+        XCTAssertEqual(g.handle(.pasteKey(at: 0)), .none)
+    }
+
+    func testSecondVChangesNothing() {
+        var g = makeGesture()
+        _ = g.handle(.triggerDown(at: 0, modifiers: .none))
+        XCTAssertEqual(g.handle(.pasteKey(at: 0.1)), .smartPaste)
+        XCTAssertEqual(g.handle(.pasteKey(at: 0.2)), .none)
+        XCTAssertTrue(g.pasteRequested)
+    }
+
+    func testEscapeClearsTheRequest() {
+        var g = makeGesture()
+        _ = g.handle(.triggerDown(at: 0, modifiers: .none))
+        _ = g.handle(.pasteKey(at: 0.1))
+        XCTAssertEqual(g.handle(.escape), .discardCapture(reason: .escape))
+        XCTAssertFalse(g.pasteRequested)
+        // The next bare tap is an ordinary accidental tap again.
+        _ = g.handle(.triggerDown(at: 5, modifiers: .none))
+        XCTAssertEqual(g.handle(.triggerUp(at: 5.1, modifiers: .none)),
+                       .discardCapture(reason: .tooShort))
+    }
+
+    // MARK: Which key presses are the paste key
+
+    private let v = KeycodeResolver.qwertyV
+
+    func testPlainVCountsWithFn() {
+        XCTAssertTrue(HotkeyMonitor.isPasteKey(keyCode: v, flags: .maskSecondaryFn, trigger: .fn, pasteKeyCode: v))
+    }
+
+    func testVCountsWithRightOptionDespiteOptionFlag() {
+        XCTAssertTrue(HotkeyMonitor.isPasteKey(keyCode: v, flags: .maskAlternate, trigger: .rightOption, pasteKeyCode: v))
+    }
+
+    func testVCountsWithRightCommandDespiteCommandFlag() {
+        XCTAssertTrue(HotkeyMonitor.isPasteKey(keyCode: v, flags: .maskCommand, trigger: .rightCommand, pasteKeyCode: v))
+    }
+
+    func testShiftDoesNotBlockIt() {
+        XCTAssertTrue(HotkeyMonitor.isPasteKey(keyCode: v, flags: [.maskSecondaryFn, .maskShift], trigger: .fn, pasteKeyCode: v))
+    }
+
+    func testCommandVWithFnIsAnOrdinaryPaste() {
+        XCTAssertFalse(HotkeyMonitor.isPasteKey(keyCode: v, flags: [.maskSecondaryFn, .maskCommand], trigger: .fn, pasteKeyCode: v))
+    }
+
+    func testControlVWithRightOptionIsLeftAlone() {
+        XCTAssertFalse(HotkeyMonitor.isPasteKey(keyCode: v, flags: [.maskAlternate, .maskControl], trigger: .rightOption, pasteKeyCode: v))
+    }
+
+    func testControlStillBlocksWithRightCommand() {
+        XCTAssertFalse(HotkeyMonitor.isPasteKey(keyCode: v, flags: [.maskCommand, .maskControl], trigger: .rightCommand, pasteKeyCode: v))
+    }
+
+    func testOtherLettersAreNotThePasteKey() {
+        XCTAssertFalse(HotkeyMonitor.isPasteKey(keyCode: 0x08, flags: .maskSecondaryFn, trigger: .fn, pasteKeyCode: v))
+    }
+
+    func testTheResolvedLayoutKeyIsUsed() {
+        // On Dvorak "v" is a different keycode; the monitor passes whatever the layout says.
+        let dvorakV: CGKeyCode = 0x2F
+        XCTAssertTrue(HotkeyMonitor.isPasteKey(keyCode: dvorakV, flags: .maskSecondaryFn, trigger: .fn, pasteKeyCode: dvorakV))
+        XCTAssertFalse(HotkeyMonitor.isPasteKey(keyCode: v, flags: .maskSecondaryFn, trigger: .fn, pasteKeyCode: dvorakV))
+    }
 }

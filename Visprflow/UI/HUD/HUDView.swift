@@ -4,12 +4,15 @@ import SwiftUI
 enum HUDState: Equatable, Sendable {
     case hidden
     /// Recording. `locked` means hands-free, so the key is not being held.
-    case listening(level: Float, seconds: TimeInterval, locked: Bool, partial: String = "")
+    /// `pasting` means V turned this capture into a Smart Paste.
+    case listening(level: Float, seconds: TimeInterval, locked: Bool, partial: String = "", pasting: Bool = false)
     case transcribing
     /// The compiler is streaming its result in. Phase 2 fills this with real text.
     case compiling(partial: String)
     /// Waiting for the user to press Return to insert.
     case ready(text: String, level: EditLevel, destination: String)
+    /// A Smart Paste waiting for Return. `canFlip` means Tab has another form to show.
+    case pasteReady(text: String, label: String, destination: String, note: String?, canFlip: Bool)
     case inserted(characters: Int)
     case failed(message: String)
 }
@@ -22,8 +25,8 @@ struct HUDView: View {
             switch state {
             case .hidden:
                 EmptyView()
-            case let .listening(level, seconds, locked, partial):
-                listening(level: level, seconds: seconds, locked: locked, partial: partial)
+            case let .listening(level, seconds, locked, partial, pasting):
+                listening(level: level, seconds: seconds, locked: locked, partial: partial, pasting: pasting)
             case .transcribing:
                 row(icon: "waveform", tint: .secondary) {
                     Text("Transcribing…").foregroundStyle(.secondary)
@@ -36,6 +39,8 @@ struct HUDView: View {
                 }
             case let .ready(text, level, destination):
                 ready(text: text, level: level, destination: destination)
+            case let .pasteReady(text, label, destination, note, canFlip):
+                pasteReady(text: text, label: label, destination: destination, note: note, canFlip: canFlip)
             case let .inserted(characters):
                 row(icon: "checkmark.circle.fill", tint: .green) {
                     Text("Inserted \(characters) characters").foregroundStyle(.secondary)
@@ -60,18 +65,19 @@ struct HUDView: View {
         level: Float,
         seconds: TimeInterval,
         locked: Bool,
-        partial: String
+        partial: String,
+        pasting: Bool
     ) -> some View {
-        row(icon: locked ? "lock.fill" : "mic.fill", tint: .red) {
+        row(icon: pasting ? "doc.on.clipboard" : locked ? "lock.fill" : "mic.fill", tint: pasting ? .accentColor : .red) {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 8) {
-                    Text(locked ? "Hands-free" : "Listening")
+                    Text(pasting ? "Smart Paste" : locked ? "Hands-free" : "Listening")
                         .font(.callout.weight(.medium))
                     Text(Self.elapsed(seconds))
                         .font(.caption.monospacedDigit())
                         .foregroundStyle(.secondary)
                     Spacer()
-                    Text(locked ? "tap to stop · esc" : "release to compile · esc")
+                    Text(pasting ? "say how, or just release · esc" : locked ? "tap to stop · esc" : "release to compile · esc")
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                 }
@@ -113,6 +119,36 @@ struct HUDView: View {
                 .lineLimit(5)
                 .fixedSize(horizontal: false, vertical: true)
                 .textSelection(.enabled)
+        }
+        .padding(14)
+    }
+
+    private func pasteReady(text: String, label: String, destination: String, note: String?, canFlip: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "doc.on.clipboard")
+                    .foregroundStyle(.tint)
+                Text("Smart Paste → \(destination)")
+                    .font(.caption.weight(.medium))
+                Text(label.uppercased())
+                    .font(.caption2.monospaced())
+                    .padding(.horizontal, 6).padding(.vertical, 2)
+                    .background(.tint.opacity(0.15), in: Capsule())
+                Spacer()
+                Text(canFlip ? "⏎ paste · ⇥ as copied ⇄ rewritten · esc" : "⏎ paste · esc")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+            Text(text)
+                .font(.callout)
+                .lineLimit(5)
+                .fixedSize(horizontal: false, vertical: true)
+                .textSelection(.enabled)
+            if let note {
+                Text(note)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
         .padding(14)
     }
