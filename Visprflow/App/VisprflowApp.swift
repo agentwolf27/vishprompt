@@ -14,7 +14,7 @@ struct VisprflowApp: App {
             // construction, and the icon would never update.
             MenuBarIcon(state: delegate.state)
         }
-        .menuBarExtraStyle(.window)
+        .menuBarExtraStyle(.menu)
     }
 }
 

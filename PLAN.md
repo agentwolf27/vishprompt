@@ -49,7 +49,7 @@ Tick one only when its VERIFY passes, not when someone says it is done.
 - [x] UI/UX Q4: the compiling and preview headers name the provider, escalations included — `make test-class C=ProviderLabelTests`
 - [x] UI/UX Q5: no jargon or raw errors in setup, destinations or the overlay; the permission count matches the list — `make test-class C=CopyFixTests`
 - [x] UI/UX Q6: destination edits save as they are made and survive switching rows — `make test-class C=DestinationSettingsTests`
-- [ ] UI/UX L1: a real Settings window (⌘,) with panes, a real menu, and a three-step setup — `make test-class C=SettingsPaneTests`
+- [x] UI/UX L1: a real Settings window (⌘,) with panes, a real menu, and a three-step setup — `make test-class C=SettingsPaneTests`
 - [ ] UI/UX L2: a History window that shows what was said, exactly what was sent or "Stayed on this Mac", and the result — `make test-class C=HistoryTests`
 
 ## Later
@@ -289,3 +289,13 @@ The review is at [docs/research/uiux-plan-2026-10-23.md](docs/research/uiux-plan
 - **Open question carried over.** Which key clears a multi-line prompt in Claude Code's input. It is tested before the overlay names it, and not named until then.
 
 PLAN FROZEN: 2026-10-23 — UI/UX section. Signed Vish (chat: "go").
+
+### Decision · self-merge for the UI/UX and speed queues · accepted · Vish · 2026-10-23
+
+Vish approved it in chat: "yes, self-merge". Each queued UI/UX and speed PR may be merged into `dev` by the session that built it, under these conditions:
+- only after its tests and release build pass;
+- by GitHub rebase merge;
+- the branch is kept;
+- never into `main`.
+
+The rejected alternative was stacking each PR on the previous one until someone merged them by hand. The quick wins all touch the same overlay and controller files, so stacking six of them meant rebasing the whole stack after every merge, and any review comment early in the stack would ripple through the rest. Each stacked branch's tree was checked to be identical to the one that passed before it was merged.

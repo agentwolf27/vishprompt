@@ -22,6 +22,11 @@ struct SmartPasteConsent: @unchecked Sendable {
         defaults.string(forKey: key(provider)).flatMap(State.init(rawValue:)) ?? .never
     }
 
+    /// Withdraws permission, from the Privacy pane. The next request asks again.
+    func revoke(_ provider: ProviderChoice) {
+        defaults.removeObject(forKey: key(provider))
+    }
+
     /// Called when a request would send a clip. True when it may go now.
     func requestPermission(for provider: ProviderChoice) -> Bool {
         switch state(for: provider) {

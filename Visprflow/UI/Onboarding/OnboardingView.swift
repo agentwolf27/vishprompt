@@ -1,43 +1,64 @@
 import AppKit
 import SwiftUI
 
-/// First-run setup: the three permissions, the fn-key conflict, the speech model, the API key,
-/// and a paste test that exercises the real insertion path rather than a stand-in.
+/// First-run setup in three steps: the permissions and speech model, the trigger key, and a
+/// paste test that exercises the real insertion path rather than a stand-in.
 struct OnboardingView: View {
     @Environment(AppState.self) private var state
-
-    @State private var apiKeyDraft = ""
-    @State private var hasStoredKey = false
-    @State private var keyMessage: String?
 
     @State private var pasteTarget = ""
     @State private var pasteMessage: String?
     @State private var pasteInFlight = false
 
-    @State private var policy = ProviderSettings().policy()
-    private let providerSettings = ProviderSettings()
-
     private static let pasteMarker = "Visprflow test paste ✓"
 
+    /// Setup is three short steps rather than one long page: grant, choose the key, try it.
+    /// Where rewrites go has good defaults and lives in Settings.
+    @State private var step: SetupStep = .permissions
+
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 22) {
-                header
-                permissions
-                triggerKey
-                speechModel
-                providers
-                if policy.fastPath == .apiKey || policy.compilePath == .apiKey {
-                    apiKey
+        VStack(spacing: 0) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 22) {
+                    header
+                    switch step {
+                    case .permissions:
+                        permissions
+                        speechModel
+                    case .triggerKey:
+                        triggerKey
+                    case .tryIt:
+                        pasteTest
+                        nextSteps
+                    }
                 }
-                pasteTest
+                .padding(24)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(24)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            Divider()
+            HStack {
+                if let previous = step.previous {
+                    Button("Back") { step = previous }
+                }
+                Spacer()
+                Text(step.position)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                if let next = step.next {
+                    Button("Continue") { step = next }
+                        .buttonStyle(.borderedProminent)
+                        .keyboardShortcut(.defaultAction)
+                } else {
+                    Button("Done") { NSApp.keyWindow?.close() }
+                        .buttonStyle(.borderedProminent)
+                        .keyboardShortcut(.defaultAction)
+                }
+            }
+            .padding(16)
         }
         .frame(minWidth: 580, minHeight: 680)
         .task {
-            loadKeyState()
             while !Task.isCancelled {
                 state.refreshPermissions()
                 try? await Task.sleep(for: .seconds(1))
@@ -45,13 +66,29 @@ struct OnboardingView: View {
         }
     }
 
+    /// The last step: where to try it for real, and where the rest of the settings live.
+    private var nextSteps: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionTitle("Now try it for real", badge: nil)
+            Text("Open Slack or Notes, click into a message, hold \(state.triggerKey.displayName) and say something. Release, and it lands where the cursor is.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            Text("Quick cleanup runs on this Mac and compiled prompts go to your Claude subscription. Change that, add an API key, or set per-app instructions in Settings (⌘,).")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            Button("Open Settings…") { state.showSettings() }
+        }
+    }
+
     // MARK: Sections
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Set up Visprflow")
+            Text(step.title)
                 .font(.largeTitle.bold())
-            Text(UICopy.permissionsHeadline(trigger: state.triggerKey.displayName, requiredCount: Permission.allCases.filter(\.isRequired).count))
+            Text(step == .permissions
+                 ? UICopy.permissionsHeadline(trigger: state.triggerKey.displayName, requiredCount: Permission.allCases.filter(\.isRequired).count)
+                 : step.subtitle)
                 .foregroundStyle(.secondary)
             if let error = state.startupError {
                 Label(error, systemImage: "exclamationmark.triangle.fill")
@@ -193,107 +230,6 @@ struct OnboardingView: View {
         }
     }
 
-    private var providers: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            sectionTitle("Where rewrites go", badge: nil)
-            Text("Cleaning up a message and compiling a prompt are different jobs, so they can use different providers.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-
-            providerPicker(
-                title: "Quick cleanup",
-                subtitle: "Fillers, punctuation, capitalisation. Happens constantly, so it should feel instant.",
-                selection: Binding(
-                    get: { policy.fastPath },
-                    set: { policy.fastPath = $0; providerSettings.save(policy) }
-                )
-            )
-            providerPicker(
-                title: "Compiled prompts",
-                subtitle: "Restructuring a rambling request. Rarer, and you see a preview while it works.",
-                selection: Binding(
-                    get: { policy.compilePath },
-                    set: { policy.compilePath = $0; providerSettings.save(policy) }
-                )
-            )
-
-            if policy.fastPath == .subscription {
-                calloutRow(
-                    icon: "clock.fill",
-                    tint: .orange,
-                    text: "Quick cleanup through the subscription takes 6 to 10 seconds, because it starts a new Claude Code session each time. On this Mac it is worth leaving on “On this Mac”.",
-                    button: "Use this Mac"
-                ) {
-                    policy.fastPath = .local
-                    providerSettings.save(policy)
-                }
-            }
-            if !ClaudeCLIGenerator.isAvailable,
-               policy.fastPath == .subscription || policy.compilePath == .subscription {
-                calloutRow(
-                    icon: "exclamationmark.triangle.fill",
-                    tint: .orange,
-                    text: "The claude command line tool was not found. Install Claude Code, or pick another provider.",
-                    button: "Use an API key"
-                ) {
-                    policy.compilePath = .apiKey
-                    providerSettings.save(policy)
-                }
-            }
-        }
-    }
-
-    private func providerPicker(
-        title: String,
-        subtitle: String,
-        selection: Binding<ProviderChoice>
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
-            HStack {
-                Text(title).font(.body.weight(.medium))
-                Spacer()
-                Text(selection.wrappedValue.latencyNote)
-                    .font(.caption.monospaced())
-                    .foregroundStyle(.secondary)
-            }
-            Text(subtitle).font(.caption).foregroundStyle(.secondary)
-            Picker("", selection: selection) {
-                ForEach(ProviderChoice.allCases, id: \.self) { choice in
-                    Text(choice.displayName).tag(choice)
-                }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            Text(selection.wrappedValue.summary)
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(12)
-        .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
-    }
-
-    private var apiKey: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            sectionTitle("Anthropic API key", badge: hasStoredKey ? "Stored in Keychain" : nil)
-            Text("Needed because you picked the API above. Switching back to your Claude subscription removes the need for a key entirely.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-            HStack {
-                SecureField("sk-ant-…", text: $apiKeyDraft)
-                    .textFieldStyle(.roundedBorder)
-                Button(hasStoredKey ? "Replace" : "Save") { saveKey() }
-                    .disabled(apiKeyDraft.trimmingCharacters(in: .whitespaces).isEmpty)
-                if hasStoredKey {
-                    Button("Remove", role: .destructive) { removeKey() }
-                }
-            }
-            if let keyMessage {
-                Text(keyMessage).font(.caption).foregroundStyle(.secondary)
-            }
-        }
-    }
-
     private var pasteTest: some View {
         VStack(alignment: .leading, spacing: 10) {
             sectionTitle("Test insertion", badge: nil)
@@ -317,71 +253,7 @@ struct OnboardingView: View {
 
     // MARK: Pieces
 
-    private func sectionTitle(_ title: String, badge: String?) -> some View {
-        HStack {
-            Text(title).font(.headline)
-            Spacer()
-            if let badge {
-                Text(badge)
-                    .font(.caption)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(Color.green.opacity(0.15), in: Capsule())
-                    .foregroundStyle(.green)
-            }
-        }
-    }
-
-    private func calloutRow(
-        icon: String,
-        tint: Color,
-        text: String,
-        button: String,
-        action: @escaping () -> Void
-    ) -> some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: icon).foregroundStyle(tint)
-            Text(text).font(.callout).fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 8)
-            Button(button, action: action).font(.caption)
-        }
-        .padding(12)
-        .background(tint.opacity(0.10), in: RoundedRectangle(cornerRadius: 8))
-    }
-
     // MARK: Actions
-
-    private func loadKeyState() {
-        do {
-            hasStoredKey = try Keychain.get(.anthropicAPIKey) != nil
-        } catch {
-            keyMessage = UICopy.keychainFailure(.read)
-            Log.app.error("Keychain read failed: \(String(describing: error), privacy: .public)")
-        }
-    }
-
-    private func saveKey() {
-        do {
-            try Keychain.set(apiKeyDraft.trimmingCharacters(in: .whitespacesAndNewlines), for: .anthropicAPIKey)
-            apiKeyDraft = ""
-            hasStoredKey = true
-            keyMessage = "Saved."
-        } catch {
-            keyMessage = UICopy.keychainFailure(.save)
-            Log.app.error("Keychain save failed: \(String(describing: error), privacy: .public)")
-        }
-    }
-
-    private func removeKey() {
-        do {
-            try Keychain.delete(.anthropicAPIKey)
-            hasStoredKey = false
-            keyMessage = "Removed."
-        } catch {
-            keyMessage = UICopy.keychainFailure(.remove)
-            Log.app.error("Keychain remove failed: \(String(describing: error), privacy: .public)")
-        }
-    }
 
     private func runPasteTest() {
         pasteTarget = ""
@@ -428,4 +300,29 @@ private struct PermissionRow: View {
         .padding(12)
         .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
     }
+}
+
+/// The three steps of first-run setup.
+enum SetupStep: Int, CaseIterable, Sendable {
+    case permissions, triggerKey, tryIt
+
+    var title: String {
+        switch self {
+        case .permissions: "Set up Visprflow"
+        case .triggerKey: "Choose your key"
+        case .tryIt: "Try it"
+        }
+    }
+
+    var subtitle: String {
+        switch self {
+        case .permissions: ""
+        case .triggerKey: "The key you hold while you talk. Hold it now: the overlay appears near the top of the screen."
+        case .tryIt: "One check that pasting works, then the real thing."
+        }
+    }
+
+    var position: String { "Step \(rawValue + 1) of \(Self.allCases.count)" }
+    var next: SetupStep? { SetupStep(rawValue: rawValue + 1) }
+    var previous: SetupStep? { SetupStep(rawValue: rawValue - 1) }
 }
