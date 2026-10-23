@@ -73,6 +73,10 @@ struct SmartPasteResult: Equatable, Sendable {
     var asCopiedText: String
     /// History's form of the as-copied text, for when the user flips back to it.
     var asCopiedHistoryText: String
+    /// "Numbers checked: all 3 from your clip are in the result", when the clip had numbers.
+    var numberSummary: String? = nil
+    /// The provider the clip was sent to. Nil when nothing left the Mac.
+    var sentTo: ProviderChoice? = nil
 }
 
 enum SmartPasteError: Error, LocalizedError, Equatable {
@@ -198,7 +202,7 @@ struct SmartPaster: Sendable {
                 historyText: Self.historyForm(of: asCopied, redaction: redaction),
                 outcome: .fellBack(reason: reason),
                 requestJSON: audit,
-                note: "The rewrite \(reason), so the clip was pasted as copied",
+                note: "The rewrite \(reason), so the clip is shown as copied",
                 asCopiedText: asCopied,
                 asCopiedHistoryText: Self.historyForm(of: asCopied, redaction: redaction)
             )
@@ -213,15 +217,52 @@ struct SmartPaster: Sendable {
               let history = redaction.display(trimmed)
         else { return fallBack("changed a redacted placeholder") }
 
+        // Compared on the redacted forms, so a placeholder's digits never count as numbers.
+        let numbers = NumberCheck.compare(clip: redaction.text, instruction: instruction, output: trimmed)
+        guard numbers.passed else { return fallBack("changed a number (\(numbers.added.joined(separator: ", ")))") }
+
         return SmartPasteResult(
             insertText: shown,
             historyText: history,
             outcome: .rewritten,
             requestJSON: audit,
-            note: redaction.isEmpty ? nil : "\(redaction.secrets.count) secret\(redaction.secrets.count == 1 ? "" : "s") kept on this Mac",
+            note: redaction.isEmpty ? nil : Self.secretsNote(redaction, toModel: toModel),
             asCopiedText: asCopied,
-            asCopiedHistoryText: Self.historyForm(of: asCopied, redaction: redaction)
+            asCopiedHistoryText: Self.historyForm(of: asCopied, redaction: redaction),
+            numberSummary: numbers.summary,
+            sentTo: provider
         )
+    }
+
+    /// The clip unchanged for this destination, with no model involved. What a failed or
+    /// unreachable provider falls back to: never a blank, never the user's words lost.
+    func unchanged(_ request: SmartPasteRequest, note: String?) -> SmartPasteResult {
+        let redaction = Redactor.redact(request.clip, exempt: Set(request.vocabulary))
+        let toModel = Self.modelDestinations.contains(request.destination.id)
+        let text = request.destination.id == "shell"
+            ? request.clip
+            : Self.asCopied(request.clip, redaction: redaction, forModel: toModel)
+        return SmartPasteResult(
+            insertText: text,
+            historyText: Self.historyForm(of: text, redaction: redaction),
+            outcome: .asCopied,
+            note: note,
+            asCopiedText: text,
+            asCopiedHistoryText: Self.historyForm(of: text, redaction: redaction)
+        )
+    }
+
+    /// "2 secrets removed before sending: an API key and a password."
+    static func secretsNote(_ redaction: Redaction, toModel: Bool) -> String {
+        let kinds = Set(redaction.kinds.values).sorted()
+        let count = redaction.secrets.count
+        let list = kinds.map { kind -> String in
+            let article = "aeiou".contains(kind.first?.lowercased() ?? "") ? "an" : "a"
+            return "\(article) \(kind)"
+        }
+        let joined = list.count > 1 ? list.dropLast().joined(separator: ", ") + " and " + list.last! : (list.first ?? "")
+        let lead = "\(count) secret\(count == 1 ? "" : "s") removed before sending: \(joined)."
+        return toModel ? lead + " They stay redacted here too." : lead + " Put back on this Mac."
     }
 
     // MARK: As copied

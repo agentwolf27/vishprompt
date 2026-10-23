@@ -1,18 +1,62 @@
 import SwiftUI
 
+/// Which job the overlay is doing. Shown as a labelled chip, never colour alone.
+enum HUDMode: String, Equatable, Sendable {
+    case dictate
+    case paste
+    case fix
+
+    var label: String {
+        switch self {
+        case .dictate: "Dictate"
+        case .paste: "Smart paste"
+        case .fix: "Fix screenshot"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .dictate: "mic.fill"
+        case .paste: "doc.on.clipboard"
+        case .fix: "ladybug"
+        }
+    }
+
+    var tint: Color {
+        switch self {
+        case .dictate: .blue
+        case .paste: .green
+        case .fix: .orange
+        }
+    }
+}
+
+/// Everything a preview shows: what will land, where, and what left the Mac to make it.
+struct PreviewHUD: Equatable, Sendable {
+    var text: String
+    var mode: HUDMode
+    var destination: String
+    /// The level or form on screen: "Compiled", "Rewritten", "As copied".
+    var label: String
+    /// What the user said, when it changes the result: a mishearing is visible before it lands.
+    var heard: String?
+    /// Plain lines: secrets removed, numbers checked, why a fallback happened.
+    var notes: [String] = []
+    /// Where the words went: "Stayed on this Mac." or "Sent your words to …".
+    var source: String
+    var hints: String
+}
+
 /// What the overlay is showing right now.
 enum HUDState: Equatable, Sendable {
     case hidden
     /// Recording. `locked` means hands-free, so the key is not being held.
-    /// `pasting` means V turned this capture into a Smart Paste.
-    case listening(level: Float, seconds: TimeInterval, locked: Bool, partial: String = "", pasting: Bool = false)
+    case listening(level: Float, seconds: TimeInterval, locked: Bool, partial: String = "", mode: HUDMode = .dictate)
     case transcribing
     /// The compiler is streaming its result in. Phase 2 fills this with real text.
     case compiling(partial: String)
     /// Waiting for the user to press Return to insert.
-    case ready(text: String, level: EditLevel, destination: String)
-    /// A Smart Paste waiting for Return. `canFlip` means Tab has another form to show.
-    case pasteReady(text: String, label: String, destination: String, note: String?, canFlip: Bool)
+    case preview(PreviewHUD)
     case inserted(characters: Int)
     case failed(message: String)
 }
@@ -25,8 +69,8 @@ struct HUDView: View {
             switch state {
             case .hidden:
                 EmptyView()
-            case let .listening(level, seconds, locked, partial, pasting):
-                listening(level: level, seconds: seconds, locked: locked, partial: partial, pasting: pasting)
+            case let .listening(level, seconds, locked, partial, mode):
+                listening(level: level, seconds: seconds, locked: locked, partial: partial, mode: mode)
             case .transcribing:
                 row(icon: "waveform", tint: .secondary) {
                     Text("Transcribing…").foregroundStyle(.secondary)
@@ -37,17 +81,18 @@ struct HUDView: View {
                         .lineLimit(3)
                         .truncationMode(.tail)
                 }
-            case let .ready(text, level, destination):
-                ready(text: text, level: level, destination: destination)
-            case let .pasteReady(text, label, destination, note, canFlip):
-                pasteReady(text: text, label: label, destination: destination, note: note, canFlip: canFlip)
+            case let .preview(model):
+                preview(model)
             case let .inserted(characters):
                 row(icon: "checkmark.circle.fill", tint: .green) {
                     Text("Inserted \(characters) characters").foregroundStyle(.secondary)
                 }
             case let .failed(message):
                 row(icon: "exclamationmark.triangle.fill", tint: .orange) {
-                    Text(message).lineLimit(2)
+                    // Messages now carry the cause and the way out, so they get the room.
+                    Text(message)
+                        .lineLimit(4)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
         }
@@ -66,18 +111,19 @@ struct HUDView: View {
         seconds: TimeInterval,
         locked: Bool,
         partial: String,
-        pasting: Bool
+        mode: HUDMode
     ) -> some View {
-        row(icon: pasting ? "doc.on.clipboard" : locked ? "lock.fill" : "mic.fill", tint: pasting ? .accentColor : .red) {
+        row(icon: locked ? "lock.fill" : mode.icon, tint: .red) {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 8) {
-                    Text(pasting ? "Smart Paste" : locked ? "Hands-free" : "Listening")
+                    ModeChip(mode: mode)
+                    Text(locked ? "Hands-free" : "Listening")
                         .font(.callout.weight(.medium))
                     Text(Self.elapsed(seconds))
                         .font(.caption.monospacedDigit())
                         .foregroundStyle(.secondary)
                     Spacer()
-                    Text(pasting ? "say how, or just release · esc" : locked ? "tap to stop · esc" : "release to compile · esc")
+                    Text(mode == .paste ? "say how to paste it, or just release · esc" : locked ? "tap to stop · esc" : "release to compile · esc")
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                 }
@@ -98,54 +144,42 @@ struct HUDView: View {
         }
     }
 
-    private func ready(text: String, level: EditLevel, destination: String) -> some View {
+    private func preview(_ model: PreviewHUD) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
-                Image(systemName: "text.cursor")
-                    .foregroundStyle(.tint)
-                Text(destination)
+                ModeChip(mode: model.mode)
+                Text("into \(model.destination)")
                     .font(.caption.weight(.medium))
-                Text(level.displayName.uppercased())
+                Text(model.label.uppercased())
                     .font(.caption2.monospaced())
                     .padding(.horizontal, 6).padding(.vertical, 2)
                     .background(.tint.opacity(0.15), in: Capsule())
                 Spacer()
-                Text("⏎ insert · ⇥ level · esc")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
             }
-            Text(text)
+            if let heard = model.heard, !heard.isEmpty {
+                Text("You said: “\(heard)”")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+            Text(model.text)
                 .font(.callout)
                 .lineLimit(5)
                 .fixedSize(horizontal: false, vertical: true)
                 .textSelection(.enabled)
-        }
-        .padding(14)
-    }
-
-    private func pasteReady(text: String, label: String, destination: String, note: String?, canFlip: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                Image(systemName: "doc.on.clipboard")
-                    .foregroundStyle(.tint)
-                Text("Smart Paste → \(destination)")
-                    .font(.caption.weight(.medium))
-                Text(label.uppercased())
-                    .font(.caption2.monospaced())
-                    .padding(.horizontal, 6).padding(.vertical, 2)
-                    .background(.tint.opacity(0.15), in: Capsule())
-                Spacer()
-                Text(canFlip ? "⏎ paste · ⇥ as copied ⇄ rewritten · esc" : "⏎ paste · esc")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-            }
-            Text(text)
-                .font(.callout)
-                .lineLimit(5)
-                .fixedSize(horizontal: false, vertical: true)
-                .textSelection(.enabled)
-            if let note {
+            ForEach(model.notes, id: \.self) { note in
                 Text(note)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(model.source)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 8)
+                Text(model.hints)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -172,6 +206,19 @@ struct HUDView: View {
     private static func elapsed(_ seconds: TimeInterval) -> String {
         let whole = Int(seconds)
         return String(format: "%d:%02d", whole / 60, whole % 60)
+    }
+}
+
+/// The mode, as a labelled capsule: the text carries the meaning, the colour only helps.
+private struct ModeChip: View {
+    let mode: HUDMode
+
+    var body: some View {
+        Text(mode.label)
+            .font(.caption.weight(.semibold))
+            .padding(.horizontal, 8).padding(.vertical, 3)
+            .background(mode.tint.opacity(0.25), in: Capsule())
+            .accessibilityLabel("\(mode.label) mode")
     }
 }
 

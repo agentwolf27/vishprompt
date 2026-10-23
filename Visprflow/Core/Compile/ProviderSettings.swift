@@ -9,6 +9,9 @@ struct ProviderSettings: @unchecked Sendable {
         self.defaults = defaults
     }
 
+    /// The saved policy, read fresh. A plain function so it can be handed around as a closure.
+    static func live() -> ProviderPolicy { ProviderSettings().policy() }
+
     func policy() -> ProviderPolicy {
         guard let data = defaults.data(forKey: key),
               let decoded = try? JSONDecoder().decode(ProviderPolicy.self, from: data)
