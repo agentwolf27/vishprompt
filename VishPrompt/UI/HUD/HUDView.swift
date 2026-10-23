@@ -118,11 +118,7 @@ struct HUDView: View {
             }
         }
         .frame(width: HUDLayout.cardWidth, alignment: .leading)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(.white.opacity(0.08), lineWidth: 1)
-        )
+        .hudSurface(.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
     // MARK: Pieces
@@ -307,11 +303,7 @@ private struct CapsuleView: View {
         .padding(.vertical, 6)
         .frame(minWidth: CapsuleModel.minimumWidth, maxWidth: model.liveWords == nil ? nil : CapsuleModel.maximumWidth, alignment: .leading)
         .fixedSize(horizontal: model.liveWords == nil, vertical: true)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: CapsuleModel.height / 2, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: CapsuleModel.height / 2, style: .continuous)
-                .strokeBorder(.white.opacity(0.1), lineWidth: 1)
-        )
+        .hudSurface(.capsule, in: RoundedRectangle(cornerRadius: CapsuleModel.height / 2, style: .continuous))
     }
 
     @ViewBuilder
