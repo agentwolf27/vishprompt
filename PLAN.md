@@ -66,6 +66,13 @@ Tick one only when its VERIFY passes, not when someone says it is done.
 - [x] Edit selection: it reuses Smart Paste's consent, redaction and numbers check; silence and terminals are refused with a next step; History keeps the redacted form, marked as an edit — `make test-class C=SelectionEditTests`
 - [x] Edit selection: release builds — `make release`
 
+- [ ] UI v2.1: a capsule anchor while listening, transcribing and rewriting, with the concept's copy for every state, the take time frozen while it works, and undo named only where ⌘Z works — `make test-class C=HUDCapsuleTests`
+- [ ] UI v2.2: a card drops from the capsule only when there is a decision (preview, error); errors stay until the next key-down or 6 s; crossfade under Reduce Motion — `make test-class C=HUDCardTests`
+- [ ] UI v2.3: on a notched built-in display the capsule splits into two lobes beside the camera housing, read from the screen's auxiliary areas; elsewhere a free capsule below the menu bar; never a drawn notch — `make test-class C=NotchGeometryTests`
+- [ ] UI v2.4: History rows read "what you said → where · when · what left the Mac", Return pastes again and ⌘C copies — `make test-class C=HistoryTests`
+- [ ] UI v2.5: the overlay's surface is one style choice: Liquid Glass on macOS 26 when built with its SDK, the thin material otherwise — `make test-class C=SurfaceStyleTests`
+- [ ] UI v2.6: the menu bar icon shows recording, working, paused and needs-setup — `make test-class C=MenuBarIconTests`
+
 ## Later
 
 From plan.html's phases 3–5. docs/roadmap.html supersedes that plan and, with its twelve items shipped or declined, queues none of these yet.
@@ -336,3 +343,28 @@ Research idea #1, "speak-to-transform the selection". Select text in any app, ho
 - **Checked by hand:** that Return replaces the selection and ⌘Z restores it in Notes, Slack and Mail; that an app without Accessibility selection (a browser text area) falls back to ⌘C and the clipboard comes back.
 
 PLAN FROZEN: 2026-10-23 — edit selection section. Signed Vish (chat: "start both, alarm first then edit selected text by voice").
+
+### UI v2, "Island and Card" · 2026-10-23
+
+The spec is Concept A in [docs/research/ui-concepts-2026-10-23.md](docs/research/ui-concepts-2026-10-23.md): §3 gives the sizes, motion and copy, and §4 the build order. The mockup's v2 row is the visual reference Vish approved.
+
+- **Order, one PR each:**
+  1. the capsule and its state copy;
+  2. the card, with cached levels and ⇧⇥ kept;
+  3. notch lobes with the free-capsule fallback;
+  4. History rows and keys;
+  5. the glass surface with the material fallback;
+  6. the menu bar icon.
+- **Rules:**
+  - no fake precision;
+  - every empty or failed state names the cause and offers an action;
+  - no jargon;
+  - never a drawn notch. The notch is read from `NSScreen.auxiliaryTopLeftArea`, `auxiliaryTopRightArea` and `safeAreaInsets`, and a display without them gets the free capsule.
+- **Limit of this Mac.** It runs macOS 15.2 with the macOS 15.4 SDK, so the Liquid Glass path (macOS 26 APIs) can be neither compiled nor seen here. Step 5 builds the fallback and gates the glass path on the compiler. The glass itself is checked by hand on a macOS 26 Mac.
+- **Checked by hand:**
+  - the capsule and the card on a notched MacBook and on an external display;
+  - Reduce Motion, Reduce Transparency and Increase Contrast;
+  - that nothing covers the Dock, a Send button or menu bar items.
+- **Sequencing.** This follows the finished speed plan, so no speed work touches these files at the same time.
+
+PLAN FROZEN: 2026-10-23 — UI v2 section. Signed Vish (chat: "self-merge and build the v2 UI").
