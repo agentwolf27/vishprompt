@@ -59,7 +59,7 @@ Tick one only when its VERIFY passes, not when someone says it is done.
 - [x] Speed S1d: a self-correction in a quick message no longer escalates silently to the 6–10 s subscription path — `make test-class C=EscalationTests`
 - [x] Speed S1e: a guardrail rejection retries on this Mac, not with a second model call — `make test-class C=CompilerTests`
 - [ ] Speed S2a: the claude CLI is started at key-down, so the subscription path's first words come sooner — `make test-class C=ClaudeCLIPrespawnTests`
-- [ ] Speed S2b: workspace probes read process info in-process instead of spawning ps and lsof — `make test-class C=ProcessProbeTests`
+- [x] Speed S2b: workspace probes read process info in-process instead of spawning ps and lsof — `make test-class C=ProcessProbeTests`
 
 - [x] Edit selection: trigger + R within 1.0 s asks to edit the selection; it never collides with fn+V, and a quick tap with R finishes — `make test-class C=HotkeyGestureTests`
 - [x] Edit selection: the selection is read through Accessibility, or by a ⌘C that puts the clipboard back; secure fields and concealed copies are refused — `make test-class C=SelectionReaderTests`

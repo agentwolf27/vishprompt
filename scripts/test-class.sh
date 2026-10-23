@@ -15,7 +15,7 @@ trap 'rm -f "$log"' EXIT
 
 "$@" test -only-testing:"VisprflowTests/$class" > "$log" 2>&1
 status=$?
-grep -E "error:|Test Case .* (passed|failed|skipped)|Executed|TEST |LATENCY " "$log"
+grep -E "error:|Test Case .* (passed|failed|skipped)|Executed|TEST |LATENCY |PROBE " "$log"
 
 if [ "$status" -ne 0 ]; then
     echo "test-class: xcodebuild failed for $class" >&2
