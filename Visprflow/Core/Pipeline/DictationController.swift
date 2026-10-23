@@ -57,7 +57,24 @@ final class DictationController {
         var bundleIdentifier: String?
         /// Present when this preview is a Smart Paste rather than a dictation.
         var paste: PastePreview?
+        /// Present when this preview is a screenshot turned into a prompt.
+        var fix: FixPreview?
     }
+
+    /// A screenshot prompt waiting in the preview. Tab drops or restores the screenshot text.
+    private struct FixPreview {
+        var result: ScreenshotPromptResult
+        var showingWithout: Bool
+        var heard: String
+
+        var text: String { showingWithout ? result.withoutScreenshot : result.text }
+    }
+
+    /// Notices when a screenshot was just copied, so "fix this" can pick it up.
+    @ObservationIgnored private let clipboardWatcher = ClipboardWatcher()
+    /// A screenshot copied longer ago than this is not picked up by an ordinary dictation:
+    /// "fix this" should never fix last hour's error.
+    private static let freshScreenshot: TimeInterval = 120
 
     /// A Smart Paste waiting in the preview. Tab flips between the two forms.
     private struct PastePreview {
@@ -117,12 +134,14 @@ final class DictationController {
         Log.app.info("DictationController.start: preparing audio")
         capture.prepare()
         capture.observeDeviceChanges()
+        clipboardWatcher.start()
         Log.app.info("DictationController.start: audio prepared, starting monitor")
         try monitor.start()
     }
 
     func stop() {
         monitor.stop()
+        clipboardWatcher.stop()
         capture.shutdown()
         meterTimer?.invalidate()
         panel?.dismiss()
@@ -349,6 +368,16 @@ final class DictationController {
                 return
             }
 
+            // Said to a coding agent moments after copying a screenshot: the screenshot is
+            // what "this" means. Holding Shift for verbatim opts out.
+            if !modifiers.contains(.shift),
+               SmartPaster.agentDestinations.contains(destination.id),
+               let age = clipboardWatcher.imageAge(), age <= Self.freshScreenshot,
+               case let .image(data) = ClipboardReader.read() {
+                try await runFix(image: data, transcript: transcript, destination: destination, context: context, modifiers: modifiers)
+                return
+            }
+
             let (compiled, attempted) = try await compile(
                 transcript: transcript.text,
                 destination: destination,
@@ -387,6 +416,99 @@ final class DictationController {
         }
     }
 
+    // MARK: Fix screenshot
+
+    /// A screenshot read on this Mac, turned into a prompt for a coding agent. The rewrite model
+    /// sees only what was said; the screenshot text is appended locally, redacted.
+    private func runFix(
+        image: Data,
+        transcript: Transcript,
+        destination: Destination,
+        context: FocusContext,
+        modifiers: GestureModifiers
+    ) async throws {
+        show(.compiling(partial: "Reading the screenshot on this Mac…"))
+        let read = try await ScreenshotOCR.read(image)
+        guard !read.isEmpty || !transcript.isEmpty else {
+            show(.failed(message: HUDCopy.noTextInImage))
+            hide(after: HUDCopy.rescueDuration)
+            return
+        }
+
+        let override: EditLevel? = modifiers.contains(.control) ? .full : nil
+        let decision = LevelHeuristic.decide(transcript: transcript.text, destination: destination, override: override)
+        show(.compiling(partial: transcript.isEmpty ? "" : "Writing the prompt…"))
+        let prompter = ScreenshotPrompter(compiler: compiler)
+        let result = try await prompter.build(
+            ask: decision.transcript,
+            screenshot: read,
+            destination: destination,
+            level: decision.level,
+            vocabulary: vocabulary.terms(for: context.workspace)
+        ) { [weak self] partial in
+            Task { @MainActor in
+                guard let self, case .compiling = self.hud else { return }
+                self.hud = .compiling(partial: partial)
+            }
+        }
+        trace.mark(.compileDone)
+
+        let fix = FixPreview(result: result, showingWithout: false, heard: transcript.text)
+        pending = Pending(
+            transcript: transcript,
+            compiled: CompiledPrompt(text: fix.text, level: result.level, requestJSON: result.requestJSON),
+            destination: destination,
+            bundleIdentifier: context.bundleIdentifier,
+            fix: fix
+        )
+        monitor.setPreviewMode(true)
+        startPreviewTimeout()
+        trace.mark(.previewShown)
+        showFix(fix, destination: destination, attempted: decision.level)
+    }
+
+    private func showFix(_ fix: FixPreview, destination: Destination, attempted: EditLevel) {
+        var notes: [String] = []
+        if fix.result.lineCount == 0 {
+            notes.append(HUDCopy.noTextUsedWords)
+        } else if fix.showingWithout {
+            notes.append("Without the screenshot text. Tab puts it back.")
+        } else {
+            notes.append(HUDCopy.readLines(fix.result.lineCount))
+        }
+        if let secrets = fix.result.secretsNote, !fix.showingWithout { notes.append(secrets) }
+
+        var source = HUDCopy.source(for: nil)
+        if fix.result.requestJSON != nil {
+            let choice = RoutingGenerator.choice(policy: ProviderSettings.live(), level: attempted, transcript: fix.heard)
+            source = HUDCopy.source(for: choice.provider, escalated: choice.escalated) + " The screenshot text was not sent."
+        }
+        show(.preview(PreviewHUD(
+            text: fix.text,
+            mode: .fix,
+            destination: destination.displayName,
+            label: fix.result.level.displayName,
+            heard: fix.heard.isEmpty ? nil : fix.heard,
+            notes: notes,
+            source: source,
+            hints: fix.result.lineCount > 0
+                ? (fix.showingWithout ? "⏎ insert · ⇥ with screenshot · esc" : "⏎ insert · ⇥ without screenshot · esc")
+                : "⏎ insert · esc"
+        )))
+    }
+
+    /// Tab in a screenshot preview: with ⇄ without the screenshot text. Nothing is re-run.
+    private func flipFix(_ pending: Pending) {
+        guard var fix = pending.fix, fix.result.lineCount > 0 else { return }
+        fix.showingWithout.toggle()
+        var updated = pending
+        updated.fix = fix
+        updated.compiled.text = fix.text
+        self.pending = updated
+        startPreviewTimeout()
+        showFix(fix, destination: pending.destination, attempted: fix.result.level)
+    }
+
     // MARK: Smart Paste
 
     /// The clipboard is the content and what was said is the instruction. Always previews:
@@ -401,10 +523,21 @@ final class DictationController {
         switch clip {
         case let .text(value):
             text = value
-        case .image:
-            show(.failed(message: "Images come in the next version of Smart Paste"))
-            hide(after: 2.5)
-            return
+        case let .image(data):
+            // A screenshot into a coding agent becomes a bug prompt. Anywhere else, its text
+            // is the clip.
+            if SmartPaster.agentDestinations.contains(destination.id) {
+                try await runFix(image: data, transcript: transcript, destination: destination, context: context, modifiers: [])
+                return
+            }
+            show(.compiling(partial: "Reading the screenshot on this Mac…"))
+            let read = try await ScreenshotOCR.read(data)
+            guard !read.isEmpty else {
+                show(.failed(message: HUDCopy.noTextInImage))
+                hide(after: HUDCopy.rescueDuration)
+                return
+            }
+            text = read.text
         case .empty:
             show(.failed(message: HUDCopy.emptyClipboard))
             hide(after: 3.0)
@@ -661,6 +794,8 @@ final class DictationController {
         case .cycleLevel:
             if pending.paste != nil {
                 flipPaste(pending)
+            } else if pending.fix != nil {
+                flipFix(pending)
             } else {
                 recompile(pending, at: pending.compiled.level.cycled)
             }

@@ -39,8 +39,9 @@ Tick one only when its VERIFY passes, not when someone says it is done.
 - [x] PR 1: Release builds — `make release`
 - [x] PR 1: UI/UX item 1, never lose text: endings that don't insert copy the text and say so — `make test-class C=HUDCopyTests`
 - [x] PR 1: Smart Paste numbers check: an added number falls back, a dropped one is reported — `make test-class C=NumberCheckTests`
-- [ ] PR 2: Real Vision on committed fixtures finds the substrings, the O/0 key is redacted, and a blank image is empty — `make verify-ocr`
-- [ ] PR 2: The OCR block is fenced, verbatim and redacted; no OCR text appears in any request — `make test-class C=ScreenshotPromptTests`
+- [x] PR 2: Real Vision on committed fixtures finds the substrings, the O/0 key is redacted, and a blank image is empty — `make verify-ocr`
+- [x] PR 2: The OCR block is fenced, verbatim and redacted; no OCR text appears in any request — `make test-class C=ScreenshotPromptTests`
+- [x] PR 2: A screenshot copied in the last 2 minutes is picked up by "fix this" in an agent; Visprflow's own clipboard writes never look fresh — `make test-class C=ClipboardWatcherTests`
 
 ## Later
 

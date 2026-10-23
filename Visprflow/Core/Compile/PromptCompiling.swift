@@ -10,19 +10,24 @@ struct CompileRequest: Sendable, Equatable {
     var instructions: String?
     /// Terms that must be spelled the way the project spells them.
     var vocabulary: [String] = []
+    /// Words the output may use without the speaker saying them, checked by the guardrails but
+    /// never sent to the model: text read from a screenshot, which must stay on this Mac.
+    var guardrailTerms: [String] = []
 
     init(
         transcript: String,
         level: EditLevel,
         destination: String = "document",
         instructions: String? = nil,
-        vocabulary: [String] = []
+        vocabulary: [String] = [],
+        guardrailTerms: [String] = []
     ) {
         self.transcript = transcript
         self.level = level
         self.destination = destination
         self.instructions = instructions
         self.vocabulary = vocabulary
+        self.guardrailTerms = guardrailTerms
     }
 }
 

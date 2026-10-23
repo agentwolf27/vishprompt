@@ -4,7 +4,7 @@ DERIVED   := build
 APP       := $(DERIVED)/Build/Products/Debug/Visprflow.app
 XCB       := xcodebuild -project $(PROJECT) -scheme $(SCHEME) -destination 'platform=macOS' -derivedDataPath $(DERIVED)
 
-.PHONY: gen regen build test test-class verify-test-can-fail verify-test-class-can-fail verify-stt verify-streaming verify-subscription verify-memory run release install clean logs
+.PHONY: gen regen build test test-class verify-test-can-fail verify-test-class-can-fail verify-ocr verify-stt verify-streaming verify-subscription verify-memory run release install clean logs
 
 ## Every recipe that filters xcodebuild through grep starts with `set -o pipefail`, so the
 ## pipeline reports xcodebuild's status rather than grep's. These targets used to end in
@@ -67,6 +67,11 @@ verify-subscription: gen
 verify-memory: gen
 	set -o pipefail; TEST_RUNNER_VISPRFLOW_STT=1 TEST_RUNNER_VISPRFLOW_ENCODER=$(or $(VISPRFLOW_ENCODER),default) $(XCB) test -only-testing:VisprflowTests/MemoryIntegrationTests 2>&1 | \
 		grep -E 'MEMORY|error:|Test Case .* (passed|failed)|Executed|TEST '
+
+## Run real Vision OCR on the committed screenshots in Fixtures/ocr. Fails on a skip, like
+## test-class, so it cannot pass without actually reading the images.
+verify-ocr: gen
+	TEST_RUNNER_VISPRFLOW_OCR=1 scripts/test-class.sh ScreenshotOCRTests $(XCB)
 
 verify-streaming: gen
 	set -o pipefail; TEST_RUNNER_VISPRFLOW_STT=1 $(XCB) test -only-testing:VisprflowTests/StreamingIntegrationTests 2>&1 | \

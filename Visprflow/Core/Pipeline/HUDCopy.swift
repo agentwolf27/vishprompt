@@ -28,6 +28,14 @@ enum HUDCopy {
         return "\(trimmed). Your words are copied: press ⌘V, or hold the key to try again."
     }
 
+    static let noTextInImage = "No text found: the image on your clipboard looks like a photo or a chart with no words in it. Copy a screenshot that shows the error, or say what went wrong and Visprflow will send just that."
+
+    static let noTextUsedWords = "No text found in the screenshot, so only your words are used."
+
+    static func readLines(_ count: Int) -> String {
+        "Read \(count) line\(count == 1 ? "" : "s") of text on this Mac. The image itself was not sent."
+    }
+
     static let emptyClipboard = "Nothing to paste: your clipboard holds no text right now. Copy something, then hold fn and press V again."
 
     static func providerFailed(_ provider: ProviderChoice, reason: String) -> String {
@@ -66,5 +74,6 @@ enum TextRescue {
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
+        NotificationCenter.default.post(name: .visprflowWroteClipboard, object: nil)
     }
 }
