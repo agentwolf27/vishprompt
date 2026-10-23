@@ -21,6 +21,8 @@ struct MenuBarView: View {
 
         Divider()
 
+        Button("History…") { state.showHistory() }
+            .keyboardShortcut("y", modifiers: .command)
         Menu("Last dictation") {
             Button("Copy") { MenuModel.copyLastDictation() }
             Button("Paste again") { MenuModel.pasteLastDictation() }

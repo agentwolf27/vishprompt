@@ -42,6 +42,8 @@ struct CompiledPrompt: Sendable, Equatable {
     var guardrailReason: String?
     /// Exactly what was sent to the model, stored in history so the user can inspect it.
     var requestJSON: String?
+    /// Where the request went. Nil when nothing left the Mac.
+    var sentTo: ProviderChoice?
 }
 
 /// Turns a transcript into the text that will be inserted.

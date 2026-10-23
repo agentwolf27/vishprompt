@@ -47,6 +47,13 @@ final class AppState {
     @ObservationIgnored
     var onSetPaused: (@MainActor (Bool) -> Void)?
 
+    @ObservationIgnored
+    var onShowHistory: (@MainActor () -> Void)?
+
+    func showHistory() {
+        onShowHistory?()
+    }
+
     func setPaused(_ paused: Bool) {
         onSetPaused?(paused)
     }

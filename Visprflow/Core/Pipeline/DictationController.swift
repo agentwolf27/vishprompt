@@ -408,13 +408,14 @@ final class DictationController {
                 return
             }
 
-            let (compiled, attempted) = try await compile(
+            var (compiled, attempted) = try await compile(
                 transcript: transcript.text,
                 destination: destination,
                 context: context,
                 modifiers: modifiers
             )
             trace.mark(.compileDone)
+            compiled.sentTo = Self.sentTo(attempted: attempted, transcript: transcript.text)
 
             if destination.requiresPreview {
                 var levels = PreviewLevels()
@@ -480,6 +481,14 @@ final class DictationController {
         }
     }
 
+    /// Where a compile at `attempted` sent the words, by the same rule the router uses. Nil
+    /// when nothing left the Mac.
+    static func sentTo(attempted: EditLevel, transcript: String) -> ProviderChoice? {
+        guard attempted != .verbatim else { return nil }
+        let choice = RoutingGenerator.choice(policy: ProviderSettings.live(), level: attempted, transcript: transcript)
+        return choice.provider == .local ? nil : choice.provider
+    }
+
     private func noteVocabulary(_ terms: [String], workspace: WorkspaceContext) {
         guard !terms.isEmpty, let directory = workspace.directory else { return }
         lastVocabulary = VocabularySnapshot(repository: directory.lastPathComponent, branch: workspace.gitBranch, terms: terms)
@@ -528,7 +537,12 @@ final class DictationController {
         let fix = FixPreview(result: result, showingWithout: false, heard: transcript.text)
         pending = Pending(
             transcript: transcript,
-            compiled: CompiledPrompt(text: fix.text, level: result.level, requestJSON: result.requestJSON),
+            compiled: CompiledPrompt(
+                text: fix.text,
+                level: result.level,
+                requestJSON: result.requestJSON,
+                sentTo: result.requestJSON == nil ? nil : Self.sentTo(attempted: decision.level, transcript: decision.transcript)
+            ),
             destination: destination,
             bundleIdentifier: context.bundleIdentifier,
             fix: fix
@@ -947,7 +961,7 @@ final class DictationController {
         activeWork = Task { [weak self] in
             guard let self else { return }
             do {
-                let compiled: CompiledPrompt
+                var compiled: CompiledPrompt
                 if level == .verbatim {
                     compiled = CompiledPrompt(text: pending.transcript.text, level: .verbatim)
                 } else {
@@ -958,6 +972,7 @@ final class DictationController {
                         workspace: self.capturedContext.workspace
                     )
                 }
+                compiled.sentTo = Self.sentTo(attempted: level, transcript: pending.transcript.text)
                 var updated = pending
                 updated.compiled = compiled
                 updated.requestedLevel = level
@@ -1061,7 +1076,8 @@ final class DictationController {
             rawTranscript: transcript.text,
             compiledText: compiled.text,
             requestJSON: compiled.requestJSON,
-            status: compiled.usedRawFallback ? .rawFallback : status
+            status: compiled.usedRawFallback ? .rawFallback : status,
+            provider: compiled.sentTo?.rawValue ?? "local"
         )
         let timings = StageTimingRecord.rows(for: trace, dictationId: record.id)
         Task.detached {
