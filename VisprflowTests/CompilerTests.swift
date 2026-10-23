@@ -281,6 +281,38 @@ final class CompilerTests: XCTestCase {
         XCTAssertEqual(ModelChoice.forLevel(.medium), .haiku)
         XCTAssertEqual(ModelChoice.forLevel(.full), .sonnet)
     }
+
+    // MARK: Speed S1e: a rejection retries on this Mac
+
+    func testARejectionRetriesLocallyInsteadOfCallingTheModelAgain() async throws {
+        let model = RecordingGenerator { _ in "Sure! Here is a cleaner version of your message." }
+        var compiler = Compiler(generator: model)
+        compiler.localRetry = LocalGenerator()
+        let transcript = "um can you send me the the figma link"
+        let result = try await compiler.compile(CompileRequest(transcript: transcript, level: .full, destination: "message"))
+        XCTAssertEqual(model.requests.count, 1, "one model call, not two")
+        XCTAssertEqual(result.level, .light)
+        XCTAssertEqual(result.text, LocalCleanup.clean(transcript))
+        XCTAssertFalse(result.usedRawFallback)
+        XCTAssertTrue(result.guardrailReason?.contains("answered") == true)
+    }
+
+    func testASelfCorrectionStillRetriesWithTheModel() async throws {
+        let model = RecordingGenerator { request in
+            request.user.contains("<edit_level>FULL</edit_level>") ? "Sure! Happy to help." : "The call is at ten."
+        }
+        var compiler = Compiler(generator: model)
+        compiler.localRetry = LocalGenerator()
+        let result = try await compiler.compile(CompileRequest(transcript: "the call is at nine no wait ten", level: .full, destination: "message"))
+        XCTAssertEqual(model.requests.count, 2, "only a model can resolve which half to keep")
+        XCTAssertEqual(result.text, "The call is at ten.")
+    }
+
+    func testTheAppsCompilersRetryLocally() {
+        XCTAssertNotNil(Compiler(policy: .default).localRetry)
+        XCTAssertNotNil(Compiler(policySource: { .default }).localRetry)
+        XCTAssertNil(Compiler(generator: MockGenerator()).localRetry, "tests that pin the model retry keep it")
+    }
 }
 
 final class SystemPromptTests: XCTestCase {

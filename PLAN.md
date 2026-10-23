@@ -57,7 +57,7 @@ Tick one only when its VERIFY passes, not when someone says it is done.
 - [ ] Speed S1b: the post-roll ends on the first audio buffer after key-up, not after a fixed 120 ms, and the last word survives — `make verify-stt`
 - [-] Speed S1c: key-up no longer waits for the streaming model to reset before the batch transcription starts — declined on measurement: the stop costs about 6 ms, and the live preview showed no cost interleaved (790 against 830 ms median, n=20 each); see docs/research/latency/README.md
 - [x] Speed S1d: a self-correction in a quick message no longer escalates silently to the 6–10 s subscription path — `make test-class C=EscalationTests`
-- [ ] Speed S1e: a guardrail rejection retries on this Mac, not with a second model call — `make test-class C=CompilerTests`
+- [x] Speed S1e: a guardrail rejection retries on this Mac, not with a second model call — `make test-class C=CompilerTests`
 - [ ] Speed S2a: the claude CLI is started at key-down, so the subscription path's first words come sooner — `make test-class C=ClaudeCLIPrespawnTests`
 - [ ] Speed S2b: workspace probes read process info in-process instead of spawning ps and lsof — `make test-class C=ProcessProbeTests`
 
