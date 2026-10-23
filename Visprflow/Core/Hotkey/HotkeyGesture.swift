@@ -33,6 +33,8 @@ enum HotkeyEvent: Equatable, Sendable {
     case resynchronise
     /// The paste key (V) went down while the trigger was held: a Smart Paste request.
     case pasteKey(at: TimeInterval)
+    /// The edit key (R) went down while the trigger was held: edit the selection by voice.
+    case editKey(at: TimeInterval)
 }
 
 /// Keys the overlay responds to while a compiled prompt is waiting for approval.
@@ -63,6 +65,9 @@ enum HotkeyAction: Equatable, Sendable {
     /// The capture in progress is a Smart Paste: the clipboard is the content and whatever is
     /// said is the instruction. Sent once, when V goes down; the capture continues.
     case smartPaste
+    /// The capture in progress edits the selection: the selected text is the content and
+    /// whatever is said is the instruction. Sent once, when R goes down.
+    case editSelection
 }
 
 enum DiscardReason: String, Equatable, Sendable {
@@ -111,8 +116,15 @@ struct HotkeyGesture: Sendable {
     private(set) var state: State = .idle
     /// End time of the last press too short to count, for double-tap detection.
     private var lastShortTapEnded: TimeInterval?
-    /// Set when V converted the current hold into a Smart Paste.
-    private(set) var pasteRequested = false
+    /// A key pressed with the trigger that changes what the hold does. One per hold: V then R
+    /// is still a paste.
+    enum Chord: Equatable, Sendable { case paste, edit }
+
+    /// Set when V or R converted the current hold.
+    private(set) var chord: Chord?
+
+    /// True when V converted the current hold into a Smart Paste.
+    var pasteRequested: Bool { chord == .paste }
 
     init(config: Config = .default) {
         self.config = config
@@ -144,7 +156,9 @@ struct HotkeyGesture: Sendable {
         case .resynchronise:
             cancel(reason: .resynchronise)
         case let .pasteKey(at):
-            handlePasteKey(at: at)
+            handleChordKey(.paste, at: at)
+        case let .editKey(at):
+            handleChordKey(.edit, at: at)
         }
     }
 
@@ -153,11 +167,11 @@ struct HotkeyGesture: Sendable {
     /// Only a held key counts, never hands-free: in hands-free mode the user's hands are free
     /// to type, so a V there is a letter. A second V after the first is swallowed by the
     /// monitor but changes nothing.
-    private mutating func handlePasteKey(at time: TimeInterval) -> HotkeyAction {
-        guard case let .holding(since) = state, !pasteRequested else { return .none }
+    private mutating func handleChordKey(_ requested: Chord, at time: TimeInterval) -> HotkeyAction {
+        guard case let .holding(since) = state, chord == nil else { return .none }
         guard time - since <= config.pasteWindow else { return .none }
-        pasteRequested = true
-        return .smartPaste
+        chord = requested
+        return requested == .paste ? .smartPaste : .editSelection
     }
 
     /// The trigger has been held past the ceiling, which in practice means the key-up was never
@@ -170,7 +184,7 @@ struct HotkeyGesture: Sendable {
         case .holding:
             state = .idle
             lastShortTapEnded = nil
-            pasteRequested = false
+            chord = nil
             return .finishCapture(modifiers: .none, locked: false)
         case .locked, .lockStopping:
             state = .idle
@@ -218,8 +232,8 @@ struct HotkeyGesture: Sendable {
             let held = time - since
             // A quick fn+V tap is a complete request: paste the clip as copied. Without this
             // it would be discarded as an accidental tap.
-            if pasteRequested {
-                pasteRequested = false
+            if chord != nil {
+                chord = nil
                 lastShortTapEnded = nil
                 return .finishCapture(modifiers: modifiers, locked: false)
             }
@@ -251,7 +265,7 @@ struct HotkeyGesture: Sendable {
         guard isRecording else { return .none }
         state = .idle
         lastShortTapEnded = nil
-        pasteRequested = false
+        chord = nil
         return .discardCapture(reason: reason)
     }
 }

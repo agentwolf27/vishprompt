@@ -43,7 +43,7 @@ enum HUDAnnouncement {
 
     /// "Preview for Claude Code, Compiled. Users are getting logged out… Return inserts, Escape cancels."
     static func previewText(_ model: PreviewHUD) -> String {
-        let action = model.mode == .paste ? "Return pastes" : "Return inserts"
+        let action = model.mode == .paste ? "Return pastes" : model.mode == .edit ? "Return replaces the selection" : "Return inserts"
         return "\(model.mode.label) preview for \(model.destination), \(model.label). \(firstSentence(of: model.text)) \(action), Escape cancels."
     }
 

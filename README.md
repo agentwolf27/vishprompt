@@ -91,6 +91,15 @@ Escape cancels. Your clipboard is put back afterwards, so what you copied never 
 With the compile path set to "On this Mac", an instruction cannot be followed and nothing is
 sent. The overlay says so.
 
+### Editing a selection
+
+Select text in any app, hold the trigger, press `R` within a second, and say what to do with it:
+"shorter", "make it a bug report", "reply no politely". The preview shows the rewrite. Return
+replaces the selection, Escape leaves it untouched, and ⌘Z in the app brings the original back.
+It works the way Smart Paste does: the selection is sent only with your instruction, after
+consent, with known secret shapes removed. The selection is read through Accessibility, or by a
+⌘C that puts your clipboard back. Terminals and secure fields are refused.
+
 ### Screenshots
 
 Copy a screenshot of an error (⌘⌃⇧4 copies a selection), then in Claude Code, Cursor or Codex

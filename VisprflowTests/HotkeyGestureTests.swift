@@ -321,4 +321,49 @@ final class HotkeyGestureTests: XCTestCase {
         XCTAssertTrue(HotkeyMonitor.isPasteKey(keyCode: dvorakV, flags: .maskSecondaryFn, trigger: .fn, pasteKeyCode: dvorakV))
         XCTAssertFalse(HotkeyMonitor.isPasteKey(keyCode: v, flags: .maskSecondaryFn, trigger: .fn, pasteKeyCode: dvorakV))
     }
+
+    // MARK: Edit selection (R)
+
+    func testRSoonAfterTriggerDownEditsTheSelection() {
+        var g = makeGesture()
+        _ = g.handle(.triggerDown(at: 0, modifiers: .none))
+        XCTAssertEqual(g.handle(.editKey(at: 0.2)), .editSelection)
+        XCTAssertEqual(g.chord, .edit)
+        XCTAssertFalse(g.pasteRequested)
+        XCTAssertEqual(g.handle(.triggerUp(at: 2.0, modifiers: .none)), .finishCapture(modifiers: .none, locked: false))
+        XCTAssertNil(g.chord)
+    }
+
+    func testOneChordPerHold() {
+        var g = makeGesture()
+        _ = g.handle(.triggerDown(at: 0, modifiers: .none))
+        XCTAssertEqual(g.handle(.pasteKey(at: 0.1)), .smartPaste)
+        XCTAssertEqual(g.handle(.editKey(at: 0.2)), .none, "V then R is still a paste")
+        XCTAssertEqual(g.chord, .paste)
+
+        var h = makeGesture()
+        _ = h.handle(.triggerDown(at: 0, modifiers: .none))
+        XCTAssertEqual(h.handle(.editKey(at: 0.1)), .editSelection)
+        XCTAssertEqual(h.handle(.pasteKey(at: 0.2)), .none, "R then V is still an edit")
+    }
+
+    func testQuickTapWithRFinishes() {
+        var g = makeGesture()
+        _ = g.handle(.triggerDown(at: 0, modifiers: .none))
+        _ = g.handle(.editKey(at: 0.05))
+        XCTAssertEqual(g.handle(.triggerUp(at: 0.15, modifiers: .none)), .finishCapture(modifiers: .none, locked: false))
+    }
+
+    func testLateRIsIgnored() {
+        var g = makeGesture()
+        _ = g.handle(.triggerDown(at: 0, modifiers: .none))
+        XCTAssertEqual(g.handle(.editKey(at: 1.4)), .none)
+    }
+
+    func testRIsAChordKeyOnlyWithoutCommandOrControl() {
+        let r = KeycodeResolver.qwertyR
+        XCTAssertTrue(HotkeyMonitor.isChordKey(keyCode: r, flags: .maskSecondaryFn, trigger: .fn, chordKeyCode: r))
+        XCTAssertFalse(HotkeyMonitor.isChordKey(keyCode: r, flags: [.maskSecondaryFn, .maskCommand], trigger: .fn, chordKeyCode: r))
+        XCTAssertTrue(HotkeyMonitor.isChordKey(keyCode: r, flags: .maskAlternate, trigger: .rightOption, chordKeyCode: r))
+    }
 }

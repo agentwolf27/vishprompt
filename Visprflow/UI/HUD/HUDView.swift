@@ -5,12 +5,14 @@ enum HUDMode: String, Equatable, Sendable {
     case dictate
     case paste
     case fix
+    case edit
 
     var label: String {
         switch self {
         case .dictate: "Dictate"
         case .paste: "Smart paste"
         case .fix: "Fix screenshot"
+        case .edit: "Edit selection"
         }
     }
 
@@ -19,6 +21,7 @@ enum HUDMode: String, Equatable, Sendable {
         case .dictate: "mic.fill"
         case .paste: "doc.on.clipboard"
         case .fix: "ladybug"
+        case .edit: "pencil.line"
         }
     }
 
@@ -27,6 +30,7 @@ enum HUDMode: String, Equatable, Sendable {
         case .dictate: .blue
         case .paste: .green
         case .fix: .orange
+        case .edit: .purple
         }
     }
 }
@@ -152,7 +156,9 @@ struct HUDView: View {
                         .font(.caption.monospacedDigit())
                         .foregroundStyle(.secondary)
                     Spacer()
-                    Text(mode == .paste ? "say how to paste it, or just release · esc" : locked ? "tap to stop · esc" : "release to compile · esc")
+                    Text(mode == .paste ? "say how to paste it, or just release · esc"
+                         : mode == .edit ? "say how to change it · esc"
+                         : locked ? "tap to stop · esc" : "release to compile · esc")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

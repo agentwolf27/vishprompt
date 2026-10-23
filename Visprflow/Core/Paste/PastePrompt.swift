@@ -43,9 +43,14 @@ extension SystemPrompt {
         instruction: String,
         destination: String,
         destinationInstructions: String?,
-        vocabulary: [String]
+        vocabulary: [String],
+        isEdit: Bool = false
     ) -> String {
         var parts: [String] = ["<destination>\(destination)</destination>"]
+        if isEdit {
+            // The same rules apply; only where the result goes differs.
+            parts.append("<note>The clip is text the user selected. Your output replaces it in place, so return the whole replacement.</note>")
+        }
         if !vocabulary.isEmpty {
             parts.append("<vocabulary>\(vocabulary.prefix(300).joined(separator: ", "))</vocabulary>")
         }

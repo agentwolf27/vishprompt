@@ -50,6 +50,8 @@ final class DictationController {
     @ObservationIgnored private var pending: Pending?
     /// Set when V turned this capture into a Smart Paste: reads the clipboard as it was then.
     @ObservationIgnored private var pasteRead: Task<ClipContent, Never>?
+    /// Set when R turned this capture into an edit of the selection: reads it as it was then.
+    @ObservationIgnored private var editRead: Task<SelectionContent, Never>?
     /// Builds the paster per request, so a provider changed in Settings applies immediately.
     @ObservationIgnored private let makePaster: @Sendable () -> SmartPaster
 
@@ -93,6 +95,9 @@ final class DictationController {
     private struct PastePreview {
         var result: SmartPasteResult
         var showingAsCopied: Bool
+        /// An edit of the selection rather than a paste of the clipboard.
+        var purpose: SmartPasteRequest.Purpose = .paste
+        var isEdit: Bool { purpose == .edit }
 
         /// What history should keep for whichever form is on screen. Never a restored secret.
         var historyResult: SmartPasteResult { result.showing(asCopied: showingAsCopied) }
@@ -220,7 +225,7 @@ final class DictationController {
                 seconds: elapsed,
                 locked: true,
                 partial: livePartial,
-                mode: pasteRead != nil ? .paste : .dictate,
+                mode: pasteRead != nil ? .paste : editRead != nil ? .edit : .dictate,
                 app: listeningApp
             ))
 
@@ -231,6 +236,12 @@ final class DictationController {
             // for macOS to disable the tap. The task runs as soon as the callback returns.
             pasteRead = Task { @MainActor in ClipboardReader.read() }
             Log.app.info("Smart Paste requested")
+
+        case .editSelection:
+            // Read the selection now, while it is certainly still selected. Off the callback,
+            // like the clipboard: an Accessibility read or a ⌘C can take a moment.
+            editRead = Task { @MainActor in await SelectionReader().read() }
+            Log.app.info("Edit selection requested")
 
         case let .finishCapture(modifiers, _):
             trace.mark(.keyUp)
@@ -257,6 +268,7 @@ final class DictationController {
                 Task { [streaming] in await streaming.cancel() }
                 clearPending()
                 pasteRead = nil
+                editRead = nil
                 keepCancelled(samples)
                 Log.app.info("Long dictation cancelled after \(Int(heldFor), privacy: .public)s; keeping the transcript")
                 return
@@ -272,6 +284,7 @@ final class DictationController {
                 hide(after: 0)
             case .escape, .resynchronise:
                 pasteRead = nil
+                editRead = nil
                 show(.cancelled)
                 hide(after: 0.8)
             case .tooLong:
@@ -297,6 +310,7 @@ final class DictationController {
         startedAt = Date()
         lastError = nil
         pasteRead = nil
+        editRead = nil
         // Only the cheap half here: this runs inside the event-tap callback, and a slow
         // callback makes macOS disable the tap, which loses the key-up and the dictation.
         let frontmost = FocusContextProvider.frontmost()
@@ -364,6 +378,8 @@ final class DictationController {
         let fallbackContext = capturedContext
         let pasteForThisRun = pasteRead
         pasteRead = nil
+        let editForThisRun = editRead
+        editRead = nil
         // Whatever was transcribed, kept so a failure after this point can still hand it back.
         var spokenForThisRun = ""
         do {
@@ -380,7 +396,7 @@ final class DictationController {
                 transcript = try await KeyUpPath.transcribe(samples: samples, streaming: streaming, transcriber: transcriber) { stage in
                     trace.mark(stage)
                 }
-            } catch TranscriberError.audioTooShort where pasteForThisRun != nil {
+            } catch TranscriberError.audioTooShort where pasteForThisRun != nil || editForThisRun != nil {
                 // A quick fn+V tap is a complete request with nothing said.
                 transcript = Transcript(text: "", confidence: 1, audioDuration: 0, processingTime: 0)
             }
@@ -388,6 +404,23 @@ final class DictationController {
             spokenForThisRun = transcript.text
             let context = await contextForThisRun?.value ?? fallbackContext
             let destination = settings.apply(to: DestinationResolver.resolve(context))
+
+            if let editForThisRun {
+                let selection = await editForThisRun.value
+                guard case let .text(selected) = selection else {
+                    show(.failed(message: selection.message ?? "Nothing is selected."))
+                    hide(after: HUDCopy.rescueDuration)
+                    return
+                }
+                try await runSmartPaste(
+                    clip: .text(selected),
+                    transcript: transcript,
+                    destination: destination,
+                    context: context,
+                    purpose: .edit
+                )
+                return
+            }
 
             if let pasteForThisRun {
                 try await runSmartPaste(
@@ -610,7 +643,8 @@ final class DictationController {
         clip: ClipContent,
         transcript: Transcript,
         destination: Destination,
-        context: FocusContext
+        context: FocusContext,
+        purpose: SmartPasteRequest.Purpose = .paste
     ) async throws {
         let text: String
         switch clip {
@@ -647,7 +681,8 @@ final class DictationController {
             clip: text,
             instruction: transcript.text,
             destination: destination,
-            vocabulary: vocabulary.terms(for: context.workspace)
+            vocabulary: vocabulary.terms(for: context.workspace),
+            purpose: purpose
         )
         let result: SmartPasteResult
         do {
@@ -664,15 +699,21 @@ final class DictationController {
         } catch where Self.isCancellation(error) {
             throw error
         } catch {
-            // The provider failed or could not be reached. Offer the clip unchanged rather
-            // than a blank or a vanished overlay.
             let paster = makePaster()
             let reason = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            // An edit that cannot be rewritten leaves the selection exactly as it was.
+            if purpose == .edit {
+                show(.failed(message: HUDCopy.editProviderFailed(paster.provider, reason: reason)))
+                hide(after: HUDCopy.rescueDuration)
+                return
+            }
+            // The provider failed or could not be reached. Offer the clip unchanged rather
+            // than a blank or a vanished overlay.
             result = paster.unchanged(request, note: HUDCopy.providerFailed(paster.provider, reason: reason))
         }
         trace.mark(.compileDone)
 
-        let paste = PastePreview(result: result, showingAsCopied: false)
+        let paste = PastePreview(result: result, showingAsCopied: false, purpose: purpose)
         pending = Pending(
             transcript: transcript,
             compiled: CompiledPrompt(text: result.insertText, level: .medium, requestJSON: result.requestJSON),
@@ -693,18 +734,20 @@ final class DictationController {
         var notes: [String] = []
         if let note = result.note { notes.append(note) }
         if rewritten, let numbers = result.numberSummary { notes.append(numbers) }
+        let edit = paste.isEdit
+        let verb = edit ? "replace" : "paste"
         showPreview(PreviewHUD(
             text: paste.showingAsCopied ? result.asCopiedText : result.insertText,
-            mode: .paste,
+            mode: edit ? .edit : .paste,
             destination: destination.displayName,
-            label: rewritten ? "Rewritten" : "As copied",
+            label: rewritten ? "Rewritten" : (edit ? "Original" : "As copied"),
             heard: heard,
             notes: notes,
             // Honest about the request even when the original is on screen: the clip was sent.
-            source: HUDCopy.pasteSource(for: result.sentTo, rewritten: result.sentTo != nil),
+            source: HUDCopy.pasteSource(for: result.sentTo, rewritten: result.sentTo != nil, isEdit: edit),
             hints: flippable
-                ? (paste.showingAsCopied ? "⏎ paste · ⇥ rewritten · esc" : "⏎ paste · ⇥ paste original · esc")
-                : "⏎ paste · esc"
+                ? (paste.showingAsCopied ? "⏎ \(verb) · ⇥ rewritten · esc" : (edit ? "⏎ replace · ⇥ original · esc" : "⏎ paste · ⇥ paste original · esc"))
+                : "⏎ \(verb) · esc"
         ))
     }
 
@@ -833,8 +876,10 @@ final class DictationController {
             Log.insert.info("Focus moved from \(intended, privacy: .public) to \(front, privacy: .public); not inserting")
             // A dictation is handed back on the clipboard. A Smart Paste is not: the user's
             // own clip is still there, and replacing it would lose the thing they copied.
-            if paste == nil { TextRescue.copy(compiled.text) }
-            show(.failed(message: HUDCopy.focusMoved(to: destination.displayName, isPaste: paste != nil)))
+            // A dictation or an edit hands its text back. A Smart Paste leaves the user's clip.
+            let keepsClip = paste.map { !$0.isEdit } ?? false
+            if !keepsClip { TextRescue.copy(compiled.text) }
+            show(.failed(message: HUDCopy.focusMoved(to: destination.displayName, isPaste: keepsClip)))
             hide(after: HUDCopy.rescueDuration)
             record(
                 transcript: transcript,
@@ -851,8 +896,9 @@ final class DictationController {
         } catch let error as InsertionError {
             if case .secureInputActive = error { throw error }
             // The paste itself failed. Hand the text back rather than losing it.
-            if paste == nil { TextRescue.copy(compiled.text) }
-            show(.failed(message: HUDCopy.insertFailed(error.localizedDescription, isPaste: paste != nil)))
+            let keepsClip = paste.map { !$0.isEdit } ?? false
+            if !keepsClip { TextRescue.copy(compiled.text) }
+            show(.failed(message: HUDCopy.insertFailed(error.localizedDescription, isPaste: keepsClip)))
             hide(after: HUDCopy.rescueDuration)
             record(transcript: transcript, compiled: compiled, destination: destination, status: .failed, paste: paste)
             return
@@ -1019,8 +1065,9 @@ final class DictationController {
             guard !Task.isCancelled, let self, let pending = self.pending else { return }
             Log.app.info("Preview expired without an answer; releasing the preview keys")
             self.clearPending()
-            if pending.paste == nil { TextRescue.copy(pending.compiled.text) }
-            self.show(.failed(message: HUDCopy.previewExpired(isPaste: pending.paste != nil)))
+            let keepsClip = pending.paste.map { !$0.isEdit } ?? false
+            if !keepsClip { TextRescue.copy(pending.compiled.text) }
+            self.show(.failed(message: HUDCopy.previewExpired(isPaste: keepsClip)))
             self.hide(after: HUDCopy.rescueDuration)
         }
     }
@@ -1075,7 +1122,8 @@ final class DictationController {
             id: trace.id.uuidString,
             instruction: transcript.text,
             destination: destination,
-            status: status
+            status: status,
+            purpose: paste?.purpose ?? .paste
         ) ?? DictationRecord(
             id: trace.id.uuidString,
             createdAt: Date(),
@@ -1150,7 +1198,7 @@ final class DictationController {
                     seconds: self.elapsed,
                     locked: locked,
                     partial: self.livePartial,
-                    mode: self.pasteRead != nil ? .paste : .dictate,
+                    mode: self.pasteRead != nil ? .paste : self.editRead != nil ? .edit : .dictate,
                     app: self.listeningApp
                 )
                 // Hands-free stops itself once the room goes quiet.

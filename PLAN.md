@@ -61,10 +61,10 @@ Tick one only when its VERIFY passes, not when someone says it is done.
 - [ ] Speed S2a: the claude CLI is started at key-down, so the subscription path's first words come sooner — `make test-class C=ClaudeCLIPrespawnTests`
 - [ ] Speed S2b: workspace probes read process info in-process instead of spawning ps and lsof — `make test-class C=ProcessProbeTests`
 
-- [ ] Edit selection: trigger + R within 1.0 s asks to edit the selection; it never collides with fn+V, and a quick tap with R finishes — `make test-class C=HotkeyGestureTests`
-- [ ] Edit selection: the selection is read through Accessibility, or by a ⌘C that puts the clipboard back; secure fields and concealed copies are refused — `make test-class C=SelectionReaderTests`
-- [ ] Edit selection: it reuses Smart Paste's consent, redaction and numbers check; silence and terminals are refused with a next step; History keeps the redacted form, marked as an edit — `make test-class C=SelectionEditTests`
-- [ ] Edit selection: release builds — `make release`
+- [x] Edit selection: trigger + R within 1.0 s asks to edit the selection; it never collides with fn+V, and a quick tap with R finishes — `make test-class C=HotkeyGestureTests`
+- [x] Edit selection: the selection is read through Accessibility, or by a ⌘C that puts the clipboard back; secure fields and concealed copies are refused — `make test-class C=SelectionReaderTests`
+- [x] Edit selection: it reuses Smart Paste's consent, redaction and numbers check; silence and terminals are refused with a next step; History keeps the redacted form, marked as an edit — `make test-class C=SelectionEditTests`
+- [x] Edit selection: release builds — `make release`
 
 ## Later
 
