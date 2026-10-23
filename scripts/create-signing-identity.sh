@@ -1,5 +1,5 @@
 #!/bin/bash
-# Creates a self-signed code-signing identity so macOS stops forgetting Visprflow's
+# Creates a self-signed code-signing identity so macOS stops forgetting VishPrompt's
 # permissions every time the app is rebuilt.
 #
 # Why this is needed: an ad-hoc signed app ("codesign --sign -") has no stable identity.

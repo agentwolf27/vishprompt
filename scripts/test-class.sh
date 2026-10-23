@@ -10,10 +10,10 @@ set -o pipefail
 class="$1"
 shift
 
-log="$(mktemp -t visprflow-test-class)"
+log="$(mktemp -t vishprompt-test-class)"
 trap 'rm -f "$log"' EXIT
 
-"$@" test -only-testing:"VisprflowTests/$class" > "$log" 2>&1
+"$@" test -only-testing:"VishPromptTests/$class" > "$log" 2>&1
 status=$?
 grep -E "error:|Test Case .* (passed|failed|skipped)|Executed|TEST |LATENCY |PROBE " "$log"
 

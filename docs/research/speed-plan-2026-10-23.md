@@ -169,7 +169,7 @@ Proposed `scripts/latency-report.py` does the same and adds p50/p90, which sqlit
 make logs | grep -E "Dictation timings|Preview ready|Transcribed|Warm-up|Parakeet ready|Streaming model ready|Capture started|Pasteboard changed"
 ```
 
-**Launch → model ready:** `make logs`, then `open ~/Applications/Visprflow.app`; read the gap from
+**Launch → model ready:** `make logs`, then `open ~/Applications/VishPrompt.app`; read the gap from
 "VishPrompt launched" to "Speech model ready".
 
 **CLI startup, cold vs pre-spawned (spends a little quota):**

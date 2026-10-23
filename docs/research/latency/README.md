@@ -28,7 +28,7 @@ finishing a chunk when the batch model starts. S1c is aimed there.
 ## Live preview on against off · 2026-10-23 · interleaved
 
 `preview-ab-2026-10-23.csv`: 40 runs alternating between the streaming preview on and off, in one
-run (`TEST_RUNNER_VISPRFLOW_LATENCY_COMPARE=preview make verify-latency`). The load average was
+run (`TEST_RUNNER_VISHPROMPT_LATENCY_COMPARE=preview make verify-latency`). The load average was
 about 8.8, with other apps busy, including `photoanalysisd`, which also uses the Neural Engine.
 
 | Key-up to pasted | Median | p90 | n |

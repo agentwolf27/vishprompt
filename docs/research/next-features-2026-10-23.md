@@ -45,7 +45,7 @@ The sharp combination applies VishPrompt's destination-aware compiler to the cli
 - **R3 — Public eval and latency harness:** grow the golden set from 8 to 40, and re-run the Talkify-style latency benchmark independently [L1]. This is the strongest AI/FDE portfolio artefact.
 
 **6. Housekeeping:**
-- The public repo `agentwolf27/visprflow` had **no licence** (GitHub API: `license: null`, 0 stars, last push 2026-09-09). An MIT `LICENSE` was added in the same PR as this doc.
+- The public repo `agentwolf27/vishprompt` had **no licence** (GitHub API: `license: null`, 0 stars, last push 2026-09-09). An MIT `LICENSE` was added in the same PR as this doc.
 - FluidAudio is now at v0.17.7 with a CTC vocabulary-boosting path that pairs with Parakeet v2/v3 [G1]. Its current docs show it on the batch `AsrManager` [G4], which reopens roadmap item 12 (declined on 0.15.6 because only streaming managers had it). Whether the v0.17.7 tag ships the batch path is UNVERIFIED until built.
 - The roadmap's competitor latency table *is* sourced, but the benchmark was run by Talkify's own developer [L1].
 
@@ -295,8 +295,8 @@ House rule: this is more than a day's work, so it should be argued through plan-
 - Transform and smart-paste golden cases pass — `make eval`
 
 **Week 3 — R2 nothing-leaves**
-- On-device provider behind `TextGenerating`, falling back below macOS 26 — `grep -rq FoundationModelsGenerator Visprflow/Core/Compile`
-- History window shows each dictation's exact request — `grep -rq HistoryView Visprflow/UI`
+- On-device provider behind `TextGenerating`, falling back below macOS 26 — `grep -rq FoundationModelsGenerator VishPrompt/Core/Compile`
+- History window shows each dictation's exact request — `grep -rq HistoryView VishPrompt/UI`
 - Egress test fails on any non-loopback connection in local mode — `make verify-egress`
 - Memory ceiling still holds with ClipboardStore and the on-device model — `make verify-memory`
 
