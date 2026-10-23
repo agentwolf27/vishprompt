@@ -67,6 +67,7 @@ enum HUDState: Equatable, Sendable {
 
 struct HUDView: View {
     let state: HUDState
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Group {
@@ -128,10 +129,13 @@ struct HUDView: View {
                         .foregroundStyle(.secondary)
                     Spacer()
                     Text(mode == .paste ? "say how to paste it, or just release · esc" : locked ? "tap to stop · esc" : "release to compile · esc")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
-                LevelMeter(level: level)
+                LevelMeter(level: level, animated: !reduceMotion)
+                    .accessibilityElement()
+                    .accessibilityLabel("Input level")
+                    .accessibilityValue("\(Int(min(1, max(0, level * 6)) * 100)) percent")
                 // Words appear here as they are recognised, so a long dictation shows progress
                 // rather than an anonymous meter. Deliberately in our own overlay: provisional
                 // text cannot be reliably retracted from the app being typed into.
@@ -142,7 +146,7 @@ struct HUDView: View {
                         .lineLimit(2)
                         .truncationMode(.head)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .transition(.opacity)
+                        .transition(reduceMotion ? .identity : .opacity)
                 }
             }
         }
@@ -198,6 +202,8 @@ struct HUDView: View {
                 .font(.title3)
                 .foregroundStyle(tint)
                 .frame(width: 24)
+                // Decorative: the text beside it says the same thing.
+                .accessibilityHidden(true)
             content()
             Spacer(minLength: 0)
         }
@@ -282,6 +288,8 @@ private struct ModeChip: View {
 /// rather than a flickering number.
 private struct LevelMeter: View {
     let level: Float
+    /// Off under Reduce Motion: the bars jump to the level instead of easing.
+    var animated = true
     private let barCount = 28
 
     var body: some View {
@@ -296,7 +304,7 @@ private struct LevelMeter: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .frame(height: 18)
-        .animation(.easeOut(duration: 0.08), value: level)
+        .animation(animated ? .easeOut(duration: 0.08) : nil, value: level)
     }
 
     private func normalised(_ index: Int) -> Float {

@@ -1067,6 +1067,9 @@ final class DictationController {
     }
 
     private func show(_ state: HUDState) {
+        if let words = HUDAnnouncement.text(for: state, previous: hud) {
+            HUDAnnouncement.post(words)
+        }
         hud = state
         if panel == nil {
             panel = HUDPanel { [selfBox] in
