@@ -25,13 +25,14 @@ is installed at `~/Applications/Visprflow.app`.
 
 ## What you have to do first
 
-Three permissions, granted once, in the setup window that opens on first launch:
+Two permissions, granted once, in the setup window that opens on first launch:
 
 | Grant | Used for |
 |---|---|
 | Microphone | Recording while the key is held. Audio never leaves the Mac. |
 | Accessibility | Pasting into the focused app and watching for the trigger key. |
-| Input Monitoring | Noticing `fn` in any app. |
+
+Input Monitoring is not needed: Accessibility already lets the app see the trigger key.
 
 Two more things worth doing in that window:
 

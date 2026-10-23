@@ -50,8 +50,8 @@ struct OnboardingView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Set up Visprflow")
-                .font(.system(size: 26, weight: .bold))
-            Text("Hold \(state.triggerKey.displayName), talk, release. Three permissions make that work in every app.")
+                .font(.largeTitle.bold())
+            Text(UICopy.permissionsHeadline(trigger: state.triggerKey.displayName, requiredCount: Permission.allCases.filter(\.isRequired).count))
                 .foregroundStyle(.secondary)
             if let error = state.startupError {
                 Label(error, systemImage: "exclamationmark.triangle.fill")
@@ -177,6 +177,17 @@ struct OnboardingView: View {
             if let progress = state.dictation?.modelProgress {
                 ProgressView(value: progress) {
                     Text("Downloading… \(Int(progress * 100))%").font(.caption)
+                }
+            } else if let failure = state.dictation?.modelFailure {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(UICopy.modelDownloadFailed(failure))
+                        .font(.callout)
+                        .foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer()
+                    Button("Retry") {
+                        Task { await state.dictation?.warmUp() }
+                    }
                 }
             }
         }
@@ -344,7 +355,8 @@ struct OnboardingView: View {
         do {
             hasStoredKey = try Keychain.get(.anthropicAPIKey) != nil
         } catch {
-            keyMessage = "Could not read the keychain: \(error)"
+            keyMessage = UICopy.keychainFailure(.read)
+            Log.app.error("Keychain read failed: \(String(describing: error), privacy: .public)")
         }
     }
 
@@ -355,7 +367,8 @@ struct OnboardingView: View {
             hasStoredKey = true
             keyMessage = "Saved."
         } catch {
-            keyMessage = "Could not save: \(error)"
+            keyMessage = UICopy.keychainFailure(.save)
+            Log.app.error("Keychain save failed: \(String(describing: error), privacy: .public)")
         }
     }
 
@@ -365,7 +378,8 @@ struct OnboardingView: View {
             hasStoredKey = false
             keyMessage = "Removed."
         } catch {
-            keyMessage = "Could not remove: \(error)"
+            keyMessage = UICopy.keychainFailure(.remove)
+            Log.app.error("Keychain remove failed: \(String(describing: error), privacy: .public)")
         }
     }
 
@@ -405,12 +419,10 @@ private struct PermissionRow: View {
             }
             Spacer(minLength: 12)
             if !granted {
-                VStack(spacing: 6) {
-                    Button(permission.needsSettingsPane ? "Grant…" : "Request", action: request)
-                        .buttonStyle(.borderedProminent)
-                    Button("Open Settings", action: openSettings)
-                        .font(.caption)
-                }
+                // One button: for a permission granted in System Settings, the request
+                // itself opens the right pane, so a second "Open Settings" did the same thing.
+                Button(permission.needsSettingsPane ? "Open System Settings" : "Allow", action: request)
+                    .buttonStyle(.borderedProminent)
             }
         }
         .padding(12)

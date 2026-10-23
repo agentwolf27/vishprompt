@@ -32,8 +32,10 @@ enum HUDAnnouncement {
                 return nil
             }
             return previewText(model)
-        case let .inserted(characters):
-            return "Inserted \(characters) characters."
+        case let .inserted(destination, pasted):
+            return UICopy.inserted(into: destination, pasted: pasted) + "."
+        case .cancelled:
+            return "Cancelled."
         case let .failed(message):
             return message
         }

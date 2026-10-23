@@ -15,7 +15,8 @@ final class AccessibilityAnnouncementTests: XCTestCase {
             .transcribing,
             .compiling(partial: ""),
             .preview(preview("Fix the login bug.")),
-            .inserted(characters: 42),
+            .inserted(into: "Slack"),
+            .cancelled,
             .failed(message: "Nothing on the clipboard to paste."),
         ]
         for state in states {

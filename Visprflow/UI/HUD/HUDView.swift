@@ -62,7 +62,10 @@ enum HUDState: Equatable, Sendable {
     case compiling(partial: String, provider: String? = nil)
     /// Waiting for the user to press Return to insert.
     case preview(PreviewHUD)
-    case inserted(characters: Int)
+    /// The text landed. `pasted` for a Smart Paste.
+    case inserted(into: String, pasted: Bool = false)
+    /// The user cancelled. Not a failure, so no warning colour.
+    case cancelled
     case failed(message: String)
 }
 
@@ -98,9 +101,13 @@ struct HUDView: View {
                 }
             case let .preview(model):
                 preview(model)
-            case let .inserted(characters):
+            case let .inserted(destination, pasted):
                 row(icon: "checkmark.circle.fill", tint: .green) {
-                    Text("Inserted \(characters) characters").foregroundStyle(.secondary)
+                    Text(UICopy.inserted(into: destination, pasted: pasted)).foregroundStyle(.secondary)
+                }
+            case .cancelled:
+                row(icon: "xmark.circle", tint: .secondary) {
+                    Text("Cancelled").foregroundStyle(.secondary)
                 }
             case let .failed(message):
                 row(icon: "exclamationmark.triangle.fill", tint: .orange) {

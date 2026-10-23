@@ -15,6 +15,8 @@ final class DictationController {
     private(set) var lastError: String?
     /// Progress while the speech model downloads, for the setup window.
     private(set) var modelProgress: Double?
+    /// Why the speech model failed to download or load, for the setup window's Retry row.
+    private(set) var modelFailure: String?
 
     @ObservationIgnored private let capture = AudioCapture()
     @ObservationIgnored private let transcriber: any Transcriber
@@ -185,6 +187,7 @@ final class DictationController {
 
     /// Downloads and loads the speech model, reporting progress for the setup window.
     func warmUp() async {
+        modelFailure = nil
         do {
             try await transcriber.prepare { [weak self] fraction in
                 Task { @MainActor in self?.modelProgress = fraction }
@@ -194,6 +197,7 @@ final class DictationController {
         } catch {
             modelProgress = nil
             lastError = error.localizedDescription
+            modelFailure = error.localizedDescription
             Log.stt.error("Speech model failed to prepare: \(error.localizedDescription, privacy: .public)")
         }
     }
@@ -265,7 +269,7 @@ final class DictationController {
                 hide(after: 0)
             case .escape, .resynchronise:
                 pasteRead = nil
-                show(.failed(message: "Cancelled"))
+                show(.cancelled)
                 hide(after: 0.8)
             case .tooLong:
                 show(.failed(message: "Stopped after \(Int(maximumHold / 60)) minutes"))
@@ -453,7 +457,7 @@ final class DictationController {
             do {
                 let transcript = try await self.transcriber.transcribe(samples: samples, hints: .none)
                 guard !transcript.isEmpty else {
-                    self.show(.failed(message: "Cancelled"))
+                    self.show(.cancelled)
                     self.hide(after: 0.8)
                     return
                 }
@@ -468,7 +472,7 @@ final class DictationController {
                 self.hide(after: HUDCopy.rescueDuration)
             } catch where Self.isCancellation(error) {
             } catch {
-                self.show(.failed(message: "Cancelled"))
+                self.show(.cancelled)
                 self.hide(after: 0.8)
             }
         }
@@ -824,7 +828,7 @@ final class DictationController {
             return
         }
         trace.mark(.inserted)
-        show(.inserted(characters: compiled.text.count))
+        show(.inserted(into: destination.displayName, pasted: paste != nil))
         hide(after: 1.0)
         record(transcript: transcript, compiled: compiled, destination: destination, status: .inserted, paste: paste)
         Log.timing.info("Dictation timings: \(self.trace.summary(), privacy: .public)")
@@ -900,7 +904,7 @@ final class DictationController {
                 status: .cancelled,
                 paste: pending.paste
             )
-            show(.failed(message: "Cancelled"))
+            show(.cancelled)
             hide(after: 0.6)
 
         case .rerecord:
