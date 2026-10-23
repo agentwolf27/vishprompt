@@ -82,8 +82,12 @@ private final class WindowBox {
 /// The History window.
 @MainActor
 final class HistoryWindowController: NSWindowController {
+    private let reuse: HistoryReuse
+
     init() {
-        let host = NSHostingController(rootView: HistoryView())
+        let reuse = HistoryReuse()
+        self.reuse = reuse
+        let host = NSHostingController(rootView: HistoryView(reuse: reuse))
         let window = NSWindow(contentViewController: host)
         window.title = "History"
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
@@ -99,6 +103,8 @@ final class HistoryWindowController: NSWindowController {
     }
 
     func show() {
+        // The app the user was in, so Return pastes back there.
+        reuse.noteFront(NSWorkspace.shared.frontmostApplication)
         NSApp.activate()
         window?.makeKeyAndOrderFront(nil)
     }

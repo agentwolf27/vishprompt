@@ -78,4 +78,66 @@ final class HistoryTests: XCTestCase {
         XCTAssertEqual(HistoryFormat.title(record("a", said: "first line\nsecond", out: nil, provider: "local")), "first line")
         XCTAssertEqual(HistoryFormat.title(record("a", said: "", out: nil, provider: "local")), "(nothing said)")
     }
+
+    // MARK: UI v2.4 rows, paste again, copy
+
+    private var calendar: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC")!
+        return calendar
+    }
+
+    /// 23 Oct 2026, 15:00 UTC.
+    private let now = Date(timeIntervalSince1970: 1_792_767_600)
+
+    func testARowReadsWhereWhenAndWhatLeft() {
+        let local = record("a", said: "fix the login bug", out: "Fix the login bug.", provider: "local", ago: 0)
+        var row = local
+        row.createdAt = now.addingTimeInterval(-130)
+        XCTAssertEqual(HistoryFormat.rowLine(row, now: now, calendar: calendar), "→ Claude Code · 2 min ago · stayed on this Mac")
+
+        var sent = record("b", said: "x", out: "y", provider: "subscription")
+        sent.createdAt = now.addingTimeInterval(-3 * 3600)
+        XCTAssertEqual(HistoryFormat.rowLine(sent, now: now, calendar: calendar), "→ Claude Code · 3 h ago · sent to your Claude subscription")
+
+        var cancelled = row
+        cancelled.status = .cancelled
+        XCTAssertTrue(HistoryFormat.rowLine(cancelled, now: now, calendar: calendar).hasSuffix("· cancelled"),
+                      "a row that never landed must not read as if it did")
+    }
+
+    func testWhenIsSaidTheWayAPersonWouldSayIt() {
+        XCTAssertEqual(HistoryFormat.when(now.addingTimeInterval(-20), now: now, calendar: calendar), "just now")
+        XCTAssertEqual(HistoryFormat.when(now.addingTimeInterval(-59 * 60), now: now, calendar: calendar), "59 min ago")
+        XCTAssertEqual(HistoryFormat.when(now.addingTimeInterval(-14 * 3600), now: now, calendar: calendar), "14 h ago")
+        XCTAssertEqual(HistoryFormat.when(now.addingTimeInterval(-20 * 3600), now: now, calendar: calendar), "yesterday")
+        XCTAssertNotEqual(HistoryFormat.when(now.addingTimeInterval(-5 * 86400), now: now, calendar: calendar), "yesterday")
+    }
+
+    func testDestinationsAreNamedAsInSettings() {
+        XCTAssertEqual(HistoryFormat.destinationName("claude_code"), "Claude Code")
+        XCTAssertEqual(HistoryFormat.destinationName("gone_now"), "gone_now", "a removed destination keeps its id, not a guess")
+    }
+
+    func testReturnAndCopyReuseWhatCameOutOrElseWhatWasSaid() {
+        XCTAssertEqual(HistoryFormat.reusableText(record("a", said: "fix it", out: "Fix it.", provider: "local")), "Fix it.")
+        XCTAssertEqual(HistoryFormat.reusableText(record("a", said: "fix it", out: nil, provider: "local")), "fix it")
+        XCTAssertEqual(HistoryFormat.reusableText(record("a", said: "fix it", out: "  ", provider: "local")), "fix it")
+        XCTAssertNil(HistoryFormat.reusableText(record("a", said: "", out: nil, provider: "local")), "nothing to paste, so Return does nothing")
+    }
+
+    func testARedactedSecretIsSaidBeforeItIsPasted() {
+        XCTAssertNotNil(HistoryFormat.redactionNote("curl -H 'x-api-key: [redacted API key]'"))
+        XCTAssertNil(HistoryFormat.redactionNote("an array [0] and a link [here]"))
+    }
+
+    @MainActor
+    func testEveryPasteAgainEndingNamesWhatHappened() {
+        XCTAssertEqual(HistoryReuse.message(for: .pasted(app: "Notes")), "Pasted into Notes.")
+        XCTAssertTrue(HistoryReuse.message(for: .copiedNoTarget).contains("press ⌘V"))
+        let failed = HistoryReuse.message(for: .failed(app: "Notes", reason: "Accessibility is off."))
+        XCTAssertEqual(failed, "Couldn't paste into Notes (Accessibility is off). It's copied, so press ⌘V there.")
+        XCTAssertEqual(HistoryReuse.hint(target: "Slack"), "Return pastes it into Slack · ⌘C copies")
+        XCTAssertTrue(HistoryReuse.hint(target: nil).contains("⌘C copies"))
+    }
 }

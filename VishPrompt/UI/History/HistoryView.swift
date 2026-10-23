@@ -4,25 +4,57 @@ import SwiftUI
 /// Every dictation, with what you said, exactly what was sent or that nothing was, and what
 /// came out. The privacy ledger: the claim "you can see what left this Mac" made visible.
 struct HistoryView: View {
+    let reuse: HistoryReuse
+
     @State private var entries: [HistoryEntry] = []
     @State private var selection: String?
     @State private var search = ""
     @State private var loadError: String?
 
+    private var selected: HistoryEntry? { entries.first(where: { $0.id == selection }) }
+    private var selectedText: String? { selected.flatMap { HistoryFormat.reusableText($0.record) } }
+
     var body: some View {
         NavigationSplitView {
-            List(entries, selection: $selection) { entry in
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(HistoryFormat.title(entry.record))
-                        .lineLimit(1)
-                    Text("\(entry.record.createdAt.formatted(date: .abbreviated, time: .shortened)) · \(entry.record.destination) · \(HistoryFormat.status(entry.record.status))")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+            // Relative times ("2 min ago") are redrawn each minute rather than going stale.
+            TimelineView(.everyMinute) { context in
+                List(entries, selection: $selection) { entry in
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(HistoryFormat.title(entry.record))
+                            .lineLimit(1)
+                        Text(HistoryFormat.rowLine(entry.record, now: context.date))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                    .tag(entry.id)
+                    .contextMenu {
+                        if let text = HistoryFormat.reusableText(entry.record) {
+                            Button(reuse.targetName.map { "Paste Again into \($0)" } ?? "Paste Again") { reuse.pasteAgain(text) }
+                            Button("Copy") { reuse.copy(text) }
+                        }
+                    }
                 }
-                .tag(entry.id)
+                .onKeyPress(.return) {
+                    guard let selectedText else { return .ignored }
+                    reuse.pasteAgain(selectedText)
+                    return .handled
+                }
+                .onCopyCommand {
+                    guard let selectedText else { return [] }
+                    reuse.copy(selectedText)
+                    return []
+                }
             }
-            .navigationSplitViewColumnWidth(min: 240, ideal: 300)
+            .safeAreaInset(edge: .bottom) {
+                Text(reuse.message ?? HistoryReuse.hint(target: reuse.targetName))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 12).padding(.vertical, 8)
+                    .background(.bar)
+            }
+            .navigationSplitViewColumnWidth(min: 260, ideal: 320)
             .overlay {
                 if entries.isEmpty {
                     Text(loadError ?? (search.isEmpty ? "Nothing yet. Hold your key and say something." : "No dictation matches “\(search)”."))
@@ -31,8 +63,8 @@ struct HistoryView: View {
                 }
             }
         } detail: {
-            if let entry = entries.first(where: { $0.id == selection }) {
-                HistoryDetail(entry: entry)
+            if let entry = selected {
+                HistoryDetail(entry: entry, reuse: reuse)
             } else {
                 Text("Choose a dictation to see what was said, what was sent, and what came out.")
                     .foregroundStyle(.secondary)
@@ -43,6 +75,11 @@ struct HistoryView: View {
         .onAppear(perform: load)
         .onChange(of: search) { load() }
         .toolbar {
+            Button("Paste Again", systemImage: "arrow.uturn.forward") {
+                if let selectedText { reuse.pasteAgain(selectedText) }
+            }
+            .help(reuse.targetName.map { "Paste the selected result into \($0) (Return)" } ?? "Paste the selected result (Return)")
+            .disabled(selectedText == nil || reuse.inFlight)
             Button("Reload", systemImage: "arrow.clockwise", action: load)
         }
     }
@@ -67,13 +104,14 @@ struct HistoryView: View {
 
 private struct HistoryDetail: View {
     let entry: HistoryEntry
+    let reuse: HistoryReuse
     private var record: DictationRecord { entry.record }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 HStack {
-                    Text(record.destination).font(.title3.weight(.semibold))
+                    Text(HistoryFormat.destinationName(record.destination)).font(.title3.weight(.semibold))
                     Text(HistoryFormat.status(record.status))
                         .font(.caption)
                         .padding(.horizontal, 8).padding(.vertical, 3)
@@ -104,6 +142,12 @@ private struct HistoryDetail: View {
 
                 if let result = record.compiledText, !result.isEmpty {
                     block("What came out", text: result, copy: true)
+                }
+
+                if let text = HistoryFormat.reusableText(record), let note = HistoryFormat.redactionNote(text) {
+                    Label(note, systemImage: "key.slash")
+                        .font(.callout)
+                        .foregroundStyle(.orange)
                 }
 
                 if !entry.timings.isEmpty {
@@ -140,7 +184,7 @@ private struct HistoryDetail: View {
                 Text(title).font(.headline)
                 Spacer()
                 if copy {
-                    Button("Copy") { TextRescue.copy(text) }
+                    Button("Copy") { reuse.copy(text) }
                 }
             }
             Text(text)
