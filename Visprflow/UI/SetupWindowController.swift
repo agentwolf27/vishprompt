@@ -11,7 +11,7 @@ final class SetupWindowController: NSWindowController, NSWindowDelegate {
         self.state = state
         let host = NSHostingController(rootView: OnboardingView().environment(state))
         let window = NSWindow(contentViewController: host)
-        window.title = "Visprflow Setup"
+        window.title = "VishPrompt Setup"
         window.styleMask = [.titled, .closable, .miniaturizable]
         // Matches the content's minimum (580 × 680), so the window opens at a size the
         // content does not immediately fight.

@@ -1,9 +1,9 @@
-# Visprflow
+# VishPrompt
 
 <!-- pulse -->
 
 ## What we are building
-Visprflow is a native macOS menu bar app that takes over the fn key (once macOS's emoji picker on that key is set to Do Nothing) for a full dictation-to-prompt pipeline: hold fn, talk, release, and the app transcribes on-device with Parakeet v3, then compiles the raw speech into the best-suited prompt for wherever the cursor is (Claude Code, Cursor, claude.ai, Slack, email, or a plain shell), inserting it with a preview step for agent destinations.
+VishPrompt (formerly Visprflow) is a native macOS menu bar app that takes over the fn key (once macOS's emoji picker on that key is set to Do Nothing) for a full dictation-to-prompt pipeline: hold fn, talk, release, and the app transcribes on-device with Parakeet v3, then compiles the raw speech into the best-suited prompt for wherever the cursor is (Claude Code, Cursor, claude.ai, Slack, email, or a plain shell), inserting it with a preview step for agent destinations.
 
 ## Why
 Existing dictation tools like Wispr Flow are cloud-only, heavy (800 MB idle), unreliable, and produce generic cleaned-up text rather than a structured prompt tailored to the destination app and its context.

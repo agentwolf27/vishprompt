@@ -10,7 +10,7 @@ struct OnboardingView: View {
     @State private var pasteMessage: String?
     @State private var pasteInFlight = false
 
-    private static let pasteMarker = "Visprflow test paste ✓"
+    private static let pasteMarker = "VishPrompt test paste ✓"
 
     /// Setup is three short steps rather than one long page: grant, choose the key, try it.
     /// Where rewrites go has good defaults and lives in Settings.
@@ -117,7 +117,7 @@ struct OnboardingView: View {
                     PermissionsService.openSettings(for: permission)
                 }
             }
-            Text("Accessibility opens System Settings, because macOS will not let an app grant it to itself. Find Visprflow in the list and tick it. The grant is tied to this exact copy of the app, so replacing the app means granting again.")
+            Text("Accessibility opens System Settings, because macOS will not let an app grant it to itself. Find VishPrompt (listed as Visprflow on older installs) and tick it. The grant is tied to this exact copy of the app, so replacing the app means granting again.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -308,7 +308,7 @@ enum SetupStep: Int, CaseIterable, Sendable {
 
     var title: String {
         switch self {
-        case .permissions: "Set up Visprflow"
+        case .permissions: "Set up VishPrompt"
         case .triggerKey: "Choose your key"
         case .tryIt: "Try it"
         }

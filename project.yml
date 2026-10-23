@@ -57,16 +57,16 @@ targets:
     info:
       path: Visprflow/Info.plist
       properties:
-        CFBundleDisplayName: Visprflow
-        CFBundleName: Visprflow
+        CFBundleDisplayName: VishPrompt
+        CFBundleName: VishPrompt
         CFBundleShortVersionString: "0.1.0"
         CFBundleVersion: "1"
         LSMinimumSystemVersion: "15.0"
         # Menu bar only: no Dock icon, no app menu.
         LSUIElement: true
-        NSMicrophoneUsageDescription: "Visprflow records your voice while you hold the fn key. Audio is transcribed on this Mac and never uploaded."
-        NSAppleEventsUsageDescription: "Visprflow asks your browser for the current page address so it can tell claude.ai from Slack."
-        NSSpeechRecognitionUsageDescription: "Visprflow can use Apple's on-device speech recognition on macOS 26 and later."
+        NSMicrophoneUsageDescription: "VishPrompt records your voice while you hold the fn key. Audio is transcribed on this Mac and never uploaded."
+        NSAppleEventsUsageDescription: "VishPrompt asks your browser for the current page address so it can tell claude.ai from Slack."
+        NSSpeechRecognitionUsageDescription: "VishPrompt can use Apple's on-device speech recognition on macOS 26 and later."
         NSHumanReadableCopyright: "© 2026 Vish"
     entitlements:
       path: Visprflow/Visprflow.entitlements

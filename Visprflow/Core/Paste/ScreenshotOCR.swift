@@ -16,7 +16,7 @@ enum ScreenshotOCRError: Error, LocalizedError, Equatable {
     case unreadableImage
 
     var errorDescription: String? {
-        "The clipboard holds an image Visprflow could not open. Copy the screenshot again."
+        "The clipboard holds an image VishPrompt could not open. Copy the screenshot again."
     }
 }
 

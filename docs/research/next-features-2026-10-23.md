@@ -1,6 +1,6 @@
-# Visprflow: what to build next (research and plan, 2026-10-23)
+# VishPrompt: what to build next (research and plan, 2026-10-23)
 
-This is research and planning only: no app code was changed, and every web source was accessed on 2026-10-23. Anything without a source is marked **UNVERIFIED**. Facts about Visprflow come from this repository on `dev` (last commit e181842, 2026-09-08): README.md, PLAN.md, docs/plan.html, docs/roadmap.html, docs/build-report.html and the Swift sources. Many third-party pages are written by competing dictation vendors; those are tagged **[competitor]**. Reddit could not be read directly, so Reddit-derived points are secondhand.
+This is research and planning only: no app code was changed, and every web source was accessed on 2026-10-23. Anything without a source is marked **UNVERIFIED**. Facts about VishPrompt come from this repository on `dev` (last commit e181842, 2026-09-08): README.md, PLAN.md, docs/plan.html, docs/roadmap.html, docs/build-report.html and the Swift sources. Many third-party pages are written by competing dictation vendors; those are tagged **[competitor]**. Reddit could not be read directly, so Reddit-derived points are secondhand.
 
 **Spot-check, 2026-10-23.** Before saving, the following claims were rechecked against the repo and their cited sources. Two were corrected.
 - **Confirmed:** 8 built-in destinations (`Destination.swift`); `kAXSelectedText` used only for inserting (`Inserter.swift:92`); `requestJSON` stored per dictation (`Database.swift:51`); no LICENSE file and `license: null` on GitHub; FluidAudio latest release v0.17.7 (2026-10-08); Handy 34.4k stars, MIT; Wispr Pro $15/mo or $12/mo annually with 2,000 free words/week on desktop [W5]; Command Mode is paid-only [W4].
@@ -12,13 +12,13 @@ This is research and planning only: no app code was changed, and every web sourc
 
 ## One-screen summary
 
-**1. The field caught up on "context" in the six weeks since Visprflow's roadmap closed.**
+**1. The field caught up on "context" in the six weeks since VishPrompt's roadmap closed.**
 - **Selection, clipboard and screen OCR context** are now standard in other apps: VoiceInk [V1], superwhisper [S1] and Raycast [R1][R2].
 - **Speaking an edit over selected text** is offered by Wispr (Command Mode, Fn+Ctrl) [W4], Aqua (Edit Mode) [O4], VoiceInk [V1], Typeless [O6], FluidVoice [O1] and OpenWhispr [G1].
 - **Coding agents:** superwhisper lets Claude Code or Codex ask you questions by voice [S4]. Monologue turns speech into coding-agent prompts [O5]. Claude Code ships its own `/voice`, but it streams audio to Anthropic and inserts the transcript verbatim [C1].
 - **Funding:** Wispr Flow raised $280M at a $2B valuation in Aug 2026 and launched its own speech model, Canto [W1][W6].
 
-**2. What only Visprflow has (no competitor found offers it):**
+**2. What only VishPrompt has (no competitor found offers it):**
 - **(a) Measured on-device speed.** Speech is transcribed on the Neural Engine at 40 MB idle; 14.1 s of speech takes 208 ms (repo-measured). Wispr is cloud-only [W7].
 - **(b) Structured prompts for agents.** It compiles to a structured agent prompt using repo vocabulary, a preview, and guardrails that keep out anything you did not say.
 - **(c) A record of what was sent.** Each request that left the Mac is stored per dictation. No competitor found offers (c).
@@ -31,13 +31,13 @@ This is research and planning only: no app code was changed, and every web sourc
   - "Clipboard Manager – Pastely" is a sync clipboard app [PA3]. Two MIT-licensed GitHub clipboard managers are also called Pastely [PA6]. None of these is the one Vish saw.
 - The earlier directory listing [PA1] had Pastely's Pro at $20/mo. Its own site says $9/mo, so the listing is superseded.
 
-**4. Is Visprflow + Pastely a sharper product?** Not as a clipboard manager. That space is crowded:
+**4. Is VishPrompt + Pastely a sharper product?** Not as a clipboard manager. That space is crowded:
 - Maccy has 22k stars and is MIT-licensed [G1].
 - Paste 7 adds an on-device "Intelligent Clipboard" and a clipboard MCP [PA4].
 - Raycast has "Ask Clipboard" AI search [R3].
 - Apple Spotlight clipboard history arrived in Tahoe [A1].
 
-The sharp combination applies Visprflow's destination-aware compiler to the clipboard: **"paste it right"** (Pastely's idea, but on-device and repo-aware), plus a **clipboard history you can reference by voice**. One survey found no product that combines clipboard history with speaking a command to transform a past clip [F1]; superwhisper users have asked for something close to it [F2].
+The sharp combination applies VishPrompt's destination-aware compiler to the clipboard: **"paste it right"** (Pastely's idea, but on-device and repo-aware), plus a **clipboard history you can reference by voice**. One survey found no product that combines clipboard history with speaking a command to transform a past clip [F1]; superwhisper users have asked for something close to it [F2].
 
 **5. Top 3 to build (2–4 weeks):**
 - **R1 — Speak-to-transform and Smart Paste:** selection, clipboard memory, and destination-aware paste, with on-device secret redaction.
@@ -51,7 +51,7 @@ The sharp combination applies Visprflow's destination-aware compiler to the clip
 
 ---
 
-## 1. What Visprflow is today (from the repo, `dev`)
+## 1. What VishPrompt is today (from the repo, `dev`)
 
 | Area | Built | Not built |
 |---|---|---|
@@ -73,7 +73,7 @@ The sharp combination applies Visprflow's destination-aware compiler to the clip
 
 Legend: Y = yes, N = no, P = partial.
 
-| | **Visprflow** | **Wispr Flow** | **Pastely (AI)** | **superwhisper** | **VoiceInk** | **Raycast** | **Claude Code /voice** |
+| | **VishPrompt** | **Wispr Flow** | **Pastely (AI)** | **superwhisper** | **VoiceInk** | **Raycast** | **Claude Code /voice** |
 |---|---|---|---|---|---|---|---|
 | Category | Dictation that compiles prompts | Cloud AI dictation | AI clipboard reformatter | Dictation with modes | Open-source dictation | Launcher + AI + dictation + clipboard | Built-in agent dictation |
 | Where speech runs | On-device (Neural Engine) | Cloud only [W7] | n/a | Local Whisper or cloud; own S1 models (Aug 2026) [S2][S5] | Local (whisper.cpp, Parakeet) [V1] | Cloud per a competitor [R4] **[competitor]** | Cloud (Anthropic) [C1] |
@@ -146,15 +146,15 @@ Scores: Value and Differentiation are H, M or L. Effort: S ≤ 2 days, M ≤ 1 w
 
 | # | Idea | Value | Diff. | Effort | Risk | Notes |
 |---|---|---|---|---|---|---|
-| 1 | **Speak-to-transform the selection**: select text, hold trigger + modifier, say "shorter", "bug report from this" or "reply no politely"; the result replaces the selection after the preview | H | L–M (6+ apps have it) | M | AX selection read fails in some Electron apps and terminals; fall back to ⌘C with restore | Table stakes, and it enables #2 and #3. Visprflow's edge is the preview plus Tab levels plus guardrails |
-| 2 | **Smart Paste (Pastely-style, on-device)**: trigger + V, or "paste this as…", compiles the *clipboard* for the destination with the same Destination model (CSV → Slack table, stack trace → Claude Code bug prompt with repo vocabulary, URL → Markdown link) | H | **H**: Pastely needs a Google sign-in and a monthly quota, does not say where its model runs, has no voice and no repo awareness [PA0]; Pastr and apfel-clip are on-device but not destination-aware [G1][PA5] | S–M | Low: reuses the compiler and inserter | The cleanest "Visprflow + Pastely" mix, since the compiler already exists |
+| 1 | **Speak-to-transform the selection**: select text, hold trigger + modifier, say "shorter", "bug report from this" or "reply no politely"; the result replaces the selection after the preview | H | L–M (6+ apps have it) | M | AX selection read fails in some Electron apps and terminals; fall back to ⌘C with restore | Table stakes, and it enables #2 and #3. VishPrompt's edge is the preview plus Tab levels plus guardrails |
+| 2 | **Smart Paste (Pastely-style, on-device)**: trigger + V, or "paste this as…", compiles the *clipboard* for the destination with the same Destination model (CSV → Slack table, stack trace → Claude Code bug prompt with repo vocabulary, URL → Markdown link) | H | **H**: Pastely needs a Google sign-in and a monthly quota, does not say where its model runs, has no voice and no repo awareness [PA0]; Pastr and apfel-clip are on-device but not destination-aware [G1][PA5] | S–M | Low: reuses the compiler and inserter | The cleanest "VishPrompt + Pastely" mix, since the compiler already exists |
 | 3 | **Clipboard memory you can reference by voice**: a local, encrypted history of the last 200 text clips that skips concealed and transient types. Speech can point at it: "the Figma link I copied", "my last three copies", "the error I copied" | H | **H**: no product found does voice transforms over clipboard *history* [F1][F2]; Raycast Ask Clipboard is a typed search [R3] | M | The clipboard holds secrets: honour `org.nspasteboard.ConcealedType`, exclude password managers, encrypt at rest, redact (#4) | The "memory" half of the mix |
 | 4 | **On-device secret redaction** before any provider call (API keys, JWTs, AWS keys, high-entropy strings), shown in the preview and the ledger | M | H | S | False positives on identifiers; tune on the golden set | Makes #2, #3 and #8 safe; cheap |
 | 5 | **Fully offline rewrite** with Apple Foundation Models (macOS 26) for light and organised; cloud stays opt-in for "compiled" | H | M (Talkify, apfel-clip and Blitztext use it [L1][G1]; VoiceInk can use Ollama) | M | Needs macOS 26 and Apple Intelligence turned on; 4,096-token window [A4]; quality vs Haiku unknown | An opt-in tier keeps the macOS 15 floor |
 | 6 | **Privacy ledger UI + egress test**: a history window showing raw text → sent request → output → timings, plus `make verify-egress` that fails if any non-loopback host other than the chosen provider is contacted | M | **H**: directly answers the Wispr forensics [H3] | S–M | Low | The data is already in SQLite (`requestJSON`) |
 | 7 | **Public eval + latency harness**: 40 golden cases; LLM-judge, guardrail and "unspoken content" metrics per level and provider; `say`-generated audio; end-of-speech → text-in-field timing, re-running Talkify's method [L1] | M (users) / **H (portfolio)** | H | M | Benchmarking ToS for competitors UNVERIFIED; publish the method and raw CSVs | Turns a vendor-run benchmark into an independent one |
 | 8 | **Terminal scrollback as context**: "use the failing test output" pulls the last N lines from the Terminal or iTerm AX text into a Claude Code prompt | H for devs | H (no competitor found) | M | Secrets in scrollback, so it needs #4; AX text differs by terminal | Beats Claude Code `/voice` on its home turf |
-| 9 | **Visprflow MCP server**: `history.search`, `clipboard.recall`, `ask_user_by_voice` | M | M (superwhisper, Spokenly, OpenWhispr, Aqua and Monologue have agent or MCP hooks [S4][O3][G1][O4][O5]) | M | Localhost only; auth | Good demo but not novel any more |
+| 9 | **VishPrompt MCP server**: `history.search`, `clipboard.recall`, `ask_user_by_voice` | M | M (superwhisper, Spokenly, OpenWhispr, Aqua and Monologue have agent or MCP hooks [S4][O3][G1][O4][O5]) | M | Localhost only; auth | Good demo but not novel any more |
 | 10 | **Acoustic vocabulary boosting** via FluidAudio ≥0.17's CTC word-spotter alongside Parakeet v3, fed by the existing repo vocabulary [G1][G4] | H for tech terms | M–H (per-repo acoustic boosting not found elsewhere) | M | Dependency bump; extra 97.5 MB CTC encoder, ~130 MB peak, ~26× realtime [G4]; must stay under `make verify-memory`'s 300 MB; accuracy vs today unknown | Reopens roadmap item 12, now that the batch engine has it per docs; needs #7 to judge |
 | 11 | **Dictionary learned from preview edits only** (words changed before Return become vocabulary); no keystroke watching outside the preview | M | L | S–M | Avoids Wispr's keystroke issue by design [W1] | |
 | 12 | **Snippets with spoken triggers and variables**, plus "save as snippet" from history | M | L | S | Low; but listed as out of scope in `PLAN.md` | Parity with Wispr, Raycast and the clipboard apps |
@@ -166,9 +166,9 @@ Scores: Value and Differentiation are H, M or L. Effort: S ≤ 2 days, M ≤ 1 w
 
 ### Pastely, part by part
 
-Almost every Pastely part already exists in Visprflow, built for speech rather than for the clipboard:
+Almost every Pastely part already exists in VishPrompt, built for speech rather than for the clipboard:
 
-| Pastely [PA0] | Visprflow today |
+| Pastely [PA0] | VishPrompt today |
 |---|---|
 | Reads the app, window and tab | `FocusContextProvider` and `DestinationResolver`, plus terminal process, cwd and git |
 | Reformats for the destination | `Compiler` with per-destination level and instruction |
@@ -182,13 +182,13 @@ Smart Paste is therefore mostly a new *input* (the clipboard) into a pipeline th
 **Ideas sharpened by the confirmed product:**
 - **Spoken Smart Paste.** Hold fn+V and say "as bullet points for Slack", or say nothing to get the destination default. It is Pastely's ⌘⇧V with a voice instead of typing into the field first.
 - **Screenshot to agent prompt.** Copy a screenshot of an error, then in Claude Code say "fix this". On-device Vision OCR, then redaction, then a structured bug prompt with repo vocabulary. Pastely takes images but has no repo or agent awareness [PA0].
-- **No account, no quota.** Pastely's free tier is 4 transforms [PA0]. Visprflow's local level costs nothing and needs no sign-in; the ledger and egress test (R2) show that nothing left.
+- **No account, no quota.** Pastely's free tier is 4 transforms [PA0]. VishPrompt's local level costs nothing and needs no sign-in; the ledger and egress test (R2) show that nothing left.
 - **Clipboard recall by voice.** "Paste the link I copied from Figma." Pastely only keeps a history of *transforms* [PA0], not of everything copied.
 
-### On the Visprflow + Pastely combination
+### On the VishPrompt + Pastely combination
 - **As a standalone clipboard product: no.** Maccy (free, MIT, 22k stars), Paste 7 (on-device Intelligent Clipboard, clipboard MCP), Raycast (Ask Clipboard, AI Commands, dictation), Apple Spotlight clipboard history, Pasly and Pastily all already exist [G1][PA4][R3][A1][PA2][PA3]. It would be the sixth or seventh of its kind.
-- **As a capability inside Visprflow: yes, as ideas 2 + 3 + 4.**
-  - Visprflow already knows the destination and has a compiler that adapts text to it. Pastely's whole pitch is "adapts to wherever you paste".
+- **As a capability inside VishPrompt: yes, as ideas 2 + 3 + 4.**
+  - VishPrompt already knows the destination and has a compiler that adapts text to it. Pastely's whole pitch is "adapts to wherever you paste".
   - Pointing that compiler at the clipboard is mostly reuse.
   - Doing it on-device, with repo vocabulary and a ledger, is a version nobody ships.
   - Adding voice references into clipboard *history* is the gap the survey found [F1].
@@ -260,7 +260,7 @@ Audio comes from `say` with several voices, as `verify-stt` already does, so no 
 **Latency rig.**
 - It reproduces Talkify's method: end of recording → final text visible, median of 20, fixed phrase [L1].
 - The target is a small test app whose NSTextView timestamps its first change, with key-up injected via CGEvent.
-- Run it against Visprflow and whichever competitors are installed (free tiers only, per the $0 rule). Report median and p90, and publish the raw CSVs.
+- Run it against VishPrompt and whichever competitors are installed (free tiers only, per the $0 rule). Report median and p90, and publish the raw CSVs.
 
 **Deliverables.**
 - `make eval` and `docs/evals.html`.
@@ -284,7 +284,7 @@ House rule: this is more than a day's work, so it should be argued through plan-
 **Week 1 — R3 foundation (it measures everything after)**
 - Golden set reaches 40 cases — `test "$(find Fixtures/golden -name '*.json' | wc -l)" -ge 40` (already in PLAN.md)
 - `make eval` writes per-provider metrics and exits 0 — `make eval`
-- Latency rig: 20 trials of end-of-speech → field for Visprflow — `make verify-latency`
+- Latency rig: 20 trials of end-of-speech → field for VishPrompt — `make verify-latency`
 
 **Week 2 — R1 speak-to-transform and Smart Paste**
 - Selection is read at key-down, with the ⌘C fallback restoring the clipboard — `make test` (new `SelectionReaderTests`)

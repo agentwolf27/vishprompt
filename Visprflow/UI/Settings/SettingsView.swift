@@ -130,7 +130,7 @@ private struct VocabularyPane: View {
     var body: some View {
         Form {
             Section {
-                Text("When you dictate into a terminal running Claude Code or Codex, Visprflow reads the project's file names and identifiers so they are spelled the way the code spells them. They are a spelling authority only: nothing is added that you did not say.")
+                Text("When you dictate into a terminal running Claude Code or Codex, VishPrompt reads the project's file names and identifiers so they are spelled the way the code spells them. They are a spelling authority only: nothing is added that you did not say.")
                     .foregroundStyle(.secondary)
             }
             if let snapshot = state.dictation?.lastVocabulary, !snapshot.terms.isEmpty {

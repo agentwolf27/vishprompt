@@ -1,4 +1,6 @@
-# Visprflow
+# VishPrompt
+
+*Formerly Visprflow. The name changed because it read too much like Wispr Flow. The app bundle, its identifier, the history file and the saved settings keep the old internal name, so macOS keeps your permissions and your history stays.*
 
 Hold `fn`, talk, release. The best possible prompt for wherever your cursor is lands in the
 field. A prompt compiler for Claude Code, Cursor, claude.ai, Slack and email, running as a
