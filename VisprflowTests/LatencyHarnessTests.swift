@@ -14,6 +14,8 @@ import XCTest
 final class LatencyHarnessTests: XCTestCase {
     nonisolated private static let isEnabled = ProcessInfo.processInfo.environment["VISPRFLOW_LATENCY"] == "1"
     private static let trials = 20
+    /// `VISPRFLOW_LATENCY_STREAMING=0` runs without the live preview model, to see what it costs.
+    nonisolated private static let withStreaming = ProcessInfo.processInfo.environment["VISPRFLOW_LATENCY_STREAMING"] != "0"
     /// Fails the run if the median goes past this. Generous: it catches a regression of the
     /// 1.2 GB kind, not noise.
     private static let medianCeilingMs = 1_500.0
@@ -34,6 +36,8 @@ final class LatencyHarnessTests: XCTestCase {
         return try AudioFileLoader.samples(at: output)
     }
 
+    nonisolated static var previewLabel: String { withStreaming ? "on" : "off" }
+
     func testKeyUpToPasted() async throws {
         let phrase = "hey can you send me the figma link for the onboarding screens when you get a moment"
         let samples = try synthesise(phrase)
@@ -47,11 +51,20 @@ final class LatencyHarnessTests: XCTestCase {
         let pasteboard = NSPasteboard(name: NSPasteboard.Name("visprflow.latency.\(UUID().uuidString)"))
         defer { pasteboard.releaseGlobally() }
 
+        // With VISPRFLOW_LATENCY_COMPARE=preview, runs alternate between the live preview on and
+        // off, so whatever else the Mac is doing lands on both equally. Runs taken minutes apart
+        // are not comparable on a machine with other work going on.
+        let compare = ProcessInfo.processInfo.environment["VISPRFLOW_LATENCY_COMPARE"] == "preview"
         var rows: [Row] = []
+        var offRows: [Row] = []
+        let total = compare ? Self.trials * 2 : Self.trials
         // One untimed run first: the first inference pays Core ML and Neural Engine set-up.
-        for trial in 0...Self.trials {
+        for trial in 0...total {
+            let preview = compare ? trial % 2 == 1 : Self.withStreaming
             let feeder = SampleFeeder(samples)
-            try await streaming.begin(drainingSamples: { feeder.drain() }, onPartial: { _ in })
+            if preview {
+                try await streaming.begin(drainingSamples: { feeder.drain() }, onPartial: { _ in })
+            }
             try await Task.sleep(for: .seconds(seconds))
 
             let keyUp = ContinuousClock.now
@@ -76,17 +89,23 @@ final class LatencyHarnessTests: XCTestCase {
             func ms(_ from: ContinuousClock.Instant, _ to: Stage) -> Double {
                 Trace.milliseconds(marks[to]! - from)
             }
-            rows.append(Row(
+            let row = Row(
                 postRoll: ms(keyUp, .postRollDone),
                 streamStop: Trace.milliseconds(marks[.streamStopped]! - marks[.postRollDone]!),
                 transcribe: Trace.milliseconds(marks[.transcriptReady]! - marks[.streamStopped]!),
                 compile: Trace.milliseconds(marks[.compileDone]! - marks[.transcriptReady]!),
                 paste: Trace.milliseconds(marks[.pasted]! - marks[.compileDone]!),
                 total: ms(keyUp, .pasted)
-            ))
+            )
+            if compare, !preview { offRows.append(row) } else { rows.append(row) }
+        }
+        if compare {
+            for line in Report(rows: offRows, audioSeconds: seconds, label: "live preview off, interleaved").lines {
+                print("LATENCY \(line)")
+            }
         }
 
-        let report = Report(rows: rows, audioSeconds: seconds)
+        let report = Report(rows: rows, audioSeconds: seconds, label: compare ? "live preview on, interleaved" : "live preview \(Self.previewLabel)")
         for line in report.lines { print("LATENCY \(line)") }
         if let path = ProcessInfo.processInfo.environment["VISPRFLOW_LATENCY_CSV"] {
             try report.csv.write(toFile: path, atomically: true, encoding: .utf8)
@@ -104,6 +123,7 @@ private struct Row {
 private struct Report {
     let rows: [Row]
     let audioSeconds: Double
+    let label: String
 
     func median(_ path: KeyPath<Row, Double>) -> Double { percentile(path, 0.5) }
 
@@ -120,7 +140,7 @@ private struct Report {
             ("post-roll", \.postRoll), ("streaming stop", \.streamStop), ("batch transcribe", \.transcribe),
             ("local compile", \.compile), ("paste", \.paste), ("key-up to pasted", \.total),
         ]
-        var out = ["\(rows.count) runs of \(String(format: "%.1f", audioSeconds)) s of speech, Release build, this Mac"]
+        var out = ["\(rows.count) runs of \(String(format: "%.1f", audioSeconds)) s of speech, Release build, this Mac, \(label)"]
         for (name, path) in stages {
             out.append("\(name): median \(HistoryFormat.duration(ms: median(path))), p90 \(HistoryFormat.duration(ms: percentile(path, 0.9))), n=\(rows.count)")
         }

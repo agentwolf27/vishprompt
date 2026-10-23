@@ -24,3 +24,22 @@ It costs about 6 ms. The time is in the batch transcription itself: 310 ms here,
 105–143 ms for the same 4.9 s of audio when the batch model runs alone (`make verify-memory`).
 Both models run on the Neural Engine, and the streaming model is still loaded and may still be
 finishing a chunk when the batch model starts. S1c is aimed there.
+
+## Live preview on against off · 2026-10-23 · interleaved
+
+`preview-ab-2026-10-23.csv`: 40 runs alternating between the streaming preview on and off, in one
+run (`TEST_RUNNER_VISPRFLOW_LATENCY_COMPARE=preview make verify-latency`). The load average was
+about 8.8, with other apps busy, including `photoanalysisd`, which also uses the Neural Engine.
+
+| Key-up to pasted | Median | p90 | n |
+|---|---|---|---|
+| Live preview on | 790 ms | 1.5 s | 20 |
+| Live preview off | 830 ms | 2.2 s | 20 |
+
+**No measurable cost from the preview.** An earlier pair of separate runs suggested otherwise:
+490 ms on, then 260 ms off, minutes later. A third separate run of unchanged code then gave
+910 ms. Runs taken minutes apart on a busy Mac are not comparable. From here on, every speedup is
+measured interleaved against the old behaviour in the same run, and the load average is quoted.
+
+**Rejected:** waiting for the streaming model's in-flight chunk before the batch transcription.
+It gave a median of 1.7 s and p90 of 4.5 s, failing the harness ceiling.
