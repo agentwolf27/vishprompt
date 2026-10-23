@@ -116,6 +116,10 @@ nothing leaves at all. Every dictation is stored locally in
 `~/Library/Application Support/Visprflow/visprflow.sqlite` together with the exact request that
 was sent, so the claim is inspectable rather than promised.
 
+## Licence
+
+MIT. See [LICENSE](LICENSE).
+
 ## Git workflow
 
 `main` receives only `dev`. Feature branches start from the latest `dev` and return to it by
