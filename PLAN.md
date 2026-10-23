@@ -68,7 +68,7 @@ Tick one only when its VERIFY passes, not when someone says it is done.
 
 - [x] UI v2.1: a capsule anchor while listening, transcribing and rewriting, with the concept's copy for every state, the take time frozen while it works, and undo named only where ⌘Z works — `make test-class C=HUDCapsuleTests`
 - [x] UI v2.2: a card drops from the capsule only when there is a decision (preview, error); errors stay until the next key-down or 6 s; crossfade under Reduce Motion — `make test-class C=HUDCardTests`
-- [ ] UI v2.3: on a notched built-in display the capsule splits into two lobes beside the camera housing, read from the screen's auxiliary areas; elsewhere a free capsule below the menu bar; never a drawn notch — `make test-class C=NotchGeometryTests`
+- [x] UI v2.3: on a notched built-in display the capsule splits into two lobes beside the camera housing, read from the screen's auxiliary areas; elsewhere a free capsule below the menu bar; never a drawn notch — `make test-class C=NotchGeometryTests`
 - [ ] UI v2.4: History rows read "what you said → where · when · what left the Mac", Return pastes again and ⌘C copies — `make test-class C=HistoryTests`
 - [ ] UI v2.5: the overlay's surface is one style choice: Liquid Glass on macOS 26 when built with its SDK, the thin material otherwise — `make test-class C=SurfaceStyleTests`
 - [ ] UI v2.6: the menu bar icon shows recording, working, paused and needs-setup — `make test-class C=MenuBarIconTests`

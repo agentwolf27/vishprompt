@@ -83,7 +83,11 @@ struct HUDView: View {
         // to decide: a preview to accept or an error to read.
         VStack(spacing: 6) {
             if let capsule = CapsuleModel.make(state, context: context) {
-                CapsuleView(model: capsule, reduceMotion: reduceMotion)
+                if let notch = context.notch {
+                    LobesView(model: capsule, notch: notch, reduceMotion: reduceMotion)
+                } else {
+                    CapsuleView(model: capsule, reduceMotion: reduceMotion)
+                }
             }
             if HUDLayout.showsCard(state) {
                 card
@@ -325,6 +329,89 @@ private struct CapsuleView: View {
     }
 }
 
+/// The capsule split around the camera housing on a notched display: mode and destination in
+/// the left lobe, the meter and the time in the right, the gap over the housing left empty,
+/// and the status and live words on a strip underneath. Black, so the lobes read as part of
+/// the housing's band rather than a window floating in the menu bar.
+private struct LobesView: View {
+    let model: CapsuleModel
+    let notch: NotchLayout
+    let reduceMotion: Bool
+
+    var body: some View {
+        VStack(spacing: 4) {
+            HStack(spacing: 0) {
+                HStack(spacing: 6) {
+                    glyph
+                    if let destination = model.destination {
+                        Text(destination)
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.75))
+                            .lineLimit(1)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(.leading, 10)
+                .frame(width: notch.lobeWidth, height: notch.barHeight)
+                .background(.black, in: UnevenRoundedRectangle(bottomLeadingRadius: notch.barHeight / 2, style: .continuous))
+
+                // The housing. Nothing is drawn here.
+                Color.clear.frame(width: notch.notchWidth, height: notch.barHeight)
+
+                HStack(spacing: 6) {
+                    Spacer(minLength: 0)
+                    if let meter = model.meter {
+                        CapsuleMeter(level: meter, animated: !reduceMotion)
+                            .accessibilityElement()
+                            .accessibilityLabel("Input level")
+                    } else if model.working {
+                        WorkingPulse(animated: !reduceMotion, color: .white.opacity(0.75))
+                    }
+                    if let timer = model.timer {
+                        Text(timer)
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(.white.opacity(0.75))
+                    }
+                }
+                .padding(.trailing, 10)
+                .frame(width: notch.lobeWidth, height: notch.barHeight)
+                .background(.black, in: UnevenRoundedRectangle(bottomTrailingRadius: notch.barHeight / 2, style: .continuous))
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(model.status)
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.75))
+                    .lineLimit(1)
+                if let words = model.liveWords {
+                    Text(words)
+                        .font(.callout)
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                        .truncationMode(.head)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .frame(width: notch.totalWidth, alignment: .leading)
+            .background(.black.opacity(0.85), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+    }
+
+    @ViewBuilder
+    private var glyph: some View {
+        switch model.glyph {
+        case let .mode(mode):
+            ModeChip(mode: mode)
+        case .inserted:
+            Image(systemName: "checkmark.circle.fill").foregroundStyle(.green).accessibilityHidden(true)
+        case .cancelled:
+            Image(systemName: "xmark.circle").foregroundStyle(.white.opacity(0.6)).accessibilityHidden(true)
+        case .failed:
+            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange).accessibilityHidden(true)
+        }
+    }
+}
+
 /// Fourteen bars driven by the current peak.
 private struct CapsuleMeter: View {
     let level: Float
@@ -357,6 +444,7 @@ private struct CapsuleMeter: View {
 /// Three dots that pulse while it works; still under Reduce Motion.
 private struct WorkingPulse: View {
     let animated: Bool
+    var color: Color = .secondary
     @State private var phase = false
 
     var body: some View {
@@ -368,7 +456,7 @@ private struct WorkingPulse: View {
                     .animation(animated ? .easeInOut(duration: 0.6).repeatForever().delay(Double(index) * 0.2) : nil, value: phase)
             }
         }
-        .foregroundStyle(.secondary)
+        .foregroundStyle(color)
         .onAppear { phase = true }
         .accessibilityHidden(true)
     }
