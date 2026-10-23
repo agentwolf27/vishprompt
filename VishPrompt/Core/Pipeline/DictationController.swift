@@ -11,7 +11,15 @@ import SwiftUI
 @MainActor
 @Observable
 final class DictationController {
-    private(set) var hud: HUDState = .hidden
+    private(set) var hud: HUDState = .hidden {
+        didSet {
+            let phase = HUDPhase(hud)
+            if phase != hudPhase { hudPhase = phase }
+        }
+    }
+    /// `hud` reduced to what the menu bar icon shows, so the icon is redrawn when the state
+    /// changes and not on every tick of the level meter.
+    private(set) var hudPhase: HUDPhase = .idle
     /// Mode, destination and take length, for the capsule's copy.
     private(set) var hudContext = HUDContext()
     private(set) var lastError: String?

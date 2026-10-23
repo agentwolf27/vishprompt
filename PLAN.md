@@ -71,7 +71,7 @@ Tick one only when its VERIFY passes, not when someone says it is done.
 - [x] UI v2.3: on a notched built-in display the capsule splits into two lobes beside the camera housing, read from the screen's auxiliary areas; elsewhere a free capsule below the menu bar; never a drawn notch — `make test-class C=NotchGeometryTests`
 - [x] UI v2.4: History rows read "what you said → where · when · what left the Mac", Return pastes again and ⌘C copies — `make test-class C=HistoryTests`
 - [x] UI v2.5: the overlay's surface is one style choice: Liquid Glass on macOS 26 when built with its SDK, the thin material otherwise — `make test-class C=SurfaceStyleTests`
-- [ ] UI v2.6: the menu bar icon shows recording, working, paused and needs-setup — `make test-class C=MenuBarIconTests`
+- [x] UI v2.6: the menu bar icon shows recording, working, paused and needs-setup — `make test-class C=MenuBarIconTests`
 
 ## Later
 
