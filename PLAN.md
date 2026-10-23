@@ -54,7 +54,7 @@ Tick one only when its VERIFY passes, not when someone says it is done.
 
 - [x] Speed S0: a harness measures key-up → pasted on the Release build (20 trials, median and p90 with n, CSV kept), and a report reads real dictations from History — `make verify-latency`
 - [x] Speed S1a: one shared API session, opened early, with the key cached in memory — `make test-class C=ClaudeGeneratorSessionTests`
-- [ ] Speed S1b: the post-roll ends on the first audio buffer after key-up, not after a fixed 120 ms, and the last word survives — `make verify-stt`
+- [x] Speed S1b: the post-roll ends on the first audio buffer after key-up, not after a fixed 120 ms, and the last word survives — `make verify-stt`
 - [-] Speed S1c: key-up no longer waits for the streaming model to reset before the batch transcription starts — declined on measurement: the stop costs about 6 ms, and the live preview showed no cost interleaved (790 against 830 ms median, n=20 each); see docs/research/latency/README.md
 - [x] Speed S1d: a self-correction in a quick message no longer escalates silently to the 6–10 s subscription path — `make test-class C=EscalationTests`
 - [x] Speed S1e: a guardrail rejection retries on this Mac, not with a second model call — `make test-class C=CompilerTests`

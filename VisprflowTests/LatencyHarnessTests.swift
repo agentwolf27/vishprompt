@@ -69,7 +69,8 @@ final class LatencyHarnessTests: XCTestCase {
 
             let keyUp = ContinuousClock.now
             var marks: [Stage: ContinuousClock.Instant] = [:]
-            try? await Task.sleep(for: .seconds(AudioCapture.postRollDuration))
+            // No microphone here, so the post-roll is the expected wait, not a measured one.
+            try? await Task.sleep(for: .seconds(AudioCapture.expectedPostRoll))
             marks[.postRollDone] = .now
             let transcript = try await KeyUpPath.transcribe(samples: samples, streaming: streaming, transcriber: transcriber) { stage in
                 marks[stage] = .now
@@ -137,7 +138,7 @@ private struct Report {
 
     var lines: [String] {
         let stages: [(String, KeyPath<Row, Double>)] = [
-            ("post-roll", \.postRoll), ("streaming stop", \.streamStop), ("batch transcribe", \.transcribe),
+            ("post-roll (modelled, no microphone)", \.postRoll), ("streaming stop", \.streamStop), ("batch transcribe", \.transcribe),
             ("local compile", \.compile), ("paste", \.paste), ("key-up to pasted", \.total),
         ]
         var out = ["\(rows.count) runs of \(String(format: "%.1f", audioSeconds)) s of speech, Release build, this Mac, \(label)"]
