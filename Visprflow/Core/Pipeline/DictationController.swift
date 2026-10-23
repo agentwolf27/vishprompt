@@ -236,12 +236,14 @@ final class DictationController {
             // for macOS to disable the tap. The task runs as soon as the callback returns.
             pasteRead = Task { @MainActor in ClipboardReader.read() }
             Log.app.info("Smart Paste requested")
+            prespawnForChord()
 
         case .editSelection:
             // Read the selection now, while it is certainly still selected. Off the callback,
             // like the clipboard: an Accessibility read or a ⌘C can take a moment.
             editRead = Task { @MainActor in await SelectionReader().read() }
             Log.app.info("Edit selection requested")
+            prespawnForChord()
 
         case let .finishCapture(modifiers, _):
             trace.mark(.keyUp)
@@ -259,6 +261,7 @@ final class DictationController {
             }
 
         case let .discardCapture(reason):
+            CLIPrespawner.shared.discard()
             // A long recording cancelled by Escape is kept: transcribed, saved, copied.
             let heldFor = elapsed
             if reason == .escape, HUDCopy.keepsCancelled(seconds: heldFor) {
@@ -318,8 +321,15 @@ final class DictationController {
         listeningApp = NSWorkspace.shared.frontmostApplication?.localizedName
         // Open the API connection while the user talks, if a rewrite may go there. Detached:
         // this runs inside the event-tap callback, and the first key read goes to the Keychain.
+        let frontmostBundle = frontmost.bundleIdentifier
         Task.detached(priority: .utility) {
-            ClaudeGenerator.prewarm(policy: ProviderSettings.live())
+            let policy = ProviderSettings.live()
+            ClaudeGenerator.prewarm(policy: policy)
+            // Start the claude command now, if a compiled prompt through the subscription is
+            // likely, so its second of start-up happens while the user talks.
+            if let key = CLIPrespawner.keyDownGuess(policy: policy, frontmost: frontmostBundle, executable: ClaudeCLIGenerator.resolvedExecutable) {
+                CLIPrespawner.shared.prepare(key)
+            }
         }
         // The expensive half (ps, lsof, git, AppleScript) runs while the user is still
         // speaking and is joined only when the transcript is ready.
@@ -380,6 +390,8 @@ final class DictationController {
         pasteRead = nil
         let editForThisRun = editRead
         editRead = nil
+        // Whatever this dictation did not use is ended, so no claude process outlives it.
+        defer { CLIPrespawner.shared.discard() }
         // Whatever was transcribed, kept so a failure after this point can still hand it back.
         var spokenForThisRun = ""
         do {
@@ -532,6 +544,15 @@ final class DictationController {
     private func noteVocabulary(_ terms: [String], workspace: WorkspaceContext) {
         guard !terms.isEmpty, let directory = workspace.directory else { return }
         lastVocabulary = VocabularySnapshot(repository: directory.lastPathComponent, branch: workspace.gitBranch, terms: terms)
+    }
+
+    /// A chord means the paste prompt, not the dictation one: swap the pre-started process.
+    private func prespawnForChord() {
+        Task.detached(priority: .utility) {
+            if let key = CLIPrespawner.chordGuess(policy: ProviderSettings.live(), executable: ClaudeCLIGenerator.resolvedExecutable) {
+                CLIPrespawner.shared.prepare(key)
+            }
+        }
     }
 
     // MARK: Fix screenshot
