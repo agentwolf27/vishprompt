@@ -23,11 +23,11 @@ This is research and planning only: no app code was changed, and every web sourc
 - **(b) Structured prompts for agents.** It compiles to a structured agent prompt using repo vocabulary, a preview, and guardrails that keep out anything you did not say.
 - **(c) A record of what was sent.** Each request that left the Mac is stored per dictation. No competitor found offers (c).
 
-**3. Pastly.** No Mac productivity tool is named exactly "Pastly". The closest names:
+**3. Pastly is Pastely.** Vish confirmed on 2026-10-23 that the tool is Pastely. Two apps carry that name: the AI clipboard reformatter below, and "Clipboard Manager – Pastely", a sync clipboard app [PA3]. This doc assumes the AI one, because it is the one that fits the voice-plus-paste idea; that choice is **UNVERIFIED**. No Mac productivity tool is named exactly "Pastly". The candidates were:
 - **Pastely (AI):** a menu-bar app that reads the destination app and field through Accessibility, then uses AI to reformat the clipboard for wherever you paste. Free gives 4 transforms a month; Pro is $20/mo [PA1].
 - **Pasly:** a local clipboard manager with no AI, $9.99 one-time [PA2].
 - **Pastily:** an offline clipboard manager, $8.99–14.99 one-time [PA3].
-- If Vish saw an "AI paste" tool, it was most likely Pastely. Which one he saw is **UNVERIFIED**.
+- Pastely's details come from a single directory listing [PA1], so its features and prices are low-confidence until checked on its own site.
 
 **4. Is Visprflow + Pastely a sharper product?** Not as a clipboard manager. That space is crowded:
 - Maccy has 22k stars and is MIT-licensed [G1].
@@ -43,7 +43,7 @@ The sharp combination applies Visprflow's destination-aware compiler to the clip
 - **R3 — Public eval and latency harness:** grow the golden set from 8 to 40, and re-run the Talkify-style latency benchmark independently [L1]. This is the strongest AI/FDE portfolio artefact.
 
 **6. Housekeeping:**
-- The public repo `agentwolf27/visprflow` has **no licence** (GitHub API: `license: null`, 0 stars, last push 2026-09-09).
+- The public repo `agentwolf27/visprflow` had **no licence** (GitHub API: `license: null`, 0 stars, last push 2026-09-09). An MIT `LICENSE` was added in the same PR as this doc.
 - FluidAudio is now at v0.17.7 with a CTC vocabulary-boosting path that pairs with Parakeet v2/v3 [G1]. Its current docs show it on the batch `AsrManager` [G4], which reopens roadmap item 12 (declined on 0.15.6 because only streaming managers had it). Whether the v0.17.7 tag ships the batch path is UNVERIFIED until built.
 - The roadmap's competitor latency table *is* sourced, but the benchmark was run by Talkify's own developer [L1].
 
@@ -71,7 +71,7 @@ The sharp combination applies Visprflow's destination-aware compiler to the clip
 
 Legend: Y = yes, N = no, P = partial.
 
-| | **Visprflow** | **Wispr Flow** | **Pastely (AI)** ("Pastly") | **superwhisper** | **VoiceInk** | **Raycast** | **Claude Code /voice** |
+| | **Visprflow** | **Wispr Flow** | **Pastely (AI)** | **superwhisper** | **VoiceInk** | **Raycast** | **Claude Code /voice** |
 |---|---|---|---|---|---|---|---|
 | Category | Dictation that compiles prompts | Cloud AI dictation | AI clipboard reformatter | Dictation with modes | Open-source dictation | Launcher + AI + dictation + clipboard | Built-in agent dictation |
 | Where speech runs | On-device (Neural Engine) | Cloud only [W7] | n/a | Local Whisper or cloud; own S1 models (Aug 2026) [S2][S5] | Local (whisper.cpp, Parakeet) [V1] | Cloud per a competitor [R4] **[competitor]** | Cloud (Anthropic) [C1] |
@@ -87,7 +87,7 @@ Legend: Y = yes, N = no, P = partial.
 | Shows what was sent | **Y, stored per dictation** | N | N | N | N | N | N |
 | Platforms | macOS 15+, Apple Silicon | Mac, Windows, iOS, Android [W1] | macOS 13+ [PA1] | Mac | macOS 14.4+ [V1] | Mac, Windows | Any terminal [C1] |
 | Price | Free (private build) | Free tier 2,000 words/week (desktop); Pro $15/mo or $12/mo billed annually; Growth $23/mo or $18/mo [W5] | 4 free/mo; Pro $20/mo [PA1] | Pro ~$8.49/mo [S3] **[competitor]**; lifetime price disputed | $25–49 lifetime, or build from source [V1] | Pro $10/mo [R5] | Included [C1] |
-| Licence | Public repo, **no licence** | Closed | Closed | Closed (S1-mini weights are open) [S5] | GPL-3.0 [G1] | Closed | Closed |
+| Licence | MIT (added 2026-10-23) | Closed | Closed | Closed (S1-mini weights are open) [S5] | GPL-3.0 [G1] | Closed | Closed |
 
 Other products and models worth knowing:
 
@@ -145,7 +145,7 @@ Scores: Value and Differentiation are H, M or L. Effort: S ≤ 2 days, M ≤ 1 w
 | # | Idea | Value | Diff. | Effort | Risk | Notes |
 |---|---|---|---|---|---|---|
 | 1 | **Speak-to-transform the selection**: select text, hold trigger + modifier, say "shorter", "bug report from this" or "reply no politely"; the result replaces the selection after the preview | H | L–M (6+ apps have it) | M | AX selection read fails in some Electron apps and terminals; fall back to ⌘C with restore | Table stakes, and it enables #2 and #3. Visprflow's edge is the preview plus Tab levels plus guardrails |
-| 2 | **Smart Paste (Pastely-style, on-device)**: trigger + V, or "paste this as…", compiles the *clipboard* for the destination with the same Destination model (CSV → Slack table, stack trace → Claude Code bug prompt with repo vocabulary, URL → Markdown link) | H | **H**: Pastely is cloud with no repo awareness [PA1]; Pastr and apfel-clip are on-device but not destination-aware [G1][PA5] | S–M | Low: reuses the compiler and inserter | The cleanest "Visprflow + Pastly" mix, since the compiler already exists |
+| 2 | **Smart Paste (Pastely-style, on-device)**: trigger + V, or "paste this as…", compiles the *clipboard* for the destination with the same Destination model (CSV → Slack table, stack trace → Claude Code bug prompt with repo vocabulary, URL → Markdown link) | H | **H**: Pastely is cloud with no repo awareness [PA1]; Pastr and apfel-clip are on-device but not destination-aware [G1][PA5] | S–M | Low: reuses the compiler and inserter | The cleanest "Visprflow + Pastely" mix, since the compiler already exists |
 | 3 | **Clipboard memory you can reference by voice**: a local, encrypted history of the last 200 text clips that skips concealed and transient types. Speech can point at it: "the Figma link I copied", "my last three copies", "the error I copied" | H | **H**: no product found does voice transforms over clipboard *history* [F1][F2]; Raycast Ask Clipboard is a typed search [R3] | M | The clipboard holds secrets: honour `org.nspasteboard.ConcealedType`, exclude password managers, encrypt at rest, redact (#4) | The "memory" half of the mix |
 | 4 | **On-device secret redaction** before any provider call (API keys, JWTs, AWS keys, high-entropy strings), shown in the preview and the ledger | M | H | S | False positives on identifiers; tune on the golden set | Makes #2, #3 and #8 safe; cheap |
 | 5 | **Fully offline rewrite** with Apple Foundation Models (macOS 26) for light and organised; cloud stays opt-in for "compiled" | H | M (Talkify, apfel-clip and Blitztext use it [L1][G1]; VoiceInk can use Ollama) | M | Needs macOS 26 and Apple Intelligence turned on; 4,096-token window [A4]; quality vs Haiku unknown | An opt-in tier keeps the macOS 15 floor |
@@ -159,10 +159,10 @@ Scores: Value and Differentiation are H, M or L. Effort: S ≤ 2 days, M ≤ 1 w
 | 13 | **"Include the error / screen"**: on-demand window OCR via ScreenCaptureKit + Vision, text only | M | L (VoiceInk, Raycast and Aqua have it) | M | Screen Recording permission; periodic re-consent prompts UNVERIFIED | Planned in plan.html |
 | 14 | **SpeechAnalyzer as a second engine**, A/B tested in the harness | L–M | L | M | macOS 26 only | Content for the harness, not a product feature |
 | 15 | **Multilingual**: Parakeet v3 covers 25 European languages with auto-detect [G3]; add a per-destination language hint | M | L | S | Rewrite prompts are English-tuned | Cheap reach |
-| 16 | **Licence (MIT) now; notarisation + Sparkle later** | H for adoption | L | S / M | Developer ID costs about $99/yr (UNVERIFIED), against the $0 rule | The licence is free and urgent for a public portfolio repo |
+| 16 | **Licence (MIT, done 2026-10-23); notarisation + Sparkle later** | H for adoption | L | S / M | Developer ID costs about $99/yr (UNVERIFIED), against the $0 rule | The licence is free and urgent for a public portfolio repo |
 | 17 | Meeting notes / iOS / Windows | L for this goal | L | L | Large surface | Out of scope per PLAN |
 
-### On the Visprflow + Pastly combination
+### On the Visprflow + Pastely combination
 - **As a standalone clipboard product: no.** Maccy (free, MIT, 22k stars), Paste 7 (on-device Intelligent Clipboard, clipboard MCP), Raycast (Ask Clipboard, AI Commands, dictation), Apple Spotlight clipboard history, Pasly and Pastily all already exist [G1][PA4][R3][A1][PA2][PA3]. It would be the sixth or seventh of its kind.
 - **As a capability inside Visprflow: yes, as ideas 2 + 3 + 4.**
   - Visprflow already knows the destination and has a compiler that adapts text to it. Pastely's whole pitch is "adapts to wherever you paste".
@@ -329,7 +329,7 @@ House rule: this is more than a day's work, so it should be argued through plan-
 - [V1] Context awareness — https://tryvoiceink.com/docs/context-awareness ; homepage — https://tryvoiceink.com/
 - [V3] Power Mode — https://tryvoiceink.com/docs/power-mode
 
-**Pastly candidates and clipboard tools**
+**Pastely, the other "Pastly" candidates, and clipboard tools**
 - [PA1] Pastely (AI) — https://www.productcool.com/product/pastely-2 (single directory listing; low confidence)
 - [PA2] Pasly — https://pasly.app/ ; https://www.producthunt.com/products/pasly-smart-clipboard-manager-for-mac
 - [PA3] Pastily — https://www.pastily.app/ ; also Pasty https://getpasty.app/ , Pastely (sync) https://apps.apple.com/us/app/clipboard-manager-pastely/id6752802696 , pastly.in (web share) https://pastly.in/ , Pastly Lightroom presets https://play.google.com/store/apps/details?id=com.dom.paste.lightroom.preset
