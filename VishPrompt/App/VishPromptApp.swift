@@ -17,15 +17,3 @@ struct VishPromptApp: App {
         .menuBarExtraStyle(.menu)
     }
 }
-
-
-/// The menu bar glyph. A View, so `@Observable` tracking applies and the icon follows
-/// permission changes instead of freezing at its launch value.
-private struct MenuBarIcon: View {
-    let state: AppState
-
-    var body: some View {
-        Image(systemName: state.permissions.allGranted ? "mic.fill" : "mic.slash.fill")
-            .accessibilityLabel(state.permissions.allGranted ? "VishPrompt, ready" : "VishPrompt, setup needed")
-    }
-}
