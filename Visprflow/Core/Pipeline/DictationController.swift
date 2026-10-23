@@ -325,7 +325,13 @@ final class DictationController {
         let frontmost = FocusContextProvider.frontmost()
         capturedContext = frontmost
         listeningApp = NSWorkspace.shared.frontmostApplication?.localizedName
-        hudContext = HUDContext(mode: .dictate, app: listeningApp, takeSeconds: nil, triggerName: currentTrigger.displayName)
+        hudContext = HUDContext(
+            mode: .dictate,
+            app: listeningApp,
+            takeSeconds: nil,
+            triggerName: currentTrigger.displayName,
+            notch: NotchGeometry.pointerScreen.flatMap(NotchGeometry.layout(for:))
+        )
         // Open the API connection while the user talks, if a rewrite may go there. Detached:
         // this runs inside the event-tap callback, and the first key read goes to the Keychain.
         let frontmostBundle = frontmost.bundleIdentifier

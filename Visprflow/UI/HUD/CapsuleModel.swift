@@ -8,6 +8,8 @@ struct HUDContext: Equatable, Sendable {
     /// Frozen at key-up, so the take's length stays on screen while it works.
     var takeSeconds: TimeInterval?
     var triggerName: String = "fn"
+    /// Set on a notched built-in display: the capsule splits into lobes beside the housing.
+    var notch: NotchLayout?
 }
 
 /// How the text landed, for the inserted state: whether ⌘Z can take it back.
