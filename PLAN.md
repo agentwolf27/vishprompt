@@ -52,6 +52,15 @@ Tick one only when its VERIFY passes, not when someone says it is done.
 - [x] UI/UX L1: a real Settings window (⌘,) with panes, a real menu, and a three-step setup — `make test-class C=SettingsPaneTests`
 - [x] UI/UX L2: a History window that shows what was said, exactly what was sent or "Stayed on this Mac", and the result — `make test-class C=HistoryTests`
 
+- [ ] Speed S0: a harness measures key-up → pasted on the Release build (20 trials, median and p90 with n, CSV kept), and a report reads real dictations from History — `make verify-latency`
+- [ ] Speed S1a: one shared API session, opened early, with the key cached in memory — `make test-class C=ClaudeGeneratorSessionTests`
+- [ ] Speed S1b: the post-roll ends on the first audio buffer after key-up, not after a fixed 120 ms, and the last word survives — `make verify-stt`
+- [ ] Speed S1c: key-up no longer waits for the streaming model to reset before the batch transcription starts — `make verify-latency`
+- [ ] Speed S1d: a self-correction in a quick message no longer escalates silently to the 6–10 s subscription path — `make test-class C=EscalationTests`
+- [ ] Speed S1e: a guardrail rejection retries on this Mac, not with a second model call — `make test-class C=CompilerTests`
+- [ ] Speed S2a: the claude CLI is started at key-down, so the subscription path's first words come sooner — `make test-class C=ClaudeCLIPrespawnTests`
+- [ ] Speed S2b: workspace probes read process info in-process instead of spawning ps and lsof — `make test-class C=ProcessProbeTests`
+
 ## Later
 
 From plan.html's phases 3–5. docs/roadmap.html supersedes that plan and, with its twelve items shipped or declined, queues none of these yet.
@@ -299,3 +308,15 @@ Vish approved it in chat: "yes, self-merge". Each queued UI/UX and speed PR may 
 - never into `main`.
 
 The rejected alternative was stacking each PR on the previous one until someone merged them by hand. The quick wins all touch the same overlay and controller files, so stacking six of them meant rebasing the whole stack after every merge, and any review comment early in the stack would ripple through the rest. Each stacked branch's tree was checked to be identical to the one that passed before it was merged.
+
+### Speed plan · 2026-10-23
+
+The review is at [docs/research/speed-plan-2026-10-23.md](docs/research/speed-plan-2026-10-23.md): 12 ranked speedups and a measurement plan. Its outcomes are the `Speed` lines in `## Done looks like`.
+
+- **Measure first.** S0 lands before any speedup, with a "before" run of `make verify-latency` on the Release build. Every speedup PR then quotes before and after from the same harness: the median and p90, with how many runs.
+- **What the harness measures, and what it does not.** It runs the real key-up path: post-roll, streaming stop, batch Parakeet, local compile and paste, on audio from `say`. It does not include the microphone, the hotkey or the speaker-to-microphone acoustic path. That end-to-end benchmark (`scripts/latency-bench.md`, after the Talkify method) needs the installed app and its permissions, so it is checked by hand by Vish.
+- **Order.** S0, then S1a to S1e, then S2a and S2b. Each is its own branch off the latest `dev` and its own PR, self-merged per the decision above once its tests and release build pass. Speedups touching `Inserter.swift` or `DictationController.swift` go one after another, never in parallel.
+- **Already done.** Item 11 (show the newest streamed words) landed in #11, and item 7's level cache in #9.
+- **Not in this round.** Item 6 (the event tap off the main thread) touches AVAudioEngine's thread rules and needs its own investigation. Item 9 (Haiku 5.5) needs the 40-case golden set to judge quality. Item 12's bigger bets are left as written.
+
+PLAN FROZEN: 2026-10-23 — speed section. Signed Vish (chat: "go ahead with the speedups too").
