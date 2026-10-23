@@ -45,7 +45,7 @@ Tick one only when its VERIFY passes, not when someone says it is done.
 
 - [x] UI/UX Q1: every ending that doesn't insert names the cause and the next step, and keeps the text (copied, or in History for a long cancelled recording) — `make test-class C=HUDCopyTests`
 - [x] UI/UX Q2: the preview scrolls to its end, each level's result is kept so Tab back is instant, ⇧Tab goes back, R is shown — `make test-class C=PreviewLevelCacheTests`
-- [ ] UI/UX Q3: every overlay state has a VoiceOver announcement and labels; Reduce Motion drops the animation — `make test-class C=AccessibilityAnnouncementTests`
+- [x] UI/UX Q3: every overlay state has a VoiceOver announcement and labels; Reduce Motion drops the animation — `make test-class C=AccessibilityAnnouncementTests`
 - [ ] UI/UX Q4: the compiling and preview headers name the provider, escalations included — `make test-class C=ProviderLabelTests`
 - [ ] UI/UX Q5: no jargon or raw errors in setup, destinations or the overlay; the permission count matches the list — `make test-class C=CopyFixTests`
 - [ ] UI/UX Q6: destination edits save as they are made and survive switching rows — `make test-class C=DestinationSettingsTests`

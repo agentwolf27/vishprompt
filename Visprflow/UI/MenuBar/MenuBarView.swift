@@ -24,6 +24,9 @@ struct MenuBarView: View {
                             .foregroundStyle(state.permissions.isGranted(permission) ? .green : .secondary)
                     }
                     .font(.callout)
+                    // The tick is an image; say in words whether it is granted.
+                    .accessibilityElement(children: .combine)
+                    .accessibilityValue(state.permissions.isGranted(permission) ? "granted" : "not granted")
                 }
             }
 
