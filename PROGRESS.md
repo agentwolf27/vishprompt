@@ -102,3 +102,15 @@ Evidence: `make test-class C=SPUAccelerometerTests` — `test-class: SPUAccelero
 
 Evidence: `make test` — `Executed 467 tests, with 21 tests skipped and 0 failures`; `make release` — `** BUILD SUCCEEDED **`.
 
+## 2026-10-23 — Claude (chassis tap, step 2: the detector, first half)
+
+`TapDetector` is pure (no IOKit, no clock): high-pass, adaptive floor, echo guard, handling and
+tilt rejection, double-tap window, burst guard, and key/click suppression. `make record-taps`
+is a guided recorder. Only the idle recording is real so far (10 s, this Mac, 7,959 samples,
+high-passed noise median 1.2 mg, max 5.2 mg); the tap cases are synthetic knocks laid over it.
+The plan line for Tap 2 stays unticked until Vish's real taps are recorded and pass.
+
+Evidence: `make test-class C=TapDetectorTests` — `Executed 12 tests, with 0 failures`.
+
+Evidence: `make test` — `Executed 479 tests, with 21 tests skipped and 0 failures`; `make release` — `** BUILD SUCCEEDED **`.
+
