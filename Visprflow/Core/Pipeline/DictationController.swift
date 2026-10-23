@@ -12,6 +12,8 @@ import SwiftUI
 @Observable
 final class DictationController {
     private(set) var hud: HUDState = .hidden
+    /// Mode, destination and take length, for the capsule's copy.
+    private(set) var hudContext = HUDContext()
     private(set) var lastError: String?
     /// Progress while the speech model downloads, for the setup window.
     private(set) var modelProgress: Double?
@@ -235,6 +237,7 @@ final class DictationController {
             // promised its data lazily is asked for it on read, which can take long enough
             // for macOS to disable the tap. The task runs as soon as the callback returns.
             pasteRead = Task { @MainActor in ClipboardReader.read() }
+            hudContext.mode = .paste
             Log.app.info("Smart Paste requested")
             prespawnForChord()
 
@@ -242,11 +245,14 @@ final class DictationController {
             // Read the selection now, while it is certainly still selected. Off the callback,
             // like the clipboard: an Accessibility read or a ⌘C can take a moment.
             editRead = Task { @MainActor in await SelectionReader().read() }
+            hudContext.mode = .edit
             Log.app.info("Edit selection requested")
             prespawnForChord()
 
         case let .finishCapture(modifiers, _):
             trace.mark(.keyUp)
+            // The take's length stays on screen, frozen, while it transcribes and rewrites.
+            hudContext.takeSeconds = elapsed
             stopMeter()
             // Show "Transcribing" straight away: the post-roll below is a real wait, and an
             // overlay still saying "Listening" after the key is up reads as a hang.
@@ -319,6 +325,7 @@ final class DictationController {
         let frontmost = FocusContextProvider.frontmost()
         capturedContext = frontmost
         listeningApp = NSWorkspace.shared.frontmostApplication?.localizedName
+        hudContext = HUDContext(mode: .dictate, app: listeningApp, takeSeconds: nil, triggerName: currentTrigger.displayName)
         // Open the API connection while the user talks, if a rewrite may go there. Detached:
         // this runs inside the event-tap callback, and the first key read goes to the Keychain.
         let frontmostBundle = frontmost.bundleIdentifier
@@ -416,6 +423,8 @@ final class DictationController {
             spokenForThisRun = transcript.text
             let context = await contextForThisRun?.value ?? fallbackContext
             let destination = settings.apply(to: DestinationResolver.resolve(context))
+            // From here the capsule names the destination ("into Claude Code"), not the app.
+            hudContext.app = destination.displayName
 
             if let editForThisRun {
                 let selection = await editForThisRun.value
@@ -566,6 +575,7 @@ final class DictationController {
         context: FocusContext,
         modifiers: GestureModifiers
     ) async throws {
+        hudContext.mode = .fix
         show(.compiling(partial: "Reading the screenshot on this Mac…"))
         let read = try await ScreenshotOCR.read(image)
         guard !read.isEmpty || !transcript.isEmpty else {
@@ -925,7 +935,7 @@ final class DictationController {
             return
         }
         trace.mark(.inserted)
-        show(.inserted(into: destination.displayName, pasted: paste != nil))
+        show(.inserted(into: destination.displayName, pasted: paste.map { !$0.isEdit } ?? false, landing: Landing(destinationID: destination.id)))
         hide(after: 1.0)
         record(transcript: transcript, compiled: compiled, destination: destination, status: .inserted, paste: paste)
         Log.timing.info("Dictation timings: \(self.trace.summary(), privacy: .public)")
@@ -1265,7 +1275,7 @@ private struct HUDHost: View {
     let box: ControllerBox
 
     var body: some View {
-        HUDView(state: box.controller?.hud ?? .hidden)
+        HUDView(state: box.controller?.hud ?? .hidden, context: box.controller?.hudContext ?? HUDContext())
     }
 }
 

@@ -37,8 +37,9 @@ final class HUDPanel: NSPanel {
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
 
-    /// Places the panel near the top of the screen holding the pointer, above the caret area
-    /// but clear of the menu bar.
+    /// Places the panel just under the menu bar of the screen holding the pointer, centred: up
+    /// where the eye already is, and clear of the Dock and of any Send button, which live at
+    /// the bottom. In a full-screen app with the menu bar hidden it sits at the top edge.
     func positionNearTop() {
         let mouse = NSEvent.mouseLocation
         let screen = NSScreen.screens.first { $0.frame.contains(mouse) } ?? NSScreen.main
@@ -46,10 +47,13 @@ final class HUDPanel: NSPanel {
         let size = self.frame.size
         let origin = NSPoint(
             x: frame.midX - size.width / 2,
-            y: frame.maxY - size.height - 24
+            y: frame.maxY - size.height - Self.gapBelowMenuBar
         )
         setFrameOrigin(origin)
     }
+
+    /// The concept's 8 pt below the menu bar.
+    static let gapBelowMenuBar: CGFloat = 8
 
     func present() {
         positionNearTop()

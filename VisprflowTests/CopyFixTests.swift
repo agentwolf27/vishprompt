@@ -56,7 +56,7 @@ final class CopyFixTests: XCTestCase {
     }
 
     func testTheOverlaySaysWhereNotHowMany() {
-        XCTAssertEqual(UICopy.inserted(into: "Slack", pasted: false), "Inserted into Slack")
-        XCTAssertEqual(UICopy.inserted(into: "Slack", pasted: true), "Pasted into Slack")
+        XCTAssertEqual(UICopy.inserted(into: "Slack", pasted: false), "Inserted into Slack · ⌘Z undoes")
+        XCTAssertEqual(UICopy.inserted(into: "Slack", pasted: true), "Pasted into Slack · ⌘Z undoes")
     }
 }

@@ -66,8 +66,8 @@ enum HUDState: Equatable, Sendable {
     case compiling(partial: String, provider: String? = nil)
     /// Waiting for the user to press Return to insert.
     case preview(PreviewHUD)
-    /// The text landed. `pasted` for a Smart Paste.
-    case inserted(into: String, pasted: Bool = false)
+    /// The text landed. `pasted` for a Smart Paste; `landing` says whether ⌘Z can undo it.
+    case inserted(into: String, pasted: Bool = false, landing: Landing = .undoable)
     /// The user cancelled. Not a failure, so no warning colour.
     case cancelled
     case failed(message: String)
@@ -75,51 +75,34 @@ enum HUDState: Equatable, Sendable {
 
 struct HUDView: View {
     let state: HUDState
+    var context = HUDContext()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
+        // While talking and while it works, the smallest honest thing: a capsule. A card only
+        // when there is something to decide.
+        if let capsule = CapsuleModel.make(state, context: context) {
+            CapsuleView(model: capsule, reduceMotion: reduceMotion)
+        } else {
+            card
+        }
+    }
+
+    @ViewBuilder
+    private var card: some View {
         Group {
             switch state {
-            case .hidden:
-                EmptyView()
-            case let .listening(level, seconds, locked, partial, mode, app):
-                listening(level: level, seconds: seconds, locked: locked, partial: partial, mode: mode, app: app)
-            case .transcribing:
-                row(icon: "waveform", tint: .secondary) {
-                    Text("Transcribing…").foregroundStyle(.secondary)
-                }
-            case let .compiling(partial, provider):
-                row(icon: "sparkles", tint: .accentColor) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        if let provider {
-                            Text("Rewriting \(provider)")
-                                .font(.caption.weight(.medium))
-                                .foregroundStyle(.secondary)
-                        }
-                        // The newest words, not the first three lines: a long prompt that
-                        // only ever shows its opening reads as stalled.
-                        Text(partial.isEmpty ? (provider == nil ? "Working…" : "Waiting for the first words…") : partial)
-                            .lineLimit(3)
-                            .truncationMode(.head)
-                    }
-                }
             case let .preview(model):
                 preview(model)
-            case let .inserted(destination, pasted):
-                row(icon: "checkmark.circle.fill", tint: .green) {
-                    Text(UICopy.inserted(into: destination, pasted: pasted)).foregroundStyle(.secondary)
-                }
-            case .cancelled:
-                row(icon: "xmark.circle", tint: .secondary) {
-                    Text("Cancelled").foregroundStyle(.secondary)
-                }
             case let .failed(message):
                 row(icon: "exclamationmark.triangle.fill", tint: .orange) {
-                    // Messages now carry the cause and the way out, so they get the room.
+                    // Messages carry the cause and the way out, so they get the room.
                     Text(message)
                         .lineLimit(4)
                         .fixedSize(horizontal: false, vertical: true)
                 }
+            default:
+                EmptyView()
             }
         }
         .frame(width: 460, alignment: .leading)
@@ -131,56 +114,6 @@ struct HUDView: View {
     }
 
     // MARK: Pieces
-
-    private func listening(
-        level: Float,
-        seconds: TimeInterval,
-        locked: Bool,
-        partial: String,
-        mode: HUDMode,
-        app: String?
-    ) -> some View {
-        row(icon: locked ? "lock.fill" : mode.icon, tint: .red) {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 8) {
-                    ModeChip(mode: mode)
-                    Text(locked ? "Hands-free" : "Listening")
-                        .font(.callout.weight(.medium))
-                    if let app {
-                        Text("into \(app)")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
-                    Text(Self.elapsed(seconds))
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    Text(mode == .paste ? "say how to paste it, or just release · esc"
-                         : mode == .edit ? "say how to change it · esc"
-                         : locked ? "tap to stop · esc" : "release to compile · esc")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                LevelMeter(level: level, animated: !reduceMotion)
-                    .accessibilityElement()
-                    .accessibilityLabel("Input level")
-                    .accessibilityValue("\(Int(min(1, max(0, level * 6)) * 100)) percent")
-                // Words appear here as they are recognised, so a long dictation shows progress
-                // rather than an anonymous meter. Deliberately in our own overlay: provisional
-                // text cannot be reliably retracted from the app being typed into.
-                if !partial.isEmpty {
-                    Text(partial)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                        .truncationMode(.head)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .transition(reduceMotion ? .identity : .opacity)
-                }
-            }
-        }
-    }
 
     private func preview(_ model: PreviewHUD) -> some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -240,10 +173,6 @@ struct HUDView: View {
         .padding(14)
     }
 
-    private static func elapsed(_ seconds: TimeInterval) -> String {
-        let whole = Int(seconds)
-        return String(format: "%d:%02d", whole / 60, whole % 60)
-    }
 }
 
 /// The whole preview, scrollable. A compiled prompt is often longer than five lines, and
@@ -314,44 +243,125 @@ private struct ModeChip: View {
     }
 }
 
-/// Twenty bars driven by the current peak, with a little decay so it reads as a voice
-/// rather than a flickering number.
-private struct LevelMeter: View {
-    let level: Float
-    /// Off under Reduce Motion: the bars jump to the level instead of easing.
-    var animated = true
-    private let barCount = 28
+/// The capsule: mode, destination, meter or pulse, time, status. 36 pt tall, 280 to 460 pt
+/// wide, and a line of live words under it when there are any.
+private struct CapsuleView: View {
+    let model: CapsuleModel
+    let reduceMotion: Bool
 
     var body: some View {
-        GeometryReader { geometry in
-            HStack(alignment: .center, spacing: 3) {
-                ForEach(0..<barCount, id: \.self) { index in
-                    Capsule()
-                        .fill(colour(for: index))
-                        .frame(width: 3, height: height(for: index, in: geometry.size.height))
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 8) {
+                glyph
+                if let destination = model.destination {
+                    Text(destination)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 }
+                if let meter = model.meter {
+                    CapsuleMeter(level: meter, animated: !reduceMotion)
+                        .accessibilityElement()
+                        .accessibilityLabel("Input level")
+                        .accessibilityValue("\(Int(min(1, max(0, meter * 6)) * 100)) percent")
+                } else if model.working {
+                    WorkingPulse(animated: !reduceMotion)
+                }
+                if let timer = model.timer {
+                    Text(timer)
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
+                // Right-aligned beside the live parts; straight after the glyph when there are none.
+                if model.destination != nil || model.meter != nil || model.working || model.timer != nil {
+                    Spacer(minLength: 8)
+                }
+                Text(model.status)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(height: CapsuleModel.height - 12)
+            if let words = model.liveWords {
+                // Newest words, one line: provisional text stays in our own surface, never in
+                // the app being typed into, where it could not be reliably taken back.
+                Text(words)
+                    .font(.callout)
+                    .lineLimit(1)
+                    .truncationMode(.head)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
-        .frame(height: 18)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 6)
+        .frame(minWidth: CapsuleModel.minimumWidth, maxWidth: model.liveWords == nil ? nil : CapsuleModel.maximumWidth, alignment: .leading)
+        .fixedSize(horizontal: model.liveWords == nil, vertical: true)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: CapsuleModel.height / 2, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: CapsuleModel.height / 2, style: .continuous)
+                .strokeBorder(.white.opacity(0.1), lineWidth: 1)
+        )
+    }
+
+    @ViewBuilder
+    private var glyph: some View {
+        switch model.glyph {
+        case let .mode(mode):
+            ModeChip(mode: mode)
+        case .inserted:
+            Image(systemName: "checkmark.circle.fill").foregroundStyle(.green).accessibilityHidden(true)
+        case .cancelled:
+            Image(systemName: "xmark.circle").foregroundStyle(.secondary).accessibilityHidden(true)
+        }
+    }
+}
+
+/// Fourteen bars driven by the current peak.
+private struct CapsuleMeter: View {
+    let level: Float
+    var animated = true
+    private let barCount = 14
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 2) {
+            ForEach(0..<barCount, id: \.self) { index in
+                Capsule()
+                    .fill(lit(index) ? Color.red : Color.secondary.opacity(0.35))
+                    .frame(width: 2.5, height: height(index))
+            }
+        }
+        .frame(height: 16)
         .animation(animated ? .easeOut(duration: 0.08) : nil, value: level)
     }
 
-    private func normalised(_ index: Int) -> Float {
-        // A log-ish curve, so quiet speech still moves the meter.
-        let scaled = min(1, max(0, level * 6))
-        let position = Float(index) / Float(barCount)
-        return scaled > position ? 1 : 0.12
+    private func lit(_ index: Int) -> Bool {
+        min(1, max(0, level * 6)) > Float(index) / Float(barCount)
     }
 
-    private func height(for index: Int, in available: CGFloat) -> CGFloat {
-        let base = CGFloat(normalised(index))
-        // Taller in the middle so it reads as a waveform rather than a progress bar.
+    private func height(_ index: Int) -> CGFloat {
+        // Taller in the middle, so it reads as a voice rather than a progress bar.
         let centre = 1 - abs(CGFloat(index) / CGFloat(barCount) - 0.5) * 1.2
-        return max(3, available * base * centre)
+        return lit(index) ? max(3, 16 * centre) : 3
     }
+}
 
-    private func colour(for index: Int) -> Color {
-        normalised(index) > 0.5 ? .red : .secondary.opacity(0.4)
+/// Three dots that pulse while it works; still under Reduce Motion.
+private struct WorkingPulse: View {
+    let animated: Bool
+    @State private var phase = false
+
+    var body: some View {
+        HStack(spacing: 3) {
+            ForEach(0..<3, id: \.self) { index in
+                Circle()
+                    .frame(width: 4, height: 4)
+                    .opacity(animated ? (phase ? 1 : 0.3) : 0.6)
+                    .animation(animated ? .easeInOut(duration: 0.6).repeatForever().delay(Double(index) * 0.2) : nil, value: phase)
+            }
+        }
+        .foregroundStyle(.secondary)
+        .onAppear { phase = true }
+        .accessibilityHidden(true)
     }
 }
