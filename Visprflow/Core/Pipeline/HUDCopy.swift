@@ -83,9 +83,16 @@ enum HUDCopy {
         return escalated ? line + " You corrected yourself, so a model resolved it." : line
     }
 
-    static func pasteSource(for provider: ProviderChoice?, rewritten: Bool) -> String {
+    static func pasteSource(for provider: ProviderChoice?, rewritten: Bool, isEdit: Bool = false) -> String {
         guard rewritten, let provider, provider != .local else { return "Stayed on this Mac." }
-        return "Sent the copied text, with known secret shapes removed, and your instruction to \(provider.destinationPhrase)."
+        let what = isEdit ? "selected" : "copied"
+        return "Sent the \(what) text, with known secret shapes removed, and your instruction to \(provider.destinationPhrase)."
+    }
+
+    /// An edit whose rewrite failed: nothing in the app was touched.
+    static func editProviderFailed(_ provider: ProviderChoice, reason: String) -> String {
+        let trimmed = reason.trimmingCharacters(in: CharacterSet(charactersIn: ". "))
+        return "Couldn't reach \(provider.displayName) (\(trimmed)). Your selection is unchanged."
     }
 }
 

@@ -9,6 +9,10 @@ import Foundation
 enum KeycodeResolver {
     /// Virtual keycode for "v" on a US QWERTY layout, used as the fallback.
     static let qwertyV: CGKeyCode = 0x09
+    /// Virtual keycode for "r" on a US QWERTY layout.
+    static let qwertyR: CGKeyCode = 0x0F
+    /// Virtual keycode for "c" on a US QWERTY layout.
+    static let qwertyC: CGKeyCode = 0x08
 
     /// Scans the active layout for the keycode that produces `character` with no modifiers.
     /// Returns nil when the layout cannot be read, so callers can fall back.

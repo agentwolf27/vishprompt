@@ -51,6 +51,10 @@ struct SmartPasteRequest: Sendable {
     var destination: Destination
     /// The repository's own words: kept intact by the redactor and allowed by the guardrails.
     var vocabulary: [String] = []
+    /// A paste of the clipboard, or an edit of the selection in place.
+    var purpose: Purpose = .paste
+
+    enum Purpose: Sendable { case paste, edit }
 }
 
 /// What a Smart Paste produced, in the two forms that must never be confused.
@@ -89,6 +93,12 @@ enum SmartPasteError: Error, LocalizedError, Equatable {
     case needsModel
     /// First time a clip would go to this provider. Nothing was sent.
     case needsConsent(ProviderChoice)
+    /// An edit with nothing said: there is no instruction to follow.
+    case editNeedsInstruction
+    /// An edit in a terminal, where replacing a selection is not reliable.
+    case editNotInTerminal
+    /// A selection too long to send.
+    case selectionTooLong(Int)
 
     var errorDescription: String? {
         switch self {
@@ -96,6 +106,12 @@ enum SmartPasteError: Error, LocalizedError, Equatable {
             "Rewrites need a model. Choose one in Settings; nothing was sent."
         case let .needsConsent(provider):
             "Smart Paste sends your clipboard text, with known secret shapes removed, to \(provider.displayName). Press fn+V again to allow."
+        case .editNeedsInstruction:
+            "Say how to change the selection while you hold the key, for example \u{201C}shorter\u{201D} or \u{201C}reply no politely\u{201D}. Nothing was changed."
+        case .editNotInTerminal:
+            "Editing a selection isn't available in a terminal, because replacing text there is not reliable. Nothing was changed."
+        case let .selectionTooLong(count):
+            "The selection is \(count) characters, too long to rewrite. Select less and try again. Nothing was changed."
         }
     }
 }
@@ -144,6 +160,12 @@ struct SmartPaster: Sendable {
         let toModel = Self.modelDestinations.contains(destination.id)
         let redaction = Redactor.redact(request.clip, exempt: Set(request.vocabulary))
 
+        if request.purpose == .edit {
+            if destination.id == "shell" { throw SmartPasteError.editNotInTerminal }
+            if request.clip.count > Self.maximumClipCharacters { throw SmartPasteError.selectionTooLong(request.clip.count) }
+            if instruction.isEmpty { throw SmartPasteError.editNeedsInstruction }
+        }
+
         // A shell gets the clip byte for byte, whatever was said. A rewritten shell command is
         // a command nobody typed.
         if destination.id == "shell" {
@@ -184,7 +206,8 @@ struct SmartPaster: Sendable {
                 instruction: instruction,
                 destination: destination.id,
                 destinationInstructions: destination.instructions,
-                vocabulary: request.vocabulary
+                vocabulary: request.vocabulary,
+                isEdit: request.purpose == .edit
             ),
             model: .haiku,
             maxTokens: min(4_000, max(512, OutputChecks.wordCount(redaction.text) * 3))
@@ -332,12 +355,19 @@ extension SmartPasteResult {
     }
 
     /// The history row for this paste. The spoken instruction is the transcript.
-    func record(id: String, instruction: String, destination: Destination, status: DictationRecord.Status) -> DictationRecord {
-        DictationRecord(
+    func record(
+        id: String,
+        instruction: String,
+        destination: Destination,
+        status: DictationRecord.Status,
+        purpose: SmartPasteRequest.Purpose = .paste
+    ) -> DictationRecord {
+        let kind = purpose == .edit ? "edit" : "paste"
+        return DictationRecord(
             id: id,
             createdAt: Date(),
             destination: destination.id,
-            level: outcome == .rewritten ? "paste" : "paste_as_copied",
+            level: outcome == .rewritten ? kind : "\(kind)_as_copied",
             rawTranscript: instruction,
             compiledText: historyText,
             requestJSON: requestJSON,

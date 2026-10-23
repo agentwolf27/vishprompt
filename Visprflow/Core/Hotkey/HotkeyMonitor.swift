@@ -252,13 +252,17 @@ final class HotkeyMonitor: @unchecked Sendable {
 
             // V while the trigger is held asks for a Smart Paste. Swallowed only when it
             // counts, so a V typed later in a dictation still reaches the app as before.
-            if Self.isPasteKey(keyCode: keyCode, flags: event.flags, trigger: trigger, pasteKeyCode: pasteKeyCode) {
+            // V asks for a Smart Paste, R to edit the selection. Swallowed only when it counts,
+            // so a letter typed later in a dictation still reaches the app as before.
+            for chordKey in [pasteKeyCode, editKeyCode]
+            where Self.isChordKey(keyCode: keyCode, flags: event.flags, trigger: trigger, chordKeyCode: chordKey) {
                 let now = Double(DispatchTime.now().uptimeNanoseconds) / 1_000_000_000
-                let (action, requested) = gesture.withLock { machine in
-                    (machine.handle(.pasteKey(at: now)), machine.pasteRequested)
+                let timed: HotkeyEvent = chordKey == pasteKeyCode ? .pasteKey(at: now) : .editKey(at: now)
+                let (action, converted) = gesture.withLock { machine in
+                    (machine.handle(timed), machine.chord != nil)
                 }
                 deliver(action)
-                if requested { return false }
+                if converted { return false }
             }
 
             if previewMode.withLock({ $0 }), let key = Self.previewKey(for: keyCode, flags: event.flags) {
@@ -297,6 +301,8 @@ final class HotkeyMonitor: @unchecked Sendable {
     /// The key that types "v" on the current layout, resolved once: the tap callback must not
     /// read the keyboard layout on every key press.
     private let pasteKeyCode: CGKeyCode = KeycodeResolver.keyCode(for: "v") ?? KeycodeResolver.qwertyV
+    /// The key that types "r", for editing the selection.
+    private let editKeyCode: CGKeyCode = KeycodeResolver.keyCode(for: "r") ?? KeycodeResolver.qwertyR
 
     /// True when a key-down is the Smart Paste key: V, with no ⌘ or ⌃ beyond what the trigger
     /// itself holds. Option and Shift are ignored, because with Right Option as the trigger
@@ -307,7 +313,17 @@ final class HotkeyMonitor: @unchecked Sendable {
         trigger: TriggerKey,
         pasteKeyCode: CGKeyCode
     ) -> Bool {
-        guard keyCode == pasteKeyCode, keyCode != trigger.keyCode else { return false }
+        isChordKey(keyCode: keyCode, flags: flags, trigger: trigger, chordKeyCode: pasteKeyCode)
+    }
+
+    /// True when a key-down is a chord key (V or R) with no ⌘ or ⌃ beyond the trigger's own.
+    static func isChordKey(
+        keyCode: CGKeyCode,
+        flags: CGEventFlags,
+        trigger: TriggerKey,
+        chordKeyCode: CGKeyCode
+    ) -> Bool {
+        guard keyCode == chordKeyCode, keyCode != trigger.keyCode else { return false }
         let blockers = CGEventFlags([.maskCommand, .maskControl]).subtracting(trigger.generalFlag)
         return flags.intersection(blockers).isEmpty
     }

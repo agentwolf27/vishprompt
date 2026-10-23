@@ -111,6 +111,7 @@ private struct GeneralPane: View {
                 LabeledContent("Dictate", value: "hold \(state.triggerKey.displayName)")
                 LabeledContent("Hands-free", value: "double-tap \(state.triggerKey.displayName)")
                 LabeledContent("Smart Paste", value: "hold \(state.triggerKey.displayName), press V")
+                LabeledContent("Edit selection", value: "select text, hold \(state.triggerKey.displayName), press R")
                 LabeledContent("Exactly as said", value: "hold Shift with the key")
                 LabeledContent("Full prompt", value: "hold Control with the key")
             }
