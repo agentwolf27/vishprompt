@@ -50,7 +50,7 @@ Tick one only when its VERIFY passes, not when someone says it is done.
 - [x] UI/UX Q5: no jargon or raw errors in setup, destinations or the overlay; the permission count matches the list — `make test-class C=CopyFixTests`
 - [x] UI/UX Q6: destination edits save as they are made and survive switching rows — `make test-class C=DestinationSettingsTests`
 - [x] UI/UX L1: a real Settings window (⌘,) with panes, a real menu, and a three-step setup — `make test-class C=SettingsPaneTests`
-- [ ] UI/UX L2: a History window that shows what was said, exactly what was sent or "Stayed on this Mac", and the result — `make test-class C=HistoryTests`
+- [x] UI/UX L2: a History window that shows what was said, exactly what was sent or "Stayed on this Mac", and the result — `make test-class C=HistoryTests`
 
 ## Later
 

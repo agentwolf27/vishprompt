@@ -341,7 +341,8 @@ extension SmartPasteResult {
             rawTranscript: instruction,
             compiledText: historyText,
             requestJSON: requestJSON,
-            status: status
+            status: status,
+            provider: sentTo?.rawValue ?? "local"
         )
     }
 }

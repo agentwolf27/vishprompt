@@ -6,6 +6,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private(set) lazy var dictation = DictationController(trigger: state.triggerKey)
     private var setupWindow: SetupWindowController?
     private var settingsWindow: SettingsWindowController?
+    private var historyWindow: HistoryWindowController?
     private var permissionPoll: Timer?
 
     /// Objective-C exceptions unwind straight past Swift's `catch`, so a throw inside AppKit or
@@ -34,6 +35,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         state.onShowSetup = { [weak self] in self?.showSetup() }
         state.onShowSettings = { [weak self] in self?.showSettings() }
         state.onSetPaused = { [weak self] paused in self?.setPaused(paused) }
+        state.onShowHistory = { [weak self] in self?.showHistory() }
         state.dictation = dictation
 
         do {
@@ -142,6 +144,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             settingsWindow = SettingsWindowController(state: state)
         }
         settingsWindow?.show()
+    }
+
+    private func showHistory() {
+        if historyWindow == nil {
+            historyWindow = HistoryWindowController()
+        }
+        historyWindow?.show()
     }
 
     /// Pause stops the keyboard watch and releases the microphone; resume starts them again.

@@ -87,6 +87,14 @@ enum Database {
                 unique: true
             )
         }
+        // Which provider a dictation was sent to, so History can say "Stayed on this Mac"
+        // and be right. The request alone cannot tell: a local cleanup records one too.
+        // Null on rows from before this migration, which History says plainly.
+        migrator.registerMigration("v2-provider") { db in
+            try db.alter(table: "dictation") { t in
+                t.add(column: "provider", .text)
+            }
+        }
         return migrator
     }
 }
@@ -109,6 +117,9 @@ struct DictationRecord: Codable, FetchableRecord, PersistableRecord, Equatable {
     var compiledText: String?
     var requestJSON: String?
     var status: Status
+    /// The provider the words were sent to, or "local" when nothing left the Mac. Nil on rows
+    /// recorded before the provider was.
+    var provider: String? = nil
 }
 
 struct StageTimingRecord: Codable, FetchableRecord, PersistableRecord, Equatable {

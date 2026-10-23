@@ -78,3 +78,28 @@ final class SettingsWindowController: NSWindowController {
 private final class WindowBox {
     weak var window: NSWindow?
 }
+
+/// The History window.
+@MainActor
+final class HistoryWindowController: NSWindowController {
+    init() {
+        let host = NSHostingController(rootView: HistoryView())
+        let window = NSWindow(contentViewController: host)
+        window.title = "History"
+        window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
+        window.setContentSize(NSSize(width: 900, height: 600))
+        window.isReleasedWhenClosed = false
+        window.center()
+        super.init(window: window)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("HistoryWindowController is created in code")
+    }
+
+    func show() {
+        NSApp.activate()
+        window?.makeKeyAndOrderFront(nil)
+    }
+}
