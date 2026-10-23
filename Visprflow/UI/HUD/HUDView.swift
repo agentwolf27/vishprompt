@@ -45,6 +45,10 @@ struct PreviewHUD: Equatable, Sendable {
     /// Where the words went: "Stayed on this Mac." or "Sent your words to …".
     var source: String
     var hints: String
+    /// True while a different level is being compiled: the old text stays, dimmed.
+    var isStale = false
+    /// First line shown, moved by ↑ and ↓.
+    var scrollLine = 0
 }
 
 /// What the overlay is showing right now.
@@ -162,11 +166,8 @@ struct HUDView: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
             }
-            Text(model.text)
-                .font(.callout)
-                .lineLimit(5)
-                .fixedSize(horizontal: false, vertical: true)
-                .textSelection(.enabled)
+            PreviewText(text: model.text, scrollLine: model.scrollLine)
+                .opacity(model.isStale ? 0.45 : 1)
             ForEach(model.notes, id: \.self) { note in
                 Text(note)
                     .font(.caption)
@@ -206,6 +207,61 @@ struct HUDView: View {
     private static func elapsed(_ seconds: TimeInterval) -> String {
         let whole = Int(seconds)
         return String(format: "%d:%02d", whole / 60, whole % 60)
+    }
+}
+
+/// The whole preview, scrollable. A compiled prompt is often longer than five lines, and
+/// Return should never insert text nobody could read. Grows to about 40% of the screen, then
+/// scrolls: with the pointer, or with ↑ and ↓, which the overlay owns while a preview is up.
+private struct PreviewText: View {
+    let text: String
+    let scrollLine: Int
+
+    private var lines: [String] {
+        text.components(separatedBy: "\n")
+    }
+
+    private static var maximumHeight: CGFloat {
+        (NSScreen.main?.visibleFrame.height ?? 800) * 0.4
+    }
+
+    /// Measured rather than left to SwiftUI: a ScrollView in a self-sizing panel has no ideal
+    /// height of its own, and would either collapse or take the whole screen.
+    private var contentHeight: CGFloat {
+        let font = NSFont.preferredFont(forTextStyle: .callout)
+        let bounds = (text as NSString).boundingRect(
+            with: NSSize(width: 432, height: CGFloat.greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: [.font: font]
+        )
+        return ceil(bounds.height) + 4
+    }
+
+    var body: some View {
+        let height = min(contentHeight, Self.maximumHeight)
+        ScrollViewReader { proxy in
+            ScrollView(.vertical) {
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(Array(lines.enumerated()), id: \.offset) { index, line in
+                        Text(line.isEmpty ? " " : line)
+                            .font(.callout)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .id(index)
+                    }
+                }
+                .textSelection(.enabled)
+            }
+            .frame(height: height)
+            .onChange(of: scrollLine) { _, line in
+                proxy.scrollTo(min(max(0, line), max(0, lines.count - 1)), anchor: .top)
+            }
+        }
+        if contentHeight > Self.maximumHeight {
+            Text("\(lines.count) lines · ↑↓ to scroll")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
     }
 }
 
