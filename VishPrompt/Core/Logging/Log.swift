@@ -15,4 +15,5 @@ enum Log {
     static let insert = Logger(subsystem: subsystem, category: "insert")
     static let db = Logger(subsystem: subsystem, category: "db")
     static let timing = Logger(subsystem: subsystem, category: "timing")
+    static let tap = Logger(subsystem: subsystem, category: "tap")
 }

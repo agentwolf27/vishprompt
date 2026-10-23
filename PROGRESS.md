@@ -70,3 +70,35 @@ Evidence: `make release`
 ** BUILD SUCCEEDED **
 build/Build/Products/Release/VishPrompt.app
 ```
+
+## 2026-10-23 — Claude (chassis tap probe)
+
+Does reading the palm-rest accelerometer need Input Monitoring? No. A throwaway app
+(`com.vish.visprflow.tapprobe`, hardened runtime, signed "Visprflow Dev", no grants), launched
+with `open` so it is its own responsible process, opened the usage-3 device and read it after
+writing the driver's three properties. Run from the shell, the same binary inherits the parent
+app's grants, so only the `open` run counts.
+
+Evidence: the probe's output, `open -W -n TapProbe.app`
+```
+{"accessibility":false,"device":"present","driverPropertyWrites":{"ReportInterval":0,"SensorPropertyPowerState":0,"SensorPropertyReportingState":0},"firstSampleG":[0.0863037109375,-0.5131988525390625,-0.857666015625],"inputMonitoringPreflight":false,"openStatus":"0x00000000","reportsIn3s":2395,"zRangeG":[-0.85833740234375,-0.8457794189453125]}
+```
+
+Evidence: the same probe before the driver writes (matched by a `Product` name this macOS doesn't set): `"openStatus":"0x00000000","reportsIn3s":0`. Opening alone streams nothing.
+
+## 2026-10-23 — Claude (chassis tap, step 1: the sensor)
+
+`SPUAccelerometer` reads the palm-rest accelerometer in the app: found by vendor page 0xFF00,
+usage 3 and a 22-byte report; the driver matched by usage 3; 800 Hz active, 100 Hz idle; a
+watchdog re-arms the driver if the rate sags below half. Not wired to anything yet.
+
+Evidence: `make verify-sensor`
+```
+PROBE sensor: active 796 Hz, idle 99 Hz, median 1.002 g
+	 Executed 1 test, with 0 failures (0 unexpected) in 6.342 (6.344) seconds
+```
+
+Evidence: `make test-class C=SPUAccelerometerTests` — `test-class: SPUAccelerometerTests passed` (3 tests).
+
+Evidence: `make test` — `Executed 467 tests, with 21 tests skipped and 0 failures`; `make release` — `** BUILD SUCCEEDED **`.
+

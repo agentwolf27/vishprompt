@@ -73,6 +73,13 @@ Tick one only when its VERIFY passes, not when someone says it is done.
 - [x] UI v2.5: the overlay's surface is one style choice: Liquid Glass on macOS 26 when built with its SDK, the thin material otherwise — `make test-class C=SurfaceStyleTests`
 - [x] UI v2.6: the menu bar icon shows recording, working, paused and needs-setup — `make test-class C=MenuBarIconTests`
 
+- [x] Tap 1: the palm-rest accelerometer is found only on Macs that have it, and its 22-byte reports parse to g — `make test-class C=SPUAccelerometerTests`
+- [x] Tap 1: a live read on this Mac gets about 800 reports a second when active and about 100 when idle, near 1 g at rest — `make verify-sensor`
+- [ ] Tap 2: on recorded samples a double tap fires once, and single taps, typing, trackpad clicks, setting the Mac down and lifting it fire nothing — `make test-class C=TapDetectorTests`
+- [ ] Tap 3: a double tap starts hands-free recording; a second double tap, the trigger key, Escape or silence ends it; off by default and hidden without the sensor; the capsule says a tap started it — `make test-class C=ChassisTapGestureTests`
+- [ ] Tap 3: sampling stops on screen lock, display sleep and battery under 10%, and idle sampling costs under 1% of a core — `make verify-tap-cpu`
+- [ ] Tap 4: the README explains the tap trigger, held until the LinkedIn post is out — `grep -q "palm rest" README.md`
+
 ## Later
 
 From plan.html's phases 3–5. docs/roadmap.html supersedes that plan and, with its twelve items shipped or declined, queues none of these yet.
@@ -368,3 +375,24 @@ The spec is Concept A in [docs/research/ui-concepts-2026-10-23.md](docs/research
 - **Sequencing.** This follows the finished speed plan, so no speed work touches these files at the same time.
 
 PLAN FROZEN: 2026-10-23 — UI v2 section. Signed Vish (chat: "self-merge and build the v2 UI").
+
+### Chassis tap trigger · 2026-10-23
+
+An optional second trigger: double-tap the palm rest beside the trackpad and recording starts hands-free. fn stays the main trigger. This one is off by default.
+
+- **The sensor.** Apple Silicon MacBooks from the M2 on have a motion sensor behind `AppleSPUHIDDevice`: vendor page 0xFF00, usage 3, 22-byte reports with x/y/z as little-endian Int32 at offsets 6, 10 and 14, in 1/65536 g. It is undocumented, read with public IOKit calls.
+- **The probe, on this Mac (Mac14,7, macOS 15.2).** A separate hardened app with no grants opened the device (`IOHIDDeviceOpen` returned 0). It read 2,395 reports in 3 s, about 1 g at rest, with Input Monitoring and Accessibility both off. **No new permission.** Opened alone, the device sends nothing; the driver must first be told to report, to power on and at what interval (`SensorPropertyReportingState`, `SensorPropertyPowerState`, `ReportInterval`), as every reference does. Those writes are what Vish allowed. On macOS 15.2 the drivers have no `Product` name, so the accelerometer's driver is matched by usage 3.
+- **Steps, one PR each:**
+  1. the sensor, gated on the device existing;
+  2. the detector, with recorded samples and a recorder;
+  3. the gesture, the setting and the power rules;
+  4. the README section, held until the LinkedIn post is out (2026-10-24, 10:00 PT).
+- **The gesture.** A double tap (two knocks 80–450 ms apart) is a new `chassisTap` event in `HotkeyGesture` that behaves like a toggle-mode press: from idle it starts a hands-free capture, and while hands-free it ends it. `DictationController` does not change how it records. Either side counts the same, because left and right are not reliably told apart. Stopping is a second double tap, the trigger key, Escape or the silence timeout. A single tap does nothing, because setting the Mac down looks like one.
+- **False triggers.** A knock within 0.4 s of a key press or a click is ignored, using the event tap the app already runs. A knock that rings long, or that comes with a change in the direction of gravity, means the Mac was moved, and is ignored. So is a third knock close behind a double, which is a burst rather than a gesture.
+- **Cost and power.** Sampling only while the setting is on and the app isn't paused; 100 Hz while quiet, 800 Hz for 2 s after movement; stopped on screen lock, display sleep and battery under 10%. Target under 1% of a core idle, measured.
+- **Never the microphone.** The microphone is not used to detect knocks: it records only while you dictate.
+- **Credit.** The approach follows MIT-licensed work: yu2001-s/TapTap (`SPUSensor.swift`) and mohammaddanyal/dott-tap (`KnockDetector.swift`: 13 Hz high-pass, adaptive floor, echo guard, idle rate). Credited in the file headers and NOTICE. The code is written here, not copied.
+- **Checked by hand:** double taps on both sides of the palm rest start and stop; typing fast, clicking, closing the lid and setting the Mac down do not.
+
+PLAN FROZEN: 2026-10-23 — chassis tap section. Signed Vish (chat: "allow the sensor property writes, run the probe, then build").
+
