@@ -22,3 +22,19 @@ no gain a user can see.
 Risk accepted: the `.app` file name changes. The grants are keyed on the identifier and the
 certificate, not the path, so they should survive `make install`; if they do not, they are two
 clicks to grant again.
+
+## D2 — Turn on the palm-rest accelerometer by writing its driver's properties · accepted · Vish · 2026-10-23
+
+The chassis tap trigger reads the undocumented motion sensor behind `AppleSPUHIDDevice`. Opened
+on its own it sends nothing; the driver (`AppleSPUHIDDriver`, usage 3) must be set to report,
+powered and given an interval, through `IORegistryEntrySetCFProperty`. These run as the user,
+need no admin password and no new permission, and touch only the accelerometer's driver, which
+resets itself when the app closes the device. Vish allowed it in chat: "allow the sensor property
+writes, run the probe, then build".
+
+Rejected: the microphone for knock detection, which would break the promise that it records only
+while you dictate; and leaving the feature out, which is what declining the writes would mean.
+
+Risk accepted: an undocumented device can change in a macOS update. The feature is off by
+default, hidden where the device is absent, and fails to "unavailable", never to a crash.
+

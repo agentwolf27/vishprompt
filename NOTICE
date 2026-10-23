@@ -1,0 +1,12 @@
+VishPrompt
+Copyright (c) 2026 Vishrut Malhotra. MIT License, see LICENSE.
+
+The chassis tap trigger (VishPrompt/Core/Tap/) follows the approach of these MIT-licensed
+projects. The code in this repository was written for it; none of theirs is copied.
+
+- TapTap, Copyright (c) 2026 yu2001-s. https://github.com/yu2001-s/TapTap
+  How to find, open and decode the SPU accelerometer (Sources/TapCore/SPUSensor.swift).
+- dott-tap, Copyright (c) 2026 Mohammad Danyal, OpenDott. https://github.com/mohammaddanyal/dott-tap
+  Knock detection: a ~13 Hz high-pass, an adaptive noise floor, an echo guard after each knock,
+  rejecting long rings and tilts as handling, and a low idle sample rate
+  (Sources/DottTap/Detection/KnockDetector.swift, Sources/DottTap/Sensor/AccelSensor.swift).
