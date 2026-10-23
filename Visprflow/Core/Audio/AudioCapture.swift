@@ -56,6 +56,8 @@ final class AudioCapture {
         var converter: ConverterBox?
         /// Peak amplitude of the most recent buffer, for the level meter.
         var level: Float = 0
+        /// Host time at which the most recent buffer's audio ends, from the tap's timestamp.
+        var lastBufferEnd: UInt64?
         /// Consecutive seconds below the silence threshold, for hands-free auto-stop.
         var silenceSeconds: TimeInterval = 0
         /// How much of `captured` the streaming transcriber has already been given.
@@ -201,18 +203,44 @@ final class AudioCapture {
         }
     }
 
-    /// How long to keep capturing after the key comes up.
+    /// The longest the post-roll waits.
     ///
     /// The tap delivers in 1024-frame buffers, so at key-up the last fraction of a second of
     /// speech has been spoken but not yet handed to us. Stopping immediately truncates the final
     /// word — the complaint every dictation app gets, and one Superwhisper shipped this same fix
-    /// for. Two buffer periods at 48 kHz is comfortably enough.
+    /// for. This used to be a fixed wait; it is now the ceiling for one that ends as soon as
+    /// the audio has actually arrived (see `postRollTail`), in case the tap's timestamps are
+    /// missing or the engine stalls.
     nonisolated static let postRollDuration: TimeInterval = 0.12
 
-    /// Stops accumulating and returns the captured samples at 16 kHz mono, after waiting for
-    /// the audio already spoken to arrive.
+    /// How much audio after key-up to wait for. People often let go of the key while the last
+    /// word is still trailing off; 40 ms keeps that tail without waiting the full ceiling.
+    nonisolated static let postRollTail: TimeInterval = 0.04
+
+    /// What the post-roll should take with a 48 kHz microphone: the tail, plus up to one
+    /// 1024-frame buffer still in flight. The latency harness has no microphone, so it waits
+    /// this long and says it is a model, not a measurement.
+    nonisolated static let expectedPostRoll: TimeInterval = postRollTail + 1024.0 / 48_000
+
+    /// True once the audio up to key-up plus the tail has arrived, or the ceiling has passed.
+    nonisolated static func postRollComplete(lastBufferEnd: UInt64?, keyUp: UInt64, waited: TimeInterval) -> Bool {
+        if waited >= postRollDuration { return true }
+        guard let lastBufferEnd else { return false }
+        return lastBufferEnd >= keyUp + AVAudioTime.hostTime(forSeconds: postRollTail)
+    }
+
+    /// Stops accumulating and returns the captured samples at 16 kHz mono, once the audio
+    /// already spoken has arrived: typically one or two tap buffers, about 20 to 45 ms, rather
+    /// than a fixed 120 ms.
     func stopAfterPostRoll() async -> [Float] {
-        try? await Task.sleep(for: .seconds(Self.postRollDuration))
+        let keyUp = mach_absolute_time()
+        let started = ContinuousClock.now
+        while true {
+            let waited = Trace.milliseconds(ContinuousClock.now - started) / 1000
+            let lastEnd = state.withLock { $0.lastBufferEnd }
+            if Self.postRollComplete(lastBufferEnd: lastEnd, keyUp: keyUp, waited: waited) { break }
+            try? await Task.sleep(for: .milliseconds(5))
+        }
         return stop()
     }
 
@@ -338,13 +366,17 @@ final class AudioCapture {
     /// EXC_BREAKPOINT, killing the app the moment recording starts. Creating the closure in a
     /// nonisolated context is what stops it inheriting that isolation.
     nonisolated private func makeTapBlock(target: AVAudioFormat) -> AVAudioNodeTapBlock {
-        { [weak self] buffer, _ in
-            self?.consume(buffer, target: target)
+        { [weak self] buffer, when in
+            self?.consume(buffer, when: when, target: target)
         }
     }
 
     /// Runs on the audio thread. Converts to 16 kHz mono and feeds the ring and the capture.
-    nonisolated private func consume(_ buffer: AVAudioPCMBuffer, target: AVAudioFormat) {
+    nonisolated private func consume(_ buffer: AVAudioPCMBuffer, when: AVAudioTime, target: AVAudioFormat) {
+        // When this buffer's audio ends, so the post-roll knows when key-up has been covered.
+        let bufferEnd: UInt64? = when.isHostTimeValid
+            ? when.hostTime + AVAudioTime.hostTime(forSeconds: Double(buffer.frameLength) / buffer.format.sampleRate)
+            : nil
         let ratio = target.sampleRate / buffer.format.sampleRate
         let capacity = AVAudioFrameCount(Double(buffer.frameLength) * ratio) + 1024
         guard let output = AVAudioPCMBuffer(pcmFormat: target, frameCapacity: capacity) else { return }
@@ -381,6 +413,7 @@ final class AudioCapture {
 
         state.withLock { state in
             state.level = peak
+            if let bufferEnd { state.lastBufferEnd = bufferEnd }
             state.ring.append(samples)
             if state.isCapturing {
                 state.captured.append(contentsOf: samples)
