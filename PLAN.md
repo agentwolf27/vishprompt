@@ -60,3 +60,25 @@ _Drafted by Pulse on 2026-09-04 from README, git log, docs and chat history. Evi
 - Audit fixes: crash, key-mapping, clipboard, probe-hang bugs resolved — git log: 'fix: stop the app crashing...', 'fix: bound the shell probes and cap...'
 - Now-tier latency fixes: pre-roll, post-roll, warm-up, exception trapping — commit 'feat: the "now" tier — first word, last word, first run, silent failures'
 - Next-tier robustness: device/wake recovery, pinned paste target, hung CLI handling — commit 'feat: the "next" tier — device changes, wrong-window pastes, a hung CLI'
+
+### Claude (research session) · round 1 · 2026-10-23 — proposal: what to build next
+
+Proposed, not frozen. This is two to four weeks of work, so it gets argued here (plan-together) before anything is dispatched. Nothing above is ticked or changed by it. Research, sources and scoring: [docs/research/next-features-2026-10-23.md](docs/research/next-features-2026-10-23.md).
+
+Top three:
+- **R1 — Speak-to-transform and Smart Paste.** Read the selection and a local clipboard history at key-down. Speak an edit over the selection, or compile the clipboard for its destination. Secrets are redacted on-device before any provider call.
+- **R2 — Nothing leaves, proven.** An on-device rewrite through Apple Foundation Models (macOS 26, opt-in). A history window showing the exact request sent. An egress test that fails on any outbound connection in local mode.
+- **R3 — Public eval and latency harness.** 40 golden cases, per-provider metrics, and an independent re-run of the end-of-speech → text-in-field benchmark.
+
+Proposed outcomes. None of these targets exist yet. Each would become a `Done looks like` line only once frozen.
+- Licence file added — `test -f LICENSE`
+- Golden set reaches 40 cases (already a line above)
+- `make eval` writes per-provider metrics — `make eval`
+- End-of-speech → field latency, 20 trials — `make verify-latency`
+- Selection read, clipboard store, smart paste, clip recall and redaction, each with tests — `make test`
+- On-device provider behind `TextGenerating` — `grep -rq FoundationModelsGenerator Visprflow/Core/Compile`
+- History window — `grep -rq HistoryView Visprflow/UI`
+- No egress in local mode — `make verify-egress`
+- Memory ceiling still holds — `make verify-memory`
+
+Conflict to settle first: snippets (ranked idea 12) are under *Out of scope* above. They are not in the top three.
