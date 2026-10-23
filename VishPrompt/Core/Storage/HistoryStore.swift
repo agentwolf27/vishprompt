@@ -91,6 +91,55 @@ enum HistoryFormat {
         return first.count > 80 ? String(first.prefix(79)) + "…" : first
     }
 
+    /// The second line of a row: where it went, when, and what left the Mac.
+    /// "→ Claude Code · 2 min ago · stayed on this Mac". An ending other than an insert is
+    /// named last, so a cancelled row never reads as if it landed.
+    static func rowLine(_ record: DictationRecord, now: Date = Date(), calendar: Calendar = .current) -> String {
+        var parts = ["→ \(destinationName(record.destination))", when(record.createdAt, now: now, calendar: calendar), left(record)]
+        if record.status != .inserted { parts.append(status(record.status).lowercased()) }
+        return parts.joined(separator: " · ")
+    }
+
+    /// A destination id as the user named it in Settings, or the id itself for one since removed.
+    static func destinationName(_ id: String) -> String {
+        Destination.all.first(where: { $0.id == id })?.displayName ?? id
+    }
+
+    /// Roughly when, the way a person says it. Exact time is in the detail pane.
+    static func when(_ date: Date, now: Date = Date(), calendar: Calendar = .current) -> String {
+        let seconds = now.timeIntervalSince(date)
+        if seconds < 60 { return "just now" }
+        if seconds < 3600 { return "\(Int(seconds / 60)) min ago" }
+        if calendar.isDate(date, inSameDayAs: now) { return "\(Int(seconds / 3600)) h ago" }
+        if let yesterday = calendar.date(byAdding: .day, value: -1, to: now),
+           calendar.isDate(date, inSameDayAs: yesterday) { return "yesterday" }
+        return date.formatted(.dateTime.day().month(.abbreviated))
+    }
+
+    /// `sentLine`, short enough for a row.
+    static func left(_ record: DictationRecord) -> String {
+        switch record.provider {
+        case nil: "not recorded"
+        case "local": "stayed on this Mac"
+        case let raw?: "sent to \(ProviderChoice(rawValue: raw)?.destinationPhrase ?? raw)"
+        }
+    }
+
+    /// What Return pastes and ⌘C copies: what came out, or what was said when nothing did.
+    static func reusableText(_ record: DictationRecord) -> String? {
+        for text in [record.compiledText, record.rawTranscript] {
+            if let text, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return text }
+        }
+        return nil
+    }
+
+    /// History keeps a secret as "[redacted API key]", never the value, so reusing a row
+    /// pastes the label. Said beside the result rather than discovered in the target app.
+    static func redactionNote(_ text: String) -> String? {
+        guard text.range(of: #"\[redacted [^\]\n]{1,40}\]"#, options: .regularExpression) != nil else { return nil }
+        return "A secret was removed before this was saved, so it pastes as “[redacted …]”. Put the value back by hand."
+    }
+
     /// Key-up to the last thing that happened, the figure that matters to the user.
     static func total(_ timings: [StageTimingRecord]) -> String? {
         guard let keyUp = timings.first(where: { $0.stage == Stage.keyUp.rawValue }),
