@@ -698,11 +698,11 @@ final class DictationController {
             text = read.text
         case .empty:
             show(.failed(message: HUDCopy.emptyClipboard))
-            hide(after: 3.0)
+            hide(after: HUDCopy.rescueDuration)
             return
         case let .refused(reason):
             show(.failed(message: reason.message))
-            hide(after: 3.0)
+            hide(after: HUDCopy.rescueDuration)
             return
         }
 
@@ -725,7 +725,7 @@ final class DictationController {
             }
         } catch let error as SmartPasteError {
             show(.failed(message: error.localizedDescription))
-            hide(after: 5.0)
+            hide(after: HUDCopy.rescueDuration)
             return
         } catch where Self.isCancellation(error) {
             throw error
@@ -1135,7 +1135,7 @@ final class DictationController {
         clearPending()
         show(.failed(message: message))
         // Secure input leaves the transcript on the clipboard, so that message needs longer.
-        hide(after: words != nil || error is InsertionError ? HUDCopy.rescueDuration : 2.5)
+        hide(after: HUDCopy.rescueDuration)
         Log.app.error("Dictation failed: \(message, privacy: .public)")
     }
 

@@ -7,8 +7,9 @@ import Foundation
 /// insert leaves the text somewhere the user can get it: a dictation that vanished after two
 /// seconds is lost work, and the history database is not something anyone can see yet.
 enum HUDCopy {
-    /// How long a message that carries rescued text stays up.
-    static let rescueDuration: TimeInterval = 4.0
+    /// How long an error card stays up: until the next key-down, or this long. Six seconds,
+    /// from the v2 concept: long enough to read a cause and its way out once.
+    static let rescueDuration: TimeInterval = 6.0
 
     static func focusMoved(to destination: String, isPaste: Bool) -> String {
         isPaste

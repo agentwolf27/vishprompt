@@ -37,6 +37,8 @@ struct CapsuleModel: Equatable, Sendable {
         case mode(HUDMode)
         case inserted
         case cancelled
+        /// Something did not land; the card under the capsule says why.
+        case failed
     }
 
     var glyph: Glyph
@@ -58,13 +60,33 @@ struct CapsuleModel: Equatable, Sendable {
     static let minimumWidth: Double = 280
     static let maximumWidth: Double = 460
 
-    /// The capsule for a state, or nil when the state needs a card instead (a preview or an
-    /// error) or nothing at all.
+    /// The capsule for a state, or nil when nothing is shown. A preview or an error also gets
+    /// a card under the capsule (`HUDLayout.showsCard`).
     static func make(_ state: HUDState, context: HUDContext) -> CapsuleModel? {
         let into = context.app.map { "into \($0)" }
         switch state {
-        case .hidden, .preview, .failed:
+        case .hidden:
             return nil
+
+        case let .preview(model):
+            let ready: String
+            switch model.mode {
+            case .paste: ready = "Ready to paste"
+            case .edit: ready = "Ready to replace"
+            case .dictate, .fix: ready = "Ready to insert"
+            }
+            return CapsuleModel(
+                glyph: .mode(model.mode),
+                destination: "into \(model.destination)",
+                meter: nil,
+                working: model.isStale,
+                timer: context.takeSeconds.map(clock),
+                status: model.isStale ? "Rewriting at a different level" : ready,
+                liveWords: nil
+            )
+
+        case .failed:
+            return CapsuleModel(glyph: .failed, destination: into, meter: nil, working: false, timer: nil, status: "Didn't land", liveWords: nil)
 
         case let .listening(level, seconds, locked, partial, mode, app):
             let status: String
@@ -130,4 +152,22 @@ struct CapsuleModel: Equatable, Sendable {
         let whole = max(0, Int(seconds))
         return String(format: "%d:%02d", whole / 60, whole % 60)
     }
+}
+
+/// Which surfaces a state uses, and how the card arrives.
+enum HUDLayout {
+    /// The card is for decisions: a preview to accept, or an error to read.
+    static func showsCard(_ state: HUDState) -> Bool {
+        switch state {
+        case .preview, .failed: true
+        default: false
+        }
+    }
+
+    /// From the concept: 480 pt wide, dropping from the capsule.
+    static let cardWidth: Double = 480
+    /// The drop is a 180 ms spring; under Reduce Motion a plain crossfade.
+    static let dropDuration: Double = 0.18
+
+    static func cardArrivesByCrossfade(reduceMotion: Bool) -> Bool { reduceMotion }
 }
