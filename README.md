@@ -6,23 +6,52 @@ Hold `fn`, talk, release. The best possible prompt for wherever your cursor is l
 field. A prompt compiler for Claude Code, Cursor, claude.ai, Slack and email, running as a
 native macOS menu bar app with on-device speech recognition.
 
+![Hold fn and talk: a capsule shows your words, then a card with the compiled prompt drops below it](docs/ui/v2/overlay.gif)
+
+*Rendered from the app's own SwiftUI views: you hold fn and talk, it rewrites, the card waits for Return, and the text lands.*
+
 The plan, the research behind it and the phase breakdown are in [docs/plan.html](docs/plan.html).
+
+## What it looks like
+
+A small capsule hangs under the menu bar while you talk. It shows the mode, where the text is
+going, the level, the time, and your words as they are heard. When something needs a decision,
+a card drops below it: the compiled prompt, what you said, and what left your Mac.
+
+| Talking | Deciding |
+|---|---|
+| ![The capsule while recording into Slack, with live words](docs/ui/v2/capsule-2-live-words.png) | ![The card with a compiled prompt for Claude Code](docs/ui/v2/card-1-preview.png) |
+| ![The capsule after the text landed in Claude Code, not sent](docs/ui/v2/capsule-6-agent.png) | ![The card when something went wrong, naming the cause and the next step](docs/ui/v2/card-3-error.png) |
+
+On a MacBook with a notch, the capsule splits into two black lobes either side of the camera
+housing instead. Elsewhere it's the capsule above, and a notch is never drawn where there isn't
+one. On macOS 26 the capsule and card are Liquid Glass when built with Xcode 26.
+
+![The notch lobes while rewriting: mode and destination left of the camera, the time right of it](docs/ui/v2/notch-2-rewriting.png)
+
+The menu bar icon follows along: a mic when ready, a waveform while recording, an ellipsis
+while it works, a pause symbol when paused, and a warning triangle when setup is unfinished.
+⌘Y opens History: what you said, where it went, when, and what left the Mac. Return pastes a
+row again, and ⌘C copies it.
 
 ## Status
 
-Phases 0 through 3 are built, plus most of the phase 4 and 5 polish. 177 tests pass. The app
+Phases 0 through 3 are built, plus most of the phase 4 and 5 polish. 463 tests run with no failures. 20 of them are slower opt-in
+suites (speech, OCR, latency, a live sign-in) that run with their own `make verify-*` targets. The app
 is installed at `~/Applications/VishPrompt.app`.
 
 | Working | Not yet |
 |---|---|
 | Hold-to-talk, double-tap for hands-free, Escape to cancel | Streaming cloud speech recognition (phase 4) |
 | On-device transcription with Parakeet v3 | Groq as a faster rewrite provider |
-| Three rewrite providers: local, subscription, API key | |
-| Destination detection and per-destination instructions | Selected text and screen OCR as context |
-| Prompt compilation with guardrails and a raw fallback | Snippets and a prompt library |
-| Preview with Return to insert, Tab to change level | Notarised distribution and Sparkle updates |
+| Three rewrite providers: local, subscription, API key | Snippets and a prompt library |
+| Destination detection and per-destination instructions | Notarised distribution and Sparkle updates |
+| Prompt compilation with guardrails and a raw fallback | Selected text and screen text as automatic context |
+| Preview with Return to insert, Tab to change level | |
 | Smart Paste: hold the trigger, press V, say how | |
+| Edit a selection: hold the trigger, press R, say how | |
 | Screenshots read on this Mac into bug prompts | |
+| History with paste again, and a live menu bar icon | |
 | Repository vocabulary from your git workspace | |
 
 ## What you have to do first
