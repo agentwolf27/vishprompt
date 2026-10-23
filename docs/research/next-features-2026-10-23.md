@@ -26,9 +26,9 @@ This is research and planning only: no app code was changed, and every web sourc
 **3. Pastly is Pastely, at pastely.click.** Vish confirmed the product on 2026-10-23 [PA0]. No Mac productivity tool is named exactly "Pastly".
 - **Pastely ("AI Smart Paste"):** a menu-bar app. Copy as usual, press ⌘⇧V, and the clip is reformatted for the app, window and browser tab you are in, with no per-app setup. Text you type in the field first is taken as an instruction ("turn this into bullet points"). Return pastes the preview and Esc cancels. ⌘⇧H searches past transforms. It takes text and images (screenshots, receipts) and runs on macOS 13+, Apple silicon and Intel; Windows has a waitlist. Free gives 4 transforms; Pro is $9/mo for 500 transforms a month, or $49/yr. It needs a Google sign-in. The page does not say which model runs or whether processing is local, so treat it as **cloud, UNVERIFIED** [PA0].
 - Other apps with similar names:
-- **Pasly:** a local clipboard manager with no AI, $9.99 one-time [PA2].
-- **Pastily:** an offline clipboard manager, $8.99–14.99 one-time [PA3].
-- "Clipboard Manager – Pastely" is a sync clipboard app [PA3]. Two MIT-licensed GitHub clipboard managers are also called Pastely [PA6]. None of these is the one Vish saw.
+  - **Pasly:** a local clipboard manager with no AI, $9.99 one-time [PA2].
+  - **Pastily:** an offline clipboard manager, $8.99–14.99 one-time [PA3].
+  - "Clipboard Manager – Pastely" is a sync clipboard app [PA3]. Two MIT-licensed GitHub clipboard managers are also called Pastely [PA6]. None of these is the one Vish saw.
 - The earlier directory listing [PA1] had Pastely's Pro at $20/mo. Its own site says $9/mo, so the listing is superseded.
 
 **4. Is Visprflow + Pastely a sharper product?** Not as a clipboard manager. That space is crowded:
