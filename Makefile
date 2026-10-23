@@ -4,7 +4,7 @@ DERIVED   := build
 APP       := $(DERIVED)/Build/Products/Debug/VishPrompt.app
 XCB       := xcodebuild -project $(PROJECT) -scheme $(SCHEME) -destination 'platform=macOS' -derivedDataPath $(DERIVED)
 
-.PHONY: gen regen build test test-class verify-test-can-fail verify-test-class-can-fail verify-ocr verify-sensor verify-latency verify-stt verify-streaming verify-subscription verify-memory run release install clean logs
+.PHONY: gen regen build test test-class verify-test-can-fail verify-test-class-can-fail verify-ocr verify-sensor record-taps verify-latency verify-stt verify-streaming verify-subscription verify-memory run release install clean logs
 
 ## Every recipe that filters xcodebuild through grep starts with `set -o pipefail`, so the
 ## pipeline reports xcodebuild's status rather than grep's. These targets used to end in
@@ -76,6 +76,13 @@ verify-ocr: gen
 ## Read the real palm-rest accelerometer for a few seconds. Needs an M2-or-later MacBook.
 verify-sensor: gen
 	TEST_RUNNER_VISHPROMPT_SENSOR=1 scripts/test-class.sh SPUAccelerometerLiveTests $(XCB)
+
+## Guided recording of real palm-rest taps, typing, clicks and handling into Fixtures/taps/,
+## for TapDetectorTests. Run it in a terminal and follow the prompts. ONLY=<scenario> redoes one.
+record-taps:
+	@mkdir -p build
+	swiftc -O -o build/record-taps scripts/record-taps/main.swift VishPrompt/Core/Tap/SPUAccelerometer.swift VishPrompt/Core/Logging/Log.swift
+	build/record-taps Fixtures/taps $(ONLY)
 
 ## Time the real key-up path on the Release build: 20 runs, median and p90, raw rows in
 ## build/latency/. Needs the speech models (downloaded on first run). See LatencyHarnessTests.
