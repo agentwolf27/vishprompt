@@ -46,6 +46,7 @@ enum Keychain {
     }
 
     static func set(_ value: String, for key: SecretKey) throws {
+        defer { if key == .anthropicAPIKey { APIKeyCache.shared.invalidate() } }
         let data = Data(value.utf8)
         let query = baseQuery(for: key)
         // Set accessibility on update as well, so an item written by an older build is corrected.
@@ -70,6 +71,7 @@ enum Keychain {
     }
 
     static func delete(_ key: SecretKey) throws {
+        defer { if key == .anthropicAPIKey { APIKeyCache.shared.invalidate() } }
         let status = SecItemDelete(baseQuery(for: key) as CFDictionary)
         guard status == errSecSuccess || status == errSecItemNotFound else {
             throw Failure(status: status)
