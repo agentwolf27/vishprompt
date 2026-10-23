@@ -94,10 +94,9 @@ struct DestinationSettingsView: View {
                         get: { draft.strategy ?? destination.strategy },
                         set: { draft.strategy = $0 }
                     )) {
-                        Text("Paste (⌘V)").tag(InsertionStrategy.paste)
-                        Text("Paste (⇧Insert, for Electron terminals)").tag(InsertionStrategy.pasteShiftInsert)
-                        Text("Replace the selection directly").tag(InsertionStrategy.accessibility)
-                        Text("Type character by character").tag(InsertionStrategy.typing)
+                        ForEach(InsertionStrategy.allCases, id: \.self) { strategy in
+                            Text(UICopy.insertionLabel(strategy)).tag(strategy)
+                        }
                     }
                 }
 
@@ -122,11 +121,7 @@ struct DestinationSettingsView: View {
     }
 
     private func summary(for item: Destination) -> String {
-        let override = settings.override(for: item.id)
-        if let instructions = override?.instructions, !instructions.isEmpty {
-            return "Custom instructions"
-        }
-        return item.defaultLevel.displayName
+        UICopy.destinationSubtitle(item, override: settings.override(for: item.id))
     }
 
     private func placeholder(for destination: Destination) -> String {

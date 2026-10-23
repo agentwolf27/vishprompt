@@ -22,9 +22,9 @@ enum ProviderChoice: String, Codable, Sendable, CaseIterable {
         case .local:
             "Instant and free. Removes fillers and stutters, applies spoken punctuation, fixes capitalisation. Cannot resolve a self-correction, so those go to a model."
         case .subscription:
-            "The same models, billed against your Claude plan rather than per token. Roughly 3 seconds to the first word and 6 to 10 to finish, so it suits a compiled prompt you preview rather than a quick message."
+            "The same models, billed against your Claude plan rather than per token. Slower, so it suits a compiled prompt you preview rather than a quick message."
         case .apiKey:
-            "Fastest: about 0.7 seconds to the first word. Costs a fraction of a cent per dictation."
+            "The fastest option. Costs a fraction of a cent per dictation."
         }
     }
 
@@ -32,8 +32,8 @@ enum ProviderChoice: String, Codable, Sendable, CaseIterable {
     var latencyNote: String {
         switch self {
         case .local: "instant"
-        case .subscription: "3–10 s"
-        case .apiKey: "1–2 s"
+        case .subscription: "first words ≈3 s · done in 6–10 s"
+        case .apiKey: "first words ≈1 s · done in 1–2 s"
         }
     }
 }

@@ -13,7 +13,9 @@ final class SetupWindowController: NSWindowController, NSWindowDelegate {
         let window = NSWindow(contentViewController: host)
         window.title = "Visprflow Setup"
         window.styleMask = [.titled, .closable, .miniaturizable]
-        window.setContentSize(NSSize(width: 560, height: 640))
+        // Matches the content's minimum (580 × 680), so the window opens at a size the
+        // content does not immediately fight.
+        window.setContentSize(NSSize(width: 580, height: 680))
         window.isReleasedWhenClosed = false
         window.center()
         super.init(window: window)
