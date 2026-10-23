@@ -7,13 +7,14 @@ import SwiftUI
 /// category, English only, with no way to say "in Slack keep it lowercase" or "for Claude Code
 /// always ask for a plan when more than one file changes".
 struct DestinationSettingsView: View {
-    @State private var settings = DestinationSettings()
-    @State private var selection: String = Destination.claudeCode.id
-    @State private var draft = DestinationOverride()
+    /// Saves every change as it is made: no Save button, and nothing lost by switching rows.
+    @State private var editor = DestinationEditor()
 
     private var destination: Destination {
-        Destination.named(selection) ?? .document
+        Destination.named(editor.selection) ?? .document
     }
+
+    private var draft: DestinationOverride { editor.current }
 
     var body: some View {
         HSplitView {
@@ -21,12 +22,13 @@ struct DestinationSettingsView: View {
             detail
         }
         .frame(minWidth: 720, minHeight: 460)
-        .onAppear { loadDraft() }
-        .onChange(of: selection) { loadDraft() }
     }
 
     private var list: some View {
-        List(Destination.all, id: \.id, selection: $selection) { item in
+        List(Destination.all, id: \.id, selection: Binding(
+            get: { editor.selection },
+            set: { if let id = $0 { editor.select(id) } }
+        )) { item in
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.displayName).font(.body)
                 Text(summary(for: item))
@@ -56,7 +58,7 @@ struct DestinationSettingsView: View {
                         .foregroundStyle(.secondary)
                     TextEditor(text: Binding(
                         get: { draft.instructions ?? "" },
-                        set: { draft.instructions = $0 }
+                        set: { value in editor.update { $0.instructions = value } }
                     ))
                     .font(.body.monospaced())
                     .frame(minHeight: 110)
@@ -72,7 +74,7 @@ struct DestinationSettingsView: View {
 
                     Picker("Edit level", selection: Binding(
                         get: { draft.defaultLevel ?? destination.defaultLevel },
-                        set: { draft.defaultLevel = $0 }
+                        set: { value in editor.update { $0.defaultLevel = value } }
                     )) {
                         ForEach(EditLevel.allCases, id: \.self) { level in
                             Text(level.displayName).tag(level)
@@ -84,7 +86,7 @@ struct DestinationSettingsView: View {
 
                     Toggle("Show a preview before inserting", isOn: Binding(
                         get: { draft.requiresPreview ?? destination.requiresPreview },
-                        set: { draft.requiresPreview = $0 }
+                        set: { value in editor.update { $0.requiresPreview = value } }
                     ))
                     Text("Worth the keystroke where a wrong prompt costs more than a wrong message.")
                         .font(.caption)
@@ -92,7 +94,7 @@ struct DestinationSettingsView: View {
 
                     Picker("Insertion", selection: Binding(
                         get: { draft.strategy ?? destination.strategy },
-                        set: { draft.strategy = $0 }
+                        set: { value in editor.update { $0.strategy = value } }
                     )) {
                         ForEach(InsertionStrategy.allCases, id: \.self) { strategy in
                             Text(UICopy.insertionLabel(strategy)).tag(strategy)
@@ -101,10 +103,11 @@ struct DestinationSettingsView: View {
                 }
 
                 HStack {
-                    Button("Save") { save() }
-                        .keyboardShortcut(.return)
-                    Button("Reset to defaults") { reset() }
+                    Button("Reset to defaults") { editor.reset() }
                     Spacer()
+                    Text("Changes save as you make them.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
             .padding(24)
@@ -121,7 +124,9 @@ struct DestinationSettingsView: View {
     }
 
     private func summary(for item: Destination) -> String {
-        UICopy.destinationSubtitle(item, override: settings.override(for: item.id))
+        // The selected row reads the editor, which SwiftUI observes, so its subtitle follows
+        // each edit; the others read what is saved.
+        UICopy.destinationSubtitle(item, override: item.id == editor.selection ? editor.current : editor.override(for: item.id))
     }
 
     private func placeholder(for destination: Destination) -> String {
@@ -135,23 +140,5 @@ struct DestinationSettingsView: View {
         default:
             "For example: keep sentences short."
         }
-    }
-
-    private func loadDraft() {
-        draft = settings.override(for: selection) ?? DestinationOverride()
-    }
-
-    private func save() {
-        var value = draft
-        if value.instructions?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == true {
-            value.instructions = nil
-        }
-        settings.setOverride(value, for: selection)
-        Log.app.info("Saved settings for \(self.selection, privacy: .public)")
-    }
-
-    private func reset() {
-        settings.setOverride(nil, for: selection)
-        draft = DestinationOverride()
     }
 }
