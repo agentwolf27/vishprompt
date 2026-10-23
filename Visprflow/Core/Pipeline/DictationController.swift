@@ -231,6 +231,19 @@ final class DictationController {
             }
 
         case let .discardCapture(reason):
+            // A long recording cancelled by Escape is kept: transcribed, saved, copied.
+            let heldFor = elapsed
+            if reason == .escape, HUDCopy.keepsCancelled(seconds: heldFor) {
+                let samples = capture.stop()
+                stopMeter()
+                livePartial = ""
+                Task { [streaming] in await streaming.cancel() }
+                clearPending()
+                pasteRead = nil
+                keepCancelled(samples)
+                Log.app.info("Long dictation cancelled after \(Int(heldFor), privacy: .public)s; keeping the transcript")
+                return
+            }
             capture.discard()
             stopMeter()
             livePartial = ""
@@ -413,6 +426,36 @@ final class DictationController {
         } catch {
             // The words were heard; a provider failing must not lose them.
             report(error, rescuing: pasteForThisRun == nil ? spokenForThisRun : nil)
+        }
+    }
+
+    /// Transcribes a long recording the user cancelled, saves it as cancelled and copies it.
+    private func keepCancelled(_ samples: [Float]) {
+        show(.transcribing)
+        activeWork?.cancel()
+        activeWork = Task { [weak self] in
+            guard let self else { return }
+            do {
+                let transcript = try await self.transcriber.transcribe(samples: samples, hints: .none)
+                guard !transcript.isEmpty else {
+                    self.show(.failed(message: "Cancelled"))
+                    self.hide(after: 0.8)
+                    return
+                }
+                TextRescue.copy(transcript.text)
+                self.record(
+                    transcript: transcript,
+                    compiled: CompiledPrompt(text: transcript.text, level: .verbatim),
+                    destination: .document,
+                    status: .cancelled
+                )
+                self.show(.failed(message: HUDCopy.cancelledKept))
+                self.hide(after: HUDCopy.rescueDuration)
+            } catch where Self.isCancellation(error) {
+            } catch {
+                self.show(.failed(message: "Cancelled"))
+                self.hide(after: 0.8)
+            }
         }
     }
 
@@ -749,7 +792,17 @@ final class DictationController {
             )
             return
         }
-        try await inserter.insert(compiled.text, strategy: destination.strategy)
+        do {
+            try await inserter.insert(compiled.text, strategy: destination.strategy)
+        } catch let error as InsertionError {
+            if case .secureInputActive = error { throw error }
+            // The paste itself failed. Hand the text back rather than losing it.
+            if paste == nil { TextRescue.copy(compiled.text) }
+            show(.failed(message: HUDCopy.insertFailed(error.localizedDescription, isPaste: paste != nil)))
+            hide(after: HUDCopy.rescueDuration)
+            record(transcript: transcript, compiled: compiled, destination: destination, status: .failed, paste: paste)
+            return
+        }
         trace.mark(.inserted)
         show(.inserted(characters: compiled.text.count))
         hide(after: 1.0)
@@ -901,6 +954,8 @@ final class DictationController {
            !(error is InsertionError) {
             TextRescue.copy(words)
             message = HUDCopy.failedWithWordsCopied(message)
+        } else {
+            message = HUDCopy.sentence(message)
         }
         // Critical: an error while a preview is up must release the preview keys. Leaving
         // them captured swallows Return, Tab, Escape and R across every app, with no visible
