@@ -35,7 +35,15 @@ enum ProcessTree {
 
     /// Walks the descendants of `pid`, preferring an agent and falling back to the deepest shell.
     static func foreground(under pid: Int32, entries: [Entry]? = nil) -> Foreground? {
-        let table = entries ?? snapshot()
+        // In-process first: only the processes under the terminal, no `ps` launch. The whole
+        // `ps` table stays as the fallback for a system where libproc returns nothing.
+        let table: [Entry]
+        if let entries {
+            table = entries
+        } else {
+            let direct = ProcessInspector.descendants(of: pid)
+            table = direct.isEmpty ? snapshot() : direct
+        }
         guard !table.isEmpty else { return nil }
 
         var childrenByParent: [Int32: [Entry]] = [:]

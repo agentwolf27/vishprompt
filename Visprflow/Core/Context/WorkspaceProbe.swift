@@ -17,8 +17,14 @@ struct WorkspaceContext: Sendable, Equatable {
 /// This is what lets a dictation know the project's own words. It is the difference between
 /// the transcript coming back as "aut midway" and as "auth middleware".
 enum WorkspaceProbe {
-    /// Working directory of a process, via lsof.
+    /// Working directory of a process: read in-process, falling back to `lsof`.
     static func workingDirectory(of pid: Int32) -> URL? {
+        if let direct = ProcessInspector.workingDirectory(of: pid) { return direct }
+        return workingDirectoryViaLsof(of: pid)
+    }
+
+    /// The old path: launch `lsof` and parse its output. Kept as the fallback.
+    static func workingDirectoryViaLsof(of pid: Int32) -> URL? {
         let output = run("/usr/sbin/lsof", ["-a", "-p", String(pid), "-d", "cwd", "-Fn"])
         // Output is one field per line; the path line starts with "n".
         for line in output.split(separator: "\n") where line.hasPrefix("n") {
