@@ -54,10 +54,10 @@ final class HUDCopyTests: XCTestCase {
 
     func testRoutingNamesTheEscalation() {
         let policy = ProviderPolicy(fastPath: .local, compilePath: .subscription)
-        XCTAssertEqual(RoutingGenerator.choice(policy: policy, level: .light, transcript: "send the link"), .init(provider: .local, escalated: false))
-        XCTAssertEqual(RoutingGenerator.choice(policy: policy, level: .light, transcript: "at nine no wait eleven"), .init(provider: .subscription, escalated: true))
-        XCTAssertEqual(RoutingGenerator.choice(policy: policy, level: .full, transcript: "anything"), .init(provider: .subscription, escalated: false))
-        XCTAssertEqual(RoutingGenerator.choice(policy: .offline, level: .light, transcript: "no wait"), .init(provider: .local, escalated: false))
+        XCTAssertEqual(RoutingGenerator.choice(policy: policy, level: .light, transcript: "send the link", apiKeyAvailable: false), .init(provider: .local, escalated: false))
+        XCTAssertEqual(RoutingGenerator.choice(policy: policy, level: .light, transcript: "at nine no wait eleven", apiKeyAvailable: false), .init(provider: .subscription, escalated: true))
+        XCTAssertEqual(RoutingGenerator.choice(policy: policy, level: .full, transcript: "anything", apiKeyAvailable: false), .init(provider: .subscription, escalated: false))
+        XCTAssertEqual(RoutingGenerator.choice(policy: .offline, level: .light, transcript: "no wait", apiKeyAvailable: true), .init(provider: .local, escalated: false))
     }
 
     // MARK: Q1, raw errors become a cause and a next step
