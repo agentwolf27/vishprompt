@@ -14,6 +14,11 @@ struct Compiler: PromptCompiling {
     var guardrails: Guardrails = .default
     /// Whether a rejected attempt is retried at a lower level before falling back to raw text.
     var retriesOnce = true
+    /// When set, a rejected attempt is retried here, as a LIGHT cleanup on this Mac, instead of
+    /// with a second model call. A rejection means the model misbehaved; asking it again costs
+    /// another 1 to 10 seconds for a result the local rules produce in microseconds. Not used
+    /// when the transcript holds a self-correction, which only a model can resolve.
+    var localRetry: (any TextGenerating)?
 
     /// One generator for every level, which is what the tests use.
     init(generator: any TextGenerating, guardrails: Guardrails = .default) {
@@ -25,6 +30,7 @@ struct Compiler: PromptCompiling {
     init(policy: ProviderPolicy, guardrails: Guardrails = .default) {
         self.generatorForLevel = { level in RoutingGenerator(policy: policy, level: level) }
         self.guardrails = guardrails
+        self.localRetry = LocalGenerator()
     }
 
     /// Reads the policy on every request, so a provider changed in Settings applies to the next
@@ -32,6 +38,7 @@ struct Compiler: PromptCompiling {
     init(policySource: @escaping @Sendable () -> ProviderPolicy, guardrails: Guardrails = .default) {
         self.generatorForLevel = { level in RoutingGenerator(policy: policySource(), level: level) }
         self.guardrails = guardrails
+        self.localRetry = LocalGenerator()
     }
 
     func compile(
@@ -91,6 +98,17 @@ struct Compiler: PromptCompiling {
             firstRejection = firstRejection ?? verdict.reason
             Log.compile.error("Guardrail rejected \(attempt.level.rawValue, privacy: .public) output: \(verdict.reason ?? "unknown", privacy: .public)")
 
+            if round == 0, retriesOnce, let localRetry, !LocalCleanup.needsModel(transcript),
+               let local = try await localAttempt(localRetry, request: attempt, transcript: transcript, onPartial: onPartial) {
+                return CompiledPrompt(
+                    text: local,
+                    level: .light,
+                    usedRawFallback: false,
+                    guardrailReason: firstRejection,
+                    requestJSON: generation.auditJSON()
+                )
+            }
+
             let lower = attempt.level.lowered
             // Nothing left to step down to, so stop here and use the transcript.
             if round == 0, lower != attempt.level, lower != .verbatim {
@@ -113,6 +131,30 @@ struct Compiler: PromptCompiling {
     }
 }
 
+
+extension Compiler {
+    /// A LIGHT cleanup on this Mac, checked by the same guardrails. Nil if even that fails.
+    private func localAttempt(
+        _ generator: any TextGenerating,
+        request: CompileRequest,
+        transcript: String,
+        onPartial: @escaping @Sendable (String) -> Void
+    ) async throws -> String? {
+        var light = request
+        light.level = .light
+        let generation = GenerationRequest(
+            system: SystemPrompt.core,
+            user: SystemPrompt.userMessage(for: light),
+            model: ModelChoice.forLevel(.light),
+            maxTokens: SystemPrompt.maxTokens(for: transcript)
+        )
+        let output = try await generator.generate(generation) { delta in onPartial(delta) }
+        let verdict = guardrails.check(output: output, transcript: transcript, vocabulary: light.vocabulary + light.guardrailTerms)
+        guard verdict.passed else { return nil }
+        Log.compile.info("Retried on this Mac instead of a second model call")
+        return output.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
 
 /// Accumulates streamed deltas for one attempt.
 private final class PartialText: @unchecked Sendable {
