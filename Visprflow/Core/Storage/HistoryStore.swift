@@ -49,7 +49,7 @@ enum HistoryFormat {
     static func sentLine(_ record: DictationRecord) -> String {
         switch record.provider {
         case nil:
-            "Not recorded: this dictation is from before Visprflow kept track"
+            "Not recorded: this dictation is from before VishPrompt kept track"
         case "local":
             "Stayed on this Mac"
         case let raw?:

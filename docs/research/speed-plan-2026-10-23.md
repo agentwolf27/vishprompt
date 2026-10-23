@@ -1,4 +1,4 @@
-# Visprflow speed plan — 2026-10-23
+# VishPrompt speed plan — 2026-10-23
 
 Read-only review of `dev` at e181842 (2026-09-08); nothing built, run or edited in the repo.
 Sources: code (file:line on `dev`), repo docs, the app's history DB (read-only, timing rows only),
@@ -170,7 +170,7 @@ make logs | grep -E "Dictation timings|Preview ready|Transcribed|Warm-up|Parakee
 ```
 
 **Launch → model ready:** `make logs`, then `open ~/Applications/Visprflow.app`; read the gap from
-"Visprflow launched" to "Speech model ready".
+"VishPrompt launched" to "Speech model ready".
 
 **CLI startup, cold vs pre-spawned (spends a little quota):**
 ```
@@ -188,11 +188,11 @@ curl -sS -o /dev/null -w 'dns=%{time_namelookup} tcp=%{time_connect} tls=%{time_
 
 **Main-thread stalls and the input lag from item 6:**
 ```
-xcrun xctrace record --template 'Time Profiler' --attach Visprflow --time-limit 30s --output /tmp/vf.trace
+xcrun xctrace record --template 'Time Profiler' --attach VishPrompt --time-limit 30s --output /tmp/vf.trace
 ```
 Dictate 5 times after >6 s idle each; check main-thread Hangs.
 
-**Memory:** `footprint -p Visprflow` idle and mid-dictation; `make verify-memory`;
+**Memory:** `footprint -p VishPrompt` idle and mid-dictation; `make verify-memory`;
 `ps -o rss= -p $(pgrep -n claude)` during a subscription compile. **STT regression:**
 `make verify-stt` and `make verify-streaming` around items 4 and 5 (tail test = last word).
 

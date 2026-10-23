@@ -33,7 +33,7 @@ enum Permission: String, CaseIterable, Identifiable, Sendable {
         case .accessibility:
             "Watches for your trigger key and pastes the result into the app you are using. This is the one that matters."
         case .inputMonitoring:
-            "Not required. Visprflow uses an active event tap, which macOS gates on Accessibility instead."
+            "Not required. VishPrompt uses an active event tap, which macOS gates on Accessibility instead."
         }
     }
 

@@ -35,7 +35,7 @@ enum HUDCopy {
         return "\(trimmed). Your words are copied: press ⌘V, or hold the key to try again."
     }
 
-    static let noTextInImage = "No text found: the image on your clipboard looks like a photo or a chart with no words in it. Copy a screenshot that shows the error, or say what went wrong and Visprflow will send just that."
+    static let noTextInImage = "No text found: the image on your clipboard looks like a photo or a chart with no words in it. Copy a screenshot that shows the error, or say what went wrong and VishPrompt will send just that."
 
     static let noTextUsedWords = "No text found in the screenshot, so only your words are used."
 

@@ -26,6 +26,6 @@ private struct MenuBarIcon: View {
 
     var body: some View {
         Image(systemName: state.permissions.allGranted ? "mic.fill" : "mic.slash.fill")
-            .accessibilityLabel(state.permissions.allGranted ? "Visprflow, ready" : "Visprflow, setup needed")
+            .accessibilityLabel(state.permissions.allGranted ? "VishPrompt, ready" : "VishPrompt, setup needed")
     }
 }

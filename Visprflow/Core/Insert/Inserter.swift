@@ -24,13 +24,13 @@ enum InsertionError: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .notTrusted:
-            "Visprflow can't paste without Accessibility permission. Grant it in Setup"
+            "VishPrompt can't paste without Accessibility permission. Grant it in Setup"
         case .secureInputActive:
             "This field has secure input on, so nothing can be typed into it. The text is on your clipboard: press ⌘V somewhere else"
         case .accessibilityRefused:
             "That app wouldn't accept the text"
         case .eventCreationFailed:
-            "macOS wouldn't let Visprflow send the paste keystroke"
+            "macOS wouldn't let VishPrompt send the paste keystroke"
         }
     }
 }

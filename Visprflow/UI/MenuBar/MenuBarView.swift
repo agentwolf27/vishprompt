@@ -8,7 +8,7 @@ struct MenuBarView: View {
 
     var body: some View {
         // Status lines are disabled items: they inform, they do not act.
-        Text("Visprflow: \(state.statusSummary)")
+        Text("VishPrompt: \(state.statusSummary)")
         ForEach(MenuModel.permissionLines(state.permissions), id: \.self) { line in
             Text(line)
         }
@@ -41,7 +41,7 @@ struct MenuBarView: View {
 
         Divider()
 
-        Button("Quit Visprflow") { NSApp.terminate(nil) }
+        Button("Quit VishPrompt") { NSApp.terminate(nil) }
             .keyboardShortcut("q", modifiers: .command)
     }
 }
