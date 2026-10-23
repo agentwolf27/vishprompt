@@ -314,14 +314,20 @@ final class HotkeyMonitor: @unchecked Sendable {
 
     /// Maps a key press to a preview action. Modified presses are left alone so shortcuts
     /// such as ⌘R in the app behind the overlay keep working.
-    private static func previewKey(for keyCode: CGKeyCode, flags: CGEventFlags) -> PreviewKey? {
+    static func previewKey(for keyCode: CGKeyCode, flags: CGEventFlags) -> PreviewKey? {
         let interesting: CGEventFlags = [.maskCommand, .maskControl, .maskAlternate]
         guard flags.intersection(interesting).isEmpty else { return nil }
         switch Int(keyCode) {
         case kVK_Return, kVK_ANSI_KeypadEnter: return .insert
-        case kVK_Tab: return .cycleLevel
+        case kVK_Tab: return flags.contains(.maskShift) ? .cycleBack : .cycleLevel
         case kVK_Escape: return .cancel
         case kVK_ANSI_R: return .rerecord
+        case kVK_UpArrow, kVK_PageUp: return .scrollUp
+        case kVK_DownArrow, kVK_PageDown: return .scrollDown
+        case kVK_ANSI_1: return .levelVerbatim
+        case kVK_ANSI_2: return .levelLight
+        case kVK_ANSI_3: return .levelMedium
+        case kVK_ANSI_4: return .levelFull
         default: return nil
         }
     }

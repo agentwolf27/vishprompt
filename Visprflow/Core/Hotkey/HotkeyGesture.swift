@@ -39,8 +39,12 @@ enum HotkeyEvent: Equatable, Sendable {
 enum PreviewKey: String, Equatable, Sendable {
     case insert      // Return
     case cycleLevel  // Tab
+    case cycleBack   // ⇧Tab
     case cancel      // Escape
     case rerecord    // R
+    case scrollUp    // ↑ or Page Up
+    case scrollDown  // ↓ or Page Down
+    case levelVerbatim, levelLight, levelMedium, levelFull  // 1 to 4
 }
 
 /// What the pipeline should do next.

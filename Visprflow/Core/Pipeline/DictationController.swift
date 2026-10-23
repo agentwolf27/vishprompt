@@ -59,7 +59,14 @@ final class DictationController {
         var paste: PastePreview?
         /// Present when this preview is a screenshot turned into a prompt.
         var fix: FixPreview?
+        /// The level the user asked for, which a guardrail may have lowered in `compiled`.
+        var requestedLevel: EditLevel = .verbatim
+        /// Every level compiled so far, so moving back is instant.
+        var levels = PreviewLevels()
     }
+
+    /// The preview on screen, so ↑ and ↓ can redraw it scrolled.
+    @ObservationIgnored private var lastPreview: PreviewHUD?
 
     /// A screenshot prompt waiting in the preview. Tab drops or restores the screenshot text.
     private struct FixPreview {
@@ -400,16 +407,20 @@ final class DictationController {
             trace.mark(.compileDone)
 
             if destination.requiresPreview {
+                var levels = PreviewLevels()
+                levels.store(compiled, requested: attempted)
                 pending = Pending(
                     transcript: transcript,
                     compiled: compiled,
                     destination: destination,
-                    bundleIdentifier: context.bundleIdentifier
+                    bundleIdentifier: context.bundleIdentifier,
+                    requestedLevel: attempted,
+                    levels: levels
                 )
                 monitor.setPreviewMode(true)
                 startPreviewTimeout()
                 trace.mark(.previewShown)
-                show(.preview(dictationPreview(compiled, destination: destination, attempted: attempted, transcript: transcript.text)))
+                showPreview(dictationPreview(compiled, destination: destination, attempted: attempted, transcript: transcript.text))
                 Log.timing.info("Preview ready: \(self.trace.summary(), privacy: .public)")
             } else {
                 try await insert(
@@ -526,7 +537,7 @@ final class DictationController {
             let choice = RoutingGenerator.choice(policy: ProviderSettings.live(), level: attempted, transcript: fix.heard)
             source = HUDCopy.source(for: choice.provider, escalated: choice.escalated) + " The screenshot text was not sent."
         }
-        show(.preview(PreviewHUD(
+        showPreview(PreviewHUD(
             text: fix.text,
             mode: .fix,
             destination: destination.displayName,
@@ -537,7 +548,7 @@ final class DictationController {
             hints: fix.result.lineCount > 0
                 ? (fix.showingWithout ? "⏎ insert · ⇥ with screenshot · esc" : "⏎ insert · ⇥ without screenshot · esc")
                 : "⏎ insert · esc"
-        )))
+        ))
     }
 
     /// Tab in a screenshot preview: with ⇄ without the screenshot text. Nothing is re-run.
@@ -642,7 +653,7 @@ final class DictationController {
         var notes: [String] = []
         if let note = result.note { notes.append(note) }
         if rewritten, let numbers = result.numberSummary { notes.append(numbers) }
-        show(.preview(PreviewHUD(
+        showPreview(PreviewHUD(
             text: paste.showingAsCopied ? result.asCopiedText : result.insertText,
             mode: .paste,
             destination: destination.displayName,
@@ -654,7 +665,7 @@ final class DictationController {
             hints: flippable
                 ? (paste.showingAsCopied ? "⏎ paste · ⇥ rewritten · esc" : "⏎ paste · ⇥ paste original · esc")
                 : "⏎ paste · esc"
-        )))
+        ))
     }
 
     /// Tab in a Smart Paste preview: as copied ⇄ rewritten. Nothing is sent again.
@@ -729,7 +740,7 @@ final class DictationController {
             label: compiled.level.displayName,
             notes: notes,
             source: source,
-            hints: "⏎ insert · ⇥ level · esc"
+            hints: "⏎ insert · ⇥ ⇧⇥ or 1–4 level · R start over · esc"
         )
     }
 
@@ -844,14 +855,32 @@ final class DictationController {
                 }
             }
 
-        case .cycleLevel:
+        case .cycleLevel, .cycleBack:
             if pending.paste != nil {
                 flipPaste(pending)
             } else if pending.fix != nil {
                 flipFix(pending)
             } else {
-                recompile(pending, at: pending.compiled.level.cycled)
+                let target = key == .cycleLevel
+                    ? pending.requestedLevel.cycled
+                    : PreviewLevels.previous(before: pending.requestedLevel)
+                recompile(pending, at: target)
             }
+
+        case .levelVerbatim, .levelLight, .levelMedium, .levelFull:
+            guard pending.paste == nil, pending.fix == nil else { return }
+            let number = [PreviewKey.levelVerbatim, .levelLight, .levelMedium, .levelFull].firstIndex(of: key)! + 1
+            if let target = PreviewLevels.level(forNumber: number), target != pending.requestedLevel {
+                recompile(pending, at: target)
+            }
+
+        case .scrollUp, .scrollDown:
+            guard var model = lastPreview else { return }
+            let step = key == .scrollUp ? -PreviewLevels.scrollStep : PreviewLevels.scrollStep
+            let lines = model.text.components(separatedBy: "\n").count
+            model.scrollLine = min(max(0, model.scrollLine + step), max(0, lines - 1))
+            startPreviewTimeout()
+            showPreview(model)
 
         case .cancel:
             clearPending()
@@ -874,7 +903,25 @@ final class DictationController {
     /// Recompiles the same transcript at a different level, so a wrong guess costs one key
     /// rather than another recording.
     private func recompile(_ pending: Pending, at level: EditLevel) {
-        show(.compiling(partial: ""))
+        // Already compiled at this level: instant, nothing sent again.
+        if let cached = pending.levels.cached(level) {
+            var updated = pending
+            updated.compiled = cached
+            updated.requestedLevel = level
+            self.pending = updated
+            startPreviewTimeout()
+            showPreview(dictationPreview(cached, destination: pending.destination, attempted: level, transcript: pending.transcript.text))
+            return
+        }
+        // Keep the current text up, dimmed, rather than blanking it for the 6 to 10 seconds a
+        // subscription compile can take.
+        if var stale = lastPreview {
+            stale.isStale = true
+            stale.notes = ["Rewriting at \(level.displayName)…"]
+            showPreview(stale)
+        } else {
+            show(.compiling(partial: ""))
+        }
         activeWork?.cancel()
         activeWork = Task { [weak self] in
             guard let self else { return }
@@ -892,16 +939,18 @@ final class DictationController {
                 }
                 var updated = pending
                 updated.compiled = compiled
+                updated.requestedLevel = level
+                updated.levels.store(compiled, requested: level)
                 self.pending = updated
                 // The preview is being used, so give it a fresh 90 s. Otherwise a few level
                 // changes run the original deadline out mid-decision and the prompt vanishes.
                 self.startPreviewTimeout()
-                self.show(.preview(self.dictationPreview(
+                self.showPreview(self.dictationPreview(
                     compiled,
                     destination: pending.destination,
                     attempted: level,
                     transcript: pending.transcript.text
-                )))
+                ))
             } catch where Self.isCancellation(error) {
                 // Superseded by another key press.
             } catch {
@@ -1010,6 +1059,11 @@ final class DictationController {
 
     private var elapsed: TimeInterval {
         startedAt.map { Date().timeIntervalSince($0) } ?? 0
+    }
+
+    private func showPreview(_ model: PreviewHUD) {
+        lastPreview = model
+        show(.preview(model))
     }
 
     private func show(_ state: HUDState) {
