@@ -58,8 +58,13 @@ enum UICopy {
         return custom.isEmpty ? level : "\(level) · custom \(custom.joined(separator: ", "))"
     }
 
-    /// Where the text went. No character count: nobody acts on one, and History keeps it.
-    static func inserted(into destination: String, pasted: Bool) -> String {
-        "\(pasted ? "Pasted" : "Inserted") into \(destination)"
+    /// Where the text went, and how to take it back where that is possible. No character
+    /// count: nobody acts on one, and History keeps it.
+    static func inserted(into destination: String, pasted: Bool, landing: Landing = .undoable) -> String {
+        switch landing {
+        case .agentNotSent: "In \(destination), not sent. Review it, then press Return there"
+        case .notUndoable: "\(pasted ? "Pasted" : "Inserted") into \(destination)"
+        case .undoable: "\(pasted ? "Pasted" : "Inserted") into \(destination) · ⌘Z undoes"
+        }
     }
 }
