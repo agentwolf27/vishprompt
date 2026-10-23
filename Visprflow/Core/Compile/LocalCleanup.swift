@@ -21,7 +21,7 @@ enum LocalCleanup {
     /// Phrases that signal the speaker replaced something they just said. A transcript
     /// containing one of these needs a model to resolve, so local cleanup steps aside.
     static let correctionSignals: [String] = [
-        "scratch that", "no wait", "wait no", "i mean", "or rather", "strike that",
+        "scratch that", "no wait", "wait no", "or rather", "strike that",
         "let me rephrase", "actually no", "no sorry", "sorry i meant", "rather than that",
     ]
 
@@ -34,7 +34,27 @@ enum LocalCleanup {
     /// True when the transcript contains something only a model should resolve.
     static func needsModel(_ transcript: String) -> Bool {
         let lowered = transcript.lowercased()
-        return correctionSignals.contains { lowered.contains($0) }
+        if correctionSignals.contains(where: { lowered.contains($0) }) { return true }
+        return correctsWithIMean(lowered)
+    }
+
+    /// "I mean" corrects only when it follows something it can replace: "the session refresh,
+    /// I mean the token refresh". At the start of a sentence it is a filler ("I mean, it's
+    /// fine"), and treating that as a correction sent ordinary messages to a 6 to 10 second
+    /// model for nothing.
+    static func correctsWithIMean(_ lowered: String) -> Bool {
+        var searchStart = lowered.startIndex
+        while let range = lowered.range(of: "i mean", range: searchStart..<lowered.endIndex) {
+            searchStart = range.upperBound
+            // Whole words only: "semi meaning" is not "i mean".
+            if range.lowerBound > lowered.startIndex,
+               lowered[lowered.index(before: range.lowerBound)].isLetter { continue }
+            let before = lowered[..<range.lowerBound]
+            let sentenceStart = before.lastIndex(where: { ".!?\n".contains($0) }).map { before.index(after: $0) } ?? before.startIndex
+            let wordsBefore = before[sentenceStart...].split(whereSeparator: { !$0.isLetter && !$0.isNumber })
+            if !wordsBefore.isEmpty { return true }
+        }
+        return false
     }
 
     /// Cleans a transcript. Word order and wording are preserved exactly; only disfluencies,

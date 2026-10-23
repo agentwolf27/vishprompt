@@ -11,7 +11,7 @@ final class ProviderLabelTests: XCTestCase {
 
     func testAnEscalationSaysWhy() {
         let policy = ProviderPolicy(fastPath: .local, compilePath: .subscription)
-        let choice = RoutingGenerator.choice(policy: policy, level: .light, transcript: "meet at nine no wait ten")
+        let choice = RoutingGenerator.choice(policy: policy, level: .light, transcript: "meet at nine no wait ten", apiKeyAvailable: false)
         XCTAssertEqual(HUDCopy.providerLabel(choice), "via your Claude subscription, because you corrected yourself")
     }
 
@@ -22,10 +22,11 @@ final class ProviderLabelTests: XCTestCase {
         let api = RecordingGenerator { _ in "api" }
         let policy = ProviderPolicy(fastPath: .local, compilePath: .subscription)
         for transcript in ["send the figma link", "at nine no wait ten"] {
-            let router = RoutingGenerator(policy: policy, level: .light, local: local, subscription: subscription, api: api)
+            var router = RoutingGenerator(policy: policy, level: .light, local: local, subscription: subscription, api: api)
+            router.apiKeyAvailable = { false }
             let request = GenerationRequest(system: "", user: "<transcript>\(transcript)</transcript>", model: .haiku, maxTokens: 10)
             let went = try await router.generate(request) { _ in }
-            let said = RoutingGenerator.choice(policy: policy, level: .light, transcript: transcript).provider
+            let said = RoutingGenerator.choice(policy: policy, level: .light, transcript: transcript, apiKeyAvailable: false).provider
             XCTAssertEqual(went, said == .local ? "local" : "subscription", transcript)
         }
     }

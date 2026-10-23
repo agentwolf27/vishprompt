@@ -75,6 +75,8 @@ struct RoutingGenerator: TextGenerating {
     var api: any TextGenerating
     /// The level this request is for, since the routing depends on it.
     var level: EditLevel
+    /// Whether an Anthropic key is stored, which decides where an escalation goes.
+    var apiKeyAvailable: @Sendable () -> Bool = { APIKeyCache.shared.hasKey }
 
     init(
         policy: ProviderPolicy,
@@ -102,11 +104,20 @@ struct RoutingGenerator: TextGenerating {
     /// The local path handles disfluencies and punctuation, not judgement. When the transcript
     /// contains a self-correction, resolving it wrongly would silently change what the user
     /// meant, so it goes to whichever model the compile path uses.
-    static func choice(policy: ProviderPolicy, level: EditLevel, transcript: String?) -> Choice {
+    ///
+    /// An escalation goes to the API when a key is stored: resolving "nine, no wait, ten" in a
+    /// quick message is a 1 to 2 second job there and 6 to 10 seconds through the subscription.
+    /// Without a key it goes to the compile path, and the overlay says so while it works.
+    static func choice(
+        policy: ProviderPolicy,
+        level: EditLevel,
+        transcript: String?,
+        apiKeyAvailable: Bool = APIKeyCache.shared.hasKey
+    ) -> Choice {
         let planned = policy.provider(for: level)
         if planned == .local, policy.compilePath != .local,
            let transcript, LocalCleanup.needsModel(transcript) {
-            return Choice(provider: policy.compilePath, escalated: true)
+            return Choice(provider: apiKeyAvailable ? .apiKey : policy.compilePath, escalated: true)
         }
         return Choice(provider: planned, escalated: false)
     }
@@ -115,7 +126,7 @@ struct RoutingGenerator: TextGenerating {
         _ request: GenerationRequest,
         onDelta: @escaping @Sendable (String) -> Void
     ) async throws -> String {
-        let decision = Self.choice(policy: policy, level: level, transcript: LocalGenerator.transcript(in: request.user))
+        let decision = Self.choice(policy: policy, level: level, transcript: LocalGenerator.transcript(in: request.user), apiKeyAvailable: apiKeyAvailable())
         if decision.escalated {
             Log.compile.info("Self-correction detected; escalating from local to \(self.policy.compilePath.rawValue, privacy: .public)")
         }
