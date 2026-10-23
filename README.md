@@ -1,6 +1,6 @@
 # VishPrompt
 
-*Formerly Visprflow. The name changed because it read too much like Wispr Flow. The app bundle, its identifier, the history file and the saved settings keep the old internal name, so macOS keeps your permissions and your history stays.*
+*Formerly Visprflow. The name changed because it read too much like Wispr Flow. The bundle identifier (`com.vish.visprflow`), the history file under `Application Support/Visprflow`, the Keychain entry and the saved settings keep the old internal name, so macOS keeps your permissions and your history stays.*
 
 Hold `fn`, talk, release. The best possible prompt for wherever your cursor is lands in the
 field. A prompt compiler for Claude Code, Cursor, claude.ai, Slack and email, running as a
@@ -11,7 +11,7 @@ The plan, the research behind it and the phase breakdown are in [docs/plan.html]
 ## Status
 
 Phases 0 through 3 are built, plus most of the phase 4 and 5 polish. 177 tests pass. The app
-is installed at `~/Applications/Visprflow.app`.
+is installed at `~/Applications/VishPrompt.app`.
 
 | Working | Not yet |
 |---|---|
@@ -134,7 +134,7 @@ make logs                 # stream the app's own log
 
 ```
 project.yml              XcodeGen definition
-Visprflow/
+VishPrompt/
   App/                   @main, app delegate, observable app state
   Core/Hotkey/           Gesture state machine, CGEventTap, secure input
   Core/Audio/            Capture, ring buffer, file loading
@@ -147,7 +147,7 @@ Visprflow/
   Core/Pipeline/         DictationController, the orchestrator
   Core/Storage/          GRDB history and timings
   UI/                    Menu bar, setup window, overlay, destination settings
-VisprflowTests/          XCTest target
+VishPromptTests/          XCTest target
 Fixtures/golden/         Messy transcript to expected output cases
 docs/plan.html           The plan
 ```

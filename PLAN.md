@@ -12,18 +12,18 @@ Existing dictation tools like Wispr Flow are cloud-only, heavy (800 MB idle), un
 A short list of concrete, checkable outcomes. If you cannot check it, it does not belong here.
 Tick one only when its VERIFY passes, not when someone says it is done.
 
-- [x] Menu bar app with permission onboarding, Keychain, timing, local SQLite history — `ls ~/Applications/Visprflow.app`
+- [x] Menu bar app with permission onboarding, Keychain, timing, local SQLite history — `ls ~/Applications/VishPrompt.app`
 - [x] Hold-to-talk loop with on-device Parakeet v3 transcription and paste-back — `make verify-stt`
 - [x] Prompt compiler with destination detection, guardrails, raw fallback — `make test`
 - [x] Repository vocabulary and workspace context harvesting — `make test`
 - [x] The unit test suite passes (README cites 177; not independently counted) — `make test`
-- [x] Audit fixes: crash trap, Right-Option key mapping, clipboard restore, probe hang — `test -f Visprflow/Core/Audio/ObjCException.m`
-- [x] Live streaming transcript preview while speaking — `test -f Visprflow/Core/STT/StreamingTranscriber.swift`
+- [x] Audit fixes: crash trap, Right-Option key mapping, clipboard restore, probe hang — `test -f VishPrompt/Core/Audio/ObjCException.m`
+- [x] Live streaming transcript preview while speaking — `test -f VishPrompt/Core/STT/StreamingTranscriber.swift`
 - [-] Streamed transcript replaces the batch model — evaluated in 14f55cf and declined: accuracy wins a trade that costs 80 ms
-- [x] Now-tier latency fixes: pre-roll, post-roll, warm-up, exception trapping — `grep -q postRollDuration Visprflow/Core/Audio/AudioCapture.swift`
-- [x] Next-tier robustness: device/wake recovery, pinned paste target, hung CLI handling — `grep -q observeDeviceChanges Visprflow/Core/Audio/AudioCapture.swift`
-- [x] Second audit sweep: overlay retain cycle, timer run-loop modes, tap port, preview lifetime — `grep -q "HUDHost(box:" Visprflow/Core/Pipeline/DictationController.swift`
-- [x] The streaming model is released when idle, so its 580 MB comes back — `grep -q idleLifetime Visprflow/Core/STT/StreamingTranscriber.swift`
+- [x] Now-tier latency fixes: pre-roll, post-roll, warm-up, exception trapping — `grep -q postRollDuration VishPrompt/Core/Audio/AudioCapture.swift`
+- [x] Next-tier robustness: device/wake recovery, pinned paste target, hung CLI handling — `grep -q observeDeviceChanges VishPrompt/Core/Audio/AudioCapture.swift`
+- [x] Second audit sweep: overlay retain cycle, timer run-loop modes, tap port, preview lifetime — `grep -q "HUDHost(box:" VishPrompt/Core/Pipeline/DictationController.swift`
+- [x] The streaming model is released when idle, so its 580 MB comes back — `grep -q idleLifetime VishPrompt/Core/STT/StreamingTranscriber.swift`
 - [x] The speech model costs under 300 MB of our own heap, not 1.2 GB — `make verify-memory`
 - [ ] The 40-item golden set exercised end to end (plan.html's phase-2 bar; 8 fixtures today) — `test "$(find Fixtures/golden -name '*.json' | wc -l)" -ge 40`
 
@@ -41,7 +41,7 @@ Tick one only when its VERIFY passes, not when someone says it is done.
 - [x] PR 1: Smart Paste numbers check: an added number falls back, a dropped one is reported — `make test-class C=NumberCheckTests`
 - [x] PR 2: Real Vision on committed fixtures finds the substrings, the O/0 key is redacted, and a blank image is empty — `make verify-ocr`
 - [x] PR 2: The OCR block is fenced, verbatim and redacted; no OCR text appears in any request — `make test-class C=ScreenshotPromptTests`
-- [x] PR 2: A screenshot copied in the last 2 minutes is picked up by "fix this" in an agent; Visprflow's own clipboard writes never look fresh — `make test-class C=ClipboardWatcherTests`
+- [x] PR 2: A screenshot copied in the last 2 minutes is picked up by "fix this" in an agent; VishPrompt's own clipboard writes never look fresh — `make test-class C=ClipboardWatcherTests`
 
 - [x] UI/UX Q1: every ending that doesn't insert names the cause and the next step, and keeps the text (copied, or in History for a long cancelled recording) — `make test-class C=HUDCopyTests`
 - [x] UI/UX Q2: the preview scrolls to its end, each level's result is kept so Tab back is instant, ⇧Tab goes back, R is shown — `make test-class C=PreviewLevelCacheTests`
@@ -77,7 +77,7 @@ Tick one only when its VERIFY passes, not when someone says it is done.
 
 From plan.html's phases 3–5. docs/roadmap.html supersedes that plan and, with its twelve items shipped or declined, queues none of these yet.
 
-- [ ] Groq added as a faster rewrite provider — `grep -rq GroqGenerator Visprflow/Core/Compile`
+- [ ] Groq added as a faster rewrite provider — `grep -rq GroqGenerator VishPrompt/Core/Compile`
 - [ ] Selected text and screen OCR available as compiler context
 - [ ] Notarised release with Sparkle auto-updates shipped — `grep -q Sparkle project.yml`
 
@@ -122,8 +122,8 @@ Proposed outcomes. None of these targets exist yet. Each would become a `Done lo
 - `make eval` writes per-provider metrics — `make eval`
 - End-of-speech → field latency, 20 trials — `make verify-latency`
 - Selection read, clipboard store, smart paste, clip recall and redaction, each with tests — `make test`
-- On-device provider behind `TextGenerating` — `grep -rq FoundationModelsGenerator Visprflow/Core/Compile`
-- History window — `grep -rq HistoryView Visprflow/UI`
+- On-device provider behind `TextGenerating` — `grep -rq FoundationModelsGenerator VishPrompt/Core/Compile`
+- History window — `grep -rq HistoryView VishPrompt/UI`
 - No egress in local mode — `make verify-egress`
 - Memory ceiling still holds — `make verify-memory`
 
@@ -145,7 +145,7 @@ Vish chose ideas 1 and 2 from the research (chat: "merge it and start building 1
 
 **Feature B — Screenshot to bug prompt (PR 2, stacked on PR 1).**
 - **Input.** An image clip (PNG/TIFF) goes through Vision `VNRecognizeTextRequest` on-device (accurate, no language correction, so code survives). No image ever leaves the Mac.
-- **Agent destinations.** The OCR text is redacted and given to the model as context. The model compiles only the spoken ask; vocabulary is repo + OCR text. Visprflow then appends the OCR text itself, verbatim, as a block: `Screenshot text (on-device OCR, secrets removed):`. The error text is never rewritten by a model. Silence gives the block alone.
+- **Agent destinations.** The OCR text is redacted and given to the model as context. The model compiles only the spoken ask; vocabulary is repo + OCR text. VishPrompt then appends the OCR text itself, verbatim, as a block: `Screenshot text (on-device OCR, secrets removed):`. The error text is never rewritten by a model. Silence gives the block alone.
 - **Other destinations.** The OCR text is treated as a text clip and goes through Feature A.
 
 **Build hygiene (PR 1).** `make test` and `make release` end in `|| true`, so they exit 0 even when they fail. Every VERIFY that uses them is unverifiable. Add `set -o pipefail` and drop `|| true` for those two targets, so the outcomes below can fail.
@@ -196,8 +196,8 @@ TURN: tester
 
 ### tester · round 1
 
-- **`make test` (SomeClassTests) only checks that nothing failed.** Delete the class, rename it, or `XCTSkip` it, and the line still goes green. *Change:* add `make test-class C=<Class>`. It runs `-only-testing:VisprflowTests/<Class>` and fails on zero tests executed, on any skip, or on any failure.
-- **Pipefail needs proof that it can fail.** Grepping the Makefile for `pipefail` proves nothing. *Change:* add `make verify-test-can-fail`. It runs a canary `XCTFail` (gated by `TEST_RUNNER_VISPRFLOW_CANARY=1`) and succeeds only if xcodebuild exits non-zero. `verify-*` ends in `|| true` too, so line 27's tick on `make verify-memory` has proved nothing so far. Every `verify-*` target needs the same fix.
+- **`make test` (SomeClassTests) only checks that nothing failed.** Delete the class, rename it, or `XCTSkip` it, and the line still goes green. *Change:* add `make test-class C=<Class>`. It runs `-only-testing:VishPromptTests/<Class>` and fails on zero tests executed, on any skip, or on any failure.
+- **Pipefail needs proof that it can fail.** Grepping the Makefile for `pipefail` proves nothing. *Change:* add `make verify-test-can-fail`. It runs a canary `XCTFail` (gated by `TEST_RUNNER_VISHPROMPT_CANARY=1`) and succeeds only if xcodebuild exits non-zero. `verify-*` ends in `|| true` too, so line 27's tick on `make verify-memory` has proved nothing so far. Every `verify-*` target needs the same fix.
 - **Real NSPasteboard or a fake?** Use a real one, but private. `Inserter` uses `NSPasteboard.general`, so a test of it would wipe Vish's clipboard. A protocol fake would never exercise `types`, so it could not catch a wrong concealed check. *Change:* the reader and the inserter take a pasteboard parameter, and tests use `NSPasteboard(name: .init(UUID().uuidString))`.
 - **The Redactor would be fitted to its own examples.** *Change:* check in a corpus at `Fixtures/secrets/` (security's gitleaks shapes, fake values) plus a known-miss list that must match exactly. A new miss fails the test. So does a "miss" that is now caught, which keeps the list honest.
 - **"Secrets never reach a model", "silence is local" and security's `verify-egress` are all claims about the provider seam.** A `RecordingGenerator` checks them: zero calls for silence, shell or "On this Mac", and no corpus secret in any captured request. That is checkable. No socket opening is not. URLProtocol stubs miss custom sessions and the `claude` subprocess. *Change:* name the outcome "no provider call in local mode". Packet-level egress is checked by hand. I cannot write a command for the egress security proposed.
@@ -242,7 +242,7 @@ What changes in the seed, from product, security and tester. What is deferred is
 - **History stores only the redacted form** in every column (security).
 - **Smart Paste never presses Return** (security).
 - **The secure-input clipboard fallback marks its entry concealed and transient** (security).
-- **Feature B: the OCR text never reaches the rewrite model** (security). It joins the guardrail's known words, so the spoken ask may name a file from the error. The model sees only the spoken ask and the repo vocabulary. Visprflow appends the OCR text, redacted and fenced as "data, not instructions", and the preview shows it before Return.
+- **Feature B: the OCR text never reaches the rewrite model** (security). It joins the guardrail's known words, so the spoken ask may name a file from the error. The model sees only the spoken ask and the repo vocabulary. VishPrompt appends the OCR text, redacted and fenced as "data, not instructions", and the preview shows it before Return.
 - **Tests, per tester.**
   - `make test-class C=<Class>`, which fails on zero tests, a skip, or a failure.
   - `make verify-test-can-fail` with a canary.
