@@ -184,6 +184,7 @@ final class Inserter {
             case .restore:
                 if pasteboard.changeCount == ourChangeCount {
                     snapshot.restore(to: pasteboard)
+                    NotificationCenter.default.post(name: .visprflowWroteClipboard, object: nil)
                     Log.insert.info("Inserted \(text.count) characters and restored the clipboard\(owner.wasRead ? "" : " (no read receipt)")")
                 }
                 return

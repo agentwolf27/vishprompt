@@ -76,7 +76,7 @@ struct Compiler: PromptCompiling {
             let verdict = guardrails.check(
                 output: output,
                 transcript: transcript,
-                vocabulary: attempt.vocabulary
+                vocabulary: attempt.vocabulary + attempt.guardrailTerms
             )
             if verdict.passed {
                 return CompiledPrompt(

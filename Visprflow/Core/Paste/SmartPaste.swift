@@ -112,6 +112,8 @@ struct SmartPaster: Sendable {
 
     /// Destinations that are themselves a model. Secrets stay redacted there too.
     static let modelDestinations: Set<String> = ["claude_code", "cursor", "codex", "chat"]
+    /// Coding agents, where a screenshot becomes a bug prompt.
+    static let agentDestinations: Set<String> = ["claude_code", "cursor", "codex"]
 
     init(provider: ProviderChoice, generator: any TextGenerating, consent: SmartPasteConsent = SmartPasteConsent()) {
         self.provider = provider

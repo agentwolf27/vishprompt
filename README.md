@@ -19,7 +19,8 @@ is installed at `~/Applications/Visprflow.app`.
 | Destination detection and per-destination instructions | Selected text and screen OCR as context |
 | Prompt compilation with guardrails and a raw fallback | Snippets and a prompt library |
 | Preview with Return to insert, Tab to change level | Notarised distribution and Sparkle updates |
-| Smart Paste: hold the trigger, press V, say how | Screenshots in Smart Paste |
+| Smart Paste: hold the trigger, press V, say how | |
+| Screenshots read on this Mac into bug prompts | |
 | Repository vocabulary from your git workspace | |
 
 ## What you have to do first
@@ -87,6 +88,17 @@ Escape cancels. Your clipboard is put back afterwards, so what you copied never 
 With the compile path set to "On this Mac", an instruction cannot be followed and nothing is
 sent. The overlay says so.
 
+### Screenshots
+
+Copy a screenshot of an error (⌘⌃⇧4 copies a selection), then in Claude Code, Cursor or Codex
+hold the trigger and say "fix this". If the screenshot was copied in the last two minutes, its
+text is read on this Mac with Apple's Vision framework and appended to the prompt, fenced and
+labelled as data, with known secret shapes redacted. **The image never leaves the Mac, and the
+screenshot text is never sent to the rewrite model**: the model only sees what you said, and
+the text is added afterwards. Tab drops or restores the screenshot text; hold Shift to leave
+it out. Fn+V with a screenshot does the same at any age. In any other app, fn+V pastes the
+screenshot's text as a Smart Paste clip.
+
 ## Requirements
 
 - macOS 15 or later, Apple Silicon
@@ -99,6 +111,7 @@ sent. The overlay says so.
 make install              # Release build into ~/Applications (launch from there)
 make test                 # unit tests, about a minute
 make verify-stt           # speech tests against audio from `say`; needs no microphone
+make verify-ocr           # Vision OCR against the committed screenshots in Fixtures/ocr
 make verify-subscription  # drives the real `claude` CLI; spends subscription quota
 make logs                 # stream the app's own log
 ```
@@ -118,7 +131,7 @@ Visprflow/
   Core/Destination/      Destination model, resolver, focus context, process tree
   Core/Context/          Workspace probe, repository vocabulary
   Core/Insert/           Paste with clipboard restore, keycode resolution
-  Core/Paste/            Smart Paste: clipboard reader, redactor, paste prompt
+  Core/Paste/            Smart Paste and screenshots: clipboard, redactor, OCR, prompts
   Core/Pipeline/         DictationController, the orchestrator
   Core/Storage/          GRDB history and timings
   UI/                    Menu bar, setup window, overlay, destination settings
