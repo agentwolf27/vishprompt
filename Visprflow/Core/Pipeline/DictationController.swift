@@ -302,6 +302,11 @@ final class DictationController {
         let frontmost = FocusContextProvider.frontmost()
         capturedContext = frontmost
         listeningApp = NSWorkspace.shared.frontmostApplication?.localizedName
+        // Open the API connection while the user talks, if a rewrite may go there. Detached:
+        // this runs inside the event-tap callback, and the first key read goes to the Keychain.
+        Task.detached(priority: .utility) {
+            ClaudeGenerator.prewarm(policy: ProviderSettings.live())
+        }
         // The expensive half (ps, lsof, git, AppleScript) runs while the user is still
         // speaking and is joined only when the transcript is ready.
         contextTask?.cancel()

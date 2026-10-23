@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 
 /// Streams a rewrite from the Anthropic Messages API.
 ///
@@ -6,18 +7,66 @@ import Foundation
 /// with a cached system prompt and a single user turn. Streaming is what makes the overlay show
 /// the compiled prompt while the tail is still being generated.
 struct ClaudeGenerator: TextGenerating {
-    /// Reads the key at call time, so saving one in the setup window takes effect immediately.
+    /// Reads the key at call time, from memory: `APIKeyCache` goes to the Keychain once, and
+    /// again only after the key is saved or removed, so a new key still takes effect at once.
     var apiKey: @Sendable () -> String?
     var endpoint = URL(string: "https://api.anthropic.com/v1/messages")!
-    var session: URLSession = {
+    var session: URLSession = ClaudeGenerator.sharedSession
+
+    /// One session for the life of the app. A generator is built for every compile attempt,
+    /// and each used to make its own session, so every request paid a fresh TCP and TLS
+    /// handshake. A shared session keeps the connection, and `prewarm` can open it early.
+    static let sharedSession: URLSession = {
         let configuration = URLSessionConfiguration.default
         configuration.timeoutIntervalForRequest = 30
         configuration.waitsForConnectivity = false
         return URLSession(configuration: configuration)
     }()
 
-    init(apiKey: @escaping @Sendable () -> String? = { try? Keychain.get(.anthropicAPIKey) }) {
+    init(apiKey: @escaping @Sendable () -> String? = { APIKeyCache.shared.value() }) {
         self.apiKey = apiKey
+    }
+
+    // MARK: Pre-warming
+
+    /// When the last pre-warm or request went out, so a burst of dictations opens the
+    /// connection once.
+    private static let lastWarm = Mutex<ContinuousClock.Instant?>(nil)
+    /// A connection idle longer than this may have been closed, so it is worth opening again.
+    static let warmInterval: Duration = .seconds(30)
+
+    /// The request that opens the connection: listing models costs nothing and returns quickly.
+    static func prewarmRequest(key: String) -> URLRequest {
+        var request = URLRequest(url: URL(string: "https://api.anthropic.com/v1/models?limit=1")!)
+        request.httpMethod = "GET"
+        request.setValue(key, forHTTPHeaderField: "x-api-key")
+        request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+        request.timeoutInterval = 5
+        return request
+    }
+
+    /// Whether a key-down should open the connection now: only when a rewrite could go to the
+    /// API, a key exists, and the connection has not been opened in the last 30 seconds.
+    static func shouldPrewarm(policy: ProviderPolicy, hasKey: Bool, now: ContinuousClock.Instant = .now) -> Bool {
+        guard hasKey, policy.fastPath == .apiKey || policy.compilePath == .apiKey else { return false }
+        return lastWarm.withLock { last in
+            if let last, now - last < warmInterval { return false }
+            last = now
+            return true
+        }
+    }
+
+    /// Opens the TCP and TLS connection to the API while the user is still speaking, so the
+    /// rewrite request at key-up does not pay for the handshake. Sends only the key, to the
+    /// same host every rewrite goes to; the response is discarded.
+    static func prewarm(policy: ProviderPolicy) {
+        guard shouldPrewarm(policy: policy, hasKey: APIKeyCache.shared.hasKey),
+              let key = APIKeyCache.shared.value()
+        else { return }
+        let request = prewarmRequest(key: key)
+        Task.detached(priority: .utility) {
+            _ = try? await sharedSession.data(for: request)
+        }
     }
 
     func generate(
