@@ -1,69 +1,78 @@
 import AppKit
 import SwiftUI
 
+/// The menu bar menu. A real menu rather than a window built to look like one, as the HIG asks:
+/// keyboard navigation, VoiceOver and ⌘ shortcuts come for free.
 struct MenuBarView: View {
     @Environment(AppState.self) private var state
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("Visprflow")
-                    .font(.headline)
-                Spacer()
-                Text(state.statusSummary)
-                    .font(.caption)
-                    .foregroundStyle(state.isListening ? .green : .orange)
-            }
-
-            VStack(alignment: .leading, spacing: 4) {
-                ForEach(Permission.allCases.filter(\.isRequired)) { permission in
-                    Label {
-                        Text(permission.title)
-                    } icon: {
-                        Image(systemName: state.permissions.isGranted(permission) ? "checkmark.circle.fill" : "circle")
-                            .foregroundStyle(state.permissions.isGranted(permission) ? .green : .secondary)
-                    }
-                    .font(.callout)
-                    // The tick is an image; say in words whether it is granted.
-                    .accessibilityElement(children: .combine)
-                    .accessibilityValue(state.permissions.isGranted(permission) ? "granted" : "not granted")
-                }
-            }
-
-            if state.isListening {
-                Text("Hold \(state.triggerKey.displayName) to dictate")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text("Hold \(state.triggerKey.displayName) and press V for Smart Paste")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            } else if let error = state.startupError {
-                Text(error)
-                    .font(.caption)
-                    .foregroundStyle(.orange)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            Divider()
-
-            Button("Destinations…") {
-                state.showSettings()
-            }
-            .keyboardShortcut(",", modifiers: .command)
-
-            Button("Setup…") {
-                state.showSetup()
-            }
-
-            Button("Quit Visprflow") {
-                NSApp.terminate(nil)
-            }
-            .keyboardShortcut("q", modifiers: .command)
+        // Status lines are disabled items: they inform, they do not act.
+        Text("Visprflow: \(state.statusSummary)")
+        ForEach(MenuModel.permissionLines(state.permissions), id: \.self) { line in
+            Text(line)
         }
-        .padding(14)
-        .frame(width: 240)
-        .task {
-            state.refreshPermissions()
+        if let error = state.startupError {
+            Text(error)
+        }
+        if state.isListening {
+            Text("Hold \(state.triggerKey.displayName) to dictate, add V for Smart Paste")
+        }
+
+        Divider()
+
+        Menu("Last dictation") {
+            Button("Copy") { MenuModel.copyLastDictation() }
+            Button("Paste again") { MenuModel.pasteLastDictation() }
+        }
+
+        Toggle("Pause dictation", isOn: Binding(
+            get: { state.isPaused },
+            set: { state.setPaused($0) }
+        ))
+
+        Divider()
+
+        Button("Settings…") { state.showSettings() }
+            .keyboardShortcut(",", modifiers: .command)
+        Button(state.permissions.allGranted ? "Setup…" : "Finish setup…") { state.showSetup() }
+
+        Divider()
+
+        Button("Quit Visprflow") { NSApp.terminate(nil) }
+            .keyboardShortcut("q", modifiers: .command)
+    }
+}
+
+/// What the menu shows and does, apart from the view so it can be tested.
+@MainActor
+enum MenuModel {
+    /// One line per required permission, in words: a tick image alone says nothing to
+    /// VoiceOver, and a menu item cannot hold a coloured icon reliably.
+    static func permissionLines(_ status: PermissionStatus) -> [String] {
+        Permission.allCases.filter(\.isRequired).map { permission in
+            "\(permission.title): \(status.isGranted(permission) ? "granted" : "not granted")"
+        }
+    }
+
+    /// The last dictation's text, from history.
+    static func lastDictation() -> String? {
+        guard let queue = Database.queue else { return nil }
+        return try? Database.lastDictationText(in: queue)
+    }
+
+    static func copyLastDictation() {
+        guard let text = lastDictation() else { return }
+        TextRescue.copy(text)
+    }
+
+    /// Pastes into whatever was in front before the menu opened. The menu has to close and
+    /// focus return first, so wait a moment.
+    static func pasteLastDictation() {
+        guard let text = lastDictation() else { return }
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(300))
+            try? await Inserter().insert(text, strategy: .paste)
         }
     }
 }

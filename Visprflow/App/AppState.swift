@@ -8,6 +8,8 @@ final class AppState {
     var permissions = PermissionStatus()
     /// True once the hotkey monitor is running.
     var isListening = false
+    /// True while the user has paused dictation from the menu.
+    var isPaused = false
     /// Set when the monitor could not start, so the setup window can explain why.
     var startupError: String?
     /// Persisted, so a choice of Right Option survives a restart. fn only reaches apps from
@@ -42,6 +44,13 @@ final class AppState {
     @ObservationIgnored
     var onShowSettings: (@MainActor () -> Void)?
 
+    @ObservationIgnored
+    var onSetPaused: (@MainActor (Bool) -> Void)?
+
+    func setPaused(_ paused: Bool) {
+        onSetPaused?(paused)
+    }
+
     func refreshPermissions() {
         let latest = PermissionsService.current()
         if latest != permissions {
@@ -53,6 +62,7 @@ final class AppState {
 
     /// One line describing whether dictation is actually live, for the menu bar.
     var statusSummary: String {
+        if isPaused { return "Paused" }
         if isListening { return "Listening" }
         if startupError != nil { return "Failed to start" }
         return permissions.allGranted ? "Starting…" : "Needs setup"

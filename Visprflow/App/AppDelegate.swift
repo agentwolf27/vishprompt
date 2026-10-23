@@ -33,6 +33,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         state.onShowSetup = { [weak self] in self?.showSetup() }
         state.onShowSettings = { [weak self] in self?.showSettings() }
+        state.onSetPaused = { [weak self] paused in self?.setPaused(paused) }
         state.dictation = dictation
 
         do {
@@ -138,9 +139,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func showSettings() {
         if settingsWindow == nil {
-            settingsWindow = SettingsWindowController()
+            settingsWindow = SettingsWindowController(state: state)
         }
         settingsWindow?.show()
+    }
+
+    /// Pause stops the keyboard watch and releases the microphone; resume starts them again.
+    private func setPaused(_ paused: Bool) {
+        guard paused != state.isPaused else { return }
+        if paused {
+            dictation.stop()
+            state.isListening = false
+            state.isPaused = true
+            Log.app.info("Dictation paused from the menu")
+        } else {
+            state.isPaused = false
+            startDictation()
+            Log.app.info("Dictation resumed from the menu")
+        }
     }
 
     private func showSetup() {

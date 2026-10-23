@@ -14,6 +14,26 @@ enum Database {
         storage.withLock { $0 }
     }
 
+    /// Where the history file lives, for "Show in Finder". Nil until the app has opened it.
+    static var fileURL: URL? {
+        guard queue != nil,
+              let support = try? FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: false)
+        else { return nil }
+        return support.appending(path: "Visprflow/visprflow.sqlite")
+    }
+
+    /// The text of the most recent dictation that produced any, for the menu's "last
+    /// dictation". What history stores: never a restored secret.
+    static func lastDictationText(in queue: DatabaseQueue) throws -> String? {
+        try queue.read { db in
+            try String.fetchOne(db, sql: """
+                SELECT compiledText FROM dictation
+                WHERE compiledText IS NOT NULL AND compiledText != ''
+                ORDER BY createdAt DESC LIMIT 1
+                """)
+        }
+    }
+
     static func open() throws {
         let support = try FileManager.default.url(
             for: .applicationSupportDirectory,

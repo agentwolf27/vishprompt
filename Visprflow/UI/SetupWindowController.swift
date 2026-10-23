@@ -43,17 +43,22 @@ final class SetupWindowController: NSWindowController, NSWindowDelegate {
 }
 
 
-/// Window for the per-destination settings.
+/// The Settings window: General, Providers, Destinations, Vocabulary, Privacy. Its title
+/// follows the pane, as the HIG asks, and it reopens on the last pane used.
 @MainActor
 final class SettingsWindowController: NSWindowController {
-    init() {
-        let host = NSHostingController(rootView: DestinationSettingsView())
+    init(state: AppState) {
+        let box = WindowBox()
+        let host = NSHostingController(rootView: SettingsView(onPaneChange: { pane in
+            box.window?.title = pane.title
+        }).environment(state))
         let window = NSWindow(contentViewController: host)
-        window.title = "Visprflow Destinations"
+        window.title = SettingsPaneStore().last.title
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
-        window.setContentSize(NSSize(width: 780, height: 520))
+        window.setContentSize(NSSize(width: 780, height: 560))
         window.isReleasedWhenClosed = false
         window.center()
+        box.window = window
         super.init(window: window)
     }
 
@@ -66,4 +71,10 @@ final class SettingsWindowController: NSWindowController {
         NSApp.activate()
         window?.makeKeyAndOrderFront(nil)
     }
+}
+
+/// Lets the hosted view reach its window without the window owning the view owning it back.
+@MainActor
+private final class WindowBox {
+    weak var window: NSWindow?
 }

@@ -17,6 +17,8 @@ final class DictationController {
     private(set) var modelProgress: Double?
     /// Why the speech model failed to download or load, for the setup window's Retry row.
     private(set) var modelFailure: String?
+    /// The project words the last dictation used, for the Vocabulary pane.
+    private(set) var lastVocabulary: VocabularySnapshot?
 
     @ObservationIgnored private let capture = AudioCapture()
     @ObservationIgnored private let transcriber: any Transcriber
@@ -478,6 +480,11 @@ final class DictationController {
         }
     }
 
+    private func noteVocabulary(_ terms: [String], workspace: WorkspaceContext) {
+        guard !terms.isEmpty, let directory = workspace.directory else { return }
+        lastVocabulary = VocabularySnapshot(repository: directory.lastPathComponent, branch: workspace.gitBranch, terms: terms)
+    }
+
     // MARK: Fix screenshot
 
     /// A screenshot read on this Mac, turned into a prompt for a coding agent. The rewrite model
@@ -768,6 +775,7 @@ final class DictationController {
         // Spelling authority only: the compiler is told never to introduce a term from here
         // that the speaker did not say.
         let terms = vocabulary.terms(for: workspace)
+        noteVocabulary(terms, workspace: workspace)
         return try await compiler.compile(
             CompileRequest(
                 transcript: transcript,
@@ -1166,4 +1174,11 @@ private struct HUDHost: View {
     var body: some View {
         HUDView(state: box.controller?.hud ?? .hidden)
     }
+}
+
+/// The project words a dictation used, as the Vocabulary pane shows them.
+struct VocabularySnapshot: Equatable, Sendable {
+    var repository: String
+    var branch: String?
+    var terms: [String]
 }
