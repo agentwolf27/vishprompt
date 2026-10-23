@@ -43,6 +43,15 @@ Tick one only when its VERIFY passes, not when someone says it is done.
 - [x] PR 2: The OCR block is fenced, verbatim and redacted; no OCR text appears in any request — `make test-class C=ScreenshotPromptTests`
 - [x] PR 2: A screenshot copied in the last 2 minutes is picked up by "fix this" in an agent; Visprflow's own clipboard writes never look fresh — `make test-class C=ClipboardWatcherTests`
 
+- [ ] UI/UX Q1: every ending that doesn't insert names the cause and the next step, and keeps the text (copied, or in History for a long cancelled recording) — `make test-class C=HUDCopyTests`
+- [ ] UI/UX Q2: the preview scrolls to its end, each level's result is kept so Tab back is instant, ⇧Tab goes back, R is shown — `make test-class C=PreviewLevelCacheTests`
+- [ ] UI/UX Q3: every overlay state has a VoiceOver announcement and labels; Reduce Motion drops the animation — `make test-class C=AccessibilityAnnouncementTests`
+- [ ] UI/UX Q4: the compiling and preview headers name the provider, escalations included — `make test-class C=ProviderLabelTests`
+- [ ] UI/UX Q5: no jargon or raw errors in setup, destinations or the overlay; the permission count matches the list — `make test-class C=CopyFixTests`
+- [ ] UI/UX Q6: destination edits save as they are made and survive switching rows — `make test-class C=DestinationSettingsTests`
+- [ ] UI/UX L1: a real Settings window (⌘,) with panes, a real menu, and a three-step setup — `make test-class C=SettingsPaneTests`
+- [ ] UI/UX L2: a History window that shows what was said, exactly what was sent or "Stayed on this Mac", and the result — `make test-class C=HistoryTests`
+
 ## Later
 
 From plan.html's phases 3–5. docs/roadmap.html supersedes that plan and, with its twelve items shipped or declined, queues none of these yet.
@@ -263,3 +272,20 @@ TURN: lead
 All six of tester's round-2 objections are accepted as written, and the 12 outcomes are now in `## Done looks like`. The rule for lines 16 and 27 is adopted: once pipefail lands, `make verify-stt` and `make verify-memory` are re-run, and either one is unticked if it fails. Product and security raised nothing that round 2 left open. The deferrals stand as listed in round 2.
 
 PLAN FROZEN: 2026-10-23 — agreed by product, security, tester. Signed Vish (chat: "merge it and start building 1 and 2").
+
+### UI/UX plan · 2026-10-23
+
+The review is at [docs/research/uiux-plan-2026-10-23.md](docs/research/uiux-plan-2026-10-23.md): 29 findings, 6 quick wins (Q1–Q6) and 3 larger items (L1–L3). Its outcomes are the `UI/UX` lines in `## Done looks like`.
+
+- **Already shipped.** L3 (mode chip, destination, the "what was sent" line, and the Smart Paste and screenshot states) landed with #5 and #6. So did the first half of Q1 (focus moved, preview expired and provider failures keep the text).
+- **Order.** Q1 → Q6, then L1, then L2. Each is its own branch off the latest `dev` and its own PR.
+- **Checks.** Each outcome has a test class that `make test-class` runs, failing on zero tests or a skip. The plan's grep checks are replaced, because a grep proves a word exists, not that the feature works.
+- **Checked by hand, in plain words, by Vish:**
+  - a VoiceOver pass over every overlay state;
+  - a 20-line prompt read end to end in the preview;
+  - destination edits surviving a row switch;
+  - ⌘, opening the last pane;
+  - History showing a Smart Paste with "Stayed on this Mac".
+- **Open question carried over.** Which key clears a multi-line prompt in Claude Code's input. It is tested before the overlay names it, and not named until then.
+
+PLAN FROZEN: 2026-10-23 — UI/UX section. Signed Vish (chat: "go").
