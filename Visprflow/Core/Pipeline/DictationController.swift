@@ -243,6 +243,7 @@ final class DictationController {
             Task { [weak self] in
                 guard let self else { return }
                 let samples = await capture.stopAfterPostRoll()
+                trace.mark(.postRollDone)
                 finish(samples: samples, modifiers: modifiers)
             }
 
@@ -369,10 +370,11 @@ final class DictationController {
             // perceive — and it is measurably less accurate, turning "parser" into "passer" in
             // the integration tests. FluidAudio's own documentation says the offline model has
             // better long-form recall. Accuracy wins a trade that costs 80 ms.
-            await streaming.stop()
             let transcript: Transcript
             do {
-                transcript = try await transcriber.transcribe(samples: samples, hints: .none)
+                transcript = try await KeyUpPath.transcribe(samples: samples, streaming: streaming, transcriber: transcriber) { stage in
+                    trace.mark(stage)
+                }
             } catch TranscriberError.audioTooShort where pasteForThisRun != nil {
                 // A quick fn+V tap is a complete request with nothing said.
                 transcript = Transcript(text: "", confidence: 1, audioDuration: 0, processingTime: 0)
@@ -838,6 +840,7 @@ final class DictationController {
             )
             return
         }
+        inserter.onChordPosted = { [weak self] in self?.trace.mark(.pasted) }
         do {
             try await inserter.insert(compiled.text, strategy: destination.strategy)
         } catch let error as InsertionError {

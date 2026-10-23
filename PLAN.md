@@ -52,7 +52,7 @@ Tick one only when its VERIFY passes, not when someone says it is done.
 - [x] UI/UX L1: a real Settings window (⌘,) with panes, a real menu, and a three-step setup — `make test-class C=SettingsPaneTests`
 - [x] UI/UX L2: a History window that shows what was said, exactly what was sent or "Stayed on this Mac", and the result — `make test-class C=HistoryTests`
 
-- [ ] Speed S0: a harness measures key-up → pasted on the Release build (20 trials, median and p90 with n, CSV kept), and a report reads real dictations from History — `make verify-latency`
+- [x] Speed S0: a harness measures key-up → pasted on the Release build (20 trials, median and p90 with n, CSV kept), and a report reads real dictations from History — `make verify-latency`
 - [ ] Speed S1a: one shared API session, opened early, with the key cached in memory — `make test-class C=ClaudeGeneratorSessionTests`
 - [ ] Speed S1b: the post-roll ends on the first audio buffer after key-up, not after a fixed 120 ms, and the last word survives — `make verify-stt`
 - [ ] Speed S1c: key-up no longer waits for the streaming model to reset before the batch transcription starts — `make verify-latency`

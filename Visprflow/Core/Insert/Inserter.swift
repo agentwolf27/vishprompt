@@ -50,6 +50,10 @@ final class Inserter {
     private let poster: any KeyEventPosting
     private let isTrusted: () -> Bool
     private let isSecureInput: () -> Bool
+    /// Called the moment the paste keystroke is sent, which is when the text lands. The
+    /// clipboard restore that follows can take a few hundred milliseconds and is not latency
+    /// the user feels, so timings mark this instead.
+    var onChordPosted: (() -> Void)?
     /// Marks our own pasteboard entry so we never restore over someone else's copy.
     private static let sessionType = NSPasteboard.PasteboardType("com.vish.visprflow.session")
     private static let transientType = NSPasteboard.PasteboardType("org.nspasteboard.TransientType")
@@ -161,6 +165,7 @@ final class Inserter {
             throw error
         }
         let postedAt = ContinuousClock.now
+        onChordPosted?()
 
         // Wait for the target app to actually read our data, then restore.
         while true {
