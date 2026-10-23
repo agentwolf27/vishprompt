@@ -13,18 +13,19 @@ enum HUDAnnouncement {
         switch state {
         case .hidden:
             return nil
-        case let .listening(_, _, locked, _, mode):
-            if case let .listening(_, _, wasLocked, _, wasMode) = previous, wasLocked == locked, wasMode == mode {
+        case let .listening(_, _, locked, _, mode, app):
+            if case let .listening(_, _, wasLocked, _, wasMode, _) = previous, wasLocked == locked, wasMode == mode {
                 return nil
             }
             if locked { return "Hands-free. Tap the key to stop, Escape cancels." }
-            return mode == .dictate ? "Listening." : "\(mode.label), listening."
+            let into = app.map { ", into \($0)" } ?? ""
+            return mode == .dictate ? "Listening\(into)." : "\(mode.label), listening\(into)."
         case .transcribing:
             if case .transcribing = previous { return nil }
             return "Transcribing."
-        case .compiling:
+        case let .compiling(_, provider):
             if case .compiling = previous { return nil }
-            return "Rewriting."
+            return provider.map { "Rewriting \($0)." } ?? "Rewriting."
         case let .preview(model):
             if model.isStale { return "Rewriting at a different level." }
             if case let .preview(old) = previous, old.text == model.text, old.label == model.label {
