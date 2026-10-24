@@ -146,3 +146,19 @@ Evidence: `make verify-sensor` — `PROBE sensor: active 795 Hz, idle 129 Hz, me
 Evidence: `make test-class C=ChassisTapGestureTests` passed (12 tests); `TapPipelineTests` passed (2);
 `make test` — `Executed 494 tests, with 22 tests skipped and 0 failures`; `make release` — `** BUILD SUCCEEDED **`.
 
+## 2026-10-24 — Claude (Home window, step 1: the window, sidebar and theme)
+
+One VishPrompt window replaces the History window. The menu's "Open VishPrompt…" and ⌘Y open it.
+It has a sidebar (Home, History, Dictionary, Settings, and the "To talk" footer) and the warm
+light and dark themes from the mockup, following the Mac unless Settings → Appearance picks one.
+Home shows the greeting and today's counts from real rows, with today's four most recent as
+read-only cards. History is still the step-4 list until the next step. Dictionary shows the
+current repo's words, read-only, because there is no user-editable word list. Settings has
+Appearance and "More settings…", which opens the existing window.
+
+Evidence: `make test-class C=HomeWindowTests` — `test-class: HomeWindowTests passed` (7 tests).
+The snapshot checks read the rendered pixels: light background 250,248,245 (#FAF8F5), dark
+background 26,25,24 (#1A1918), dark sidebar 21,20,19 (#151413).
+
+Evidence: `make test` — `Executed 501 tests, with 22 tests skipped and 0 failures`; `make release` — `** BUILD SUCCEEDED **`.
+

@@ -6,7 +6,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private(set) lazy var dictation = DictationController(trigger: state.triggerKey)
     private var setupWindow: SetupWindowController?
     private var settingsWindow: SettingsWindowController?
-    private var historyWindow: HistoryWindowController?
+    private var homeWindow: HomeWindowController?
     private var permissionPoll: Timer?
 
     /// Objective-C exceptions unwind straight past Swift's `catch`, so a throw inside AppKit or
@@ -148,10 +148,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func showHistory() {
-        if historyWindow == nil {
-            historyWindow = HistoryWindowController()
+        if homeWindow == nil {
+            homeWindow = HomeWindowController()
+            homeWindow?.library.onShowMoreSettings = { [weak self] in self?.showSettings() }
         }
-        historyWindow?.show()
+        guard let homeWindow else { return }
+        homeWindow.library.triggerName = state.triggerKey.displayName
+        let vocabulary = dictation.lastVocabulary
+        homeWindow.library.dictionaryWords = vocabulary?.terms ?? []
+        homeWindow.library.dictionarySource = vocabulary.map { v in v.branch.map { "\(v.repository) on \($0)" } ?? v.repository }
+        homeWindow.show()
     }
 
     /// Pause stops the keyboard watch and releases the microphone; resume starts them again.

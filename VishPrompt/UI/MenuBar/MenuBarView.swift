@@ -21,7 +21,7 @@ struct MenuBarView: View {
 
         Divider()
 
-        Button("History…") { state.showHistory() }
+        Button("Open VishPrompt…") { state.showHistory() }
             .keyboardShortcut("y", modifiers: .command)
         Menu("Last dictation") {
             Button("Copy") { MenuModel.copyLastDictation() }
