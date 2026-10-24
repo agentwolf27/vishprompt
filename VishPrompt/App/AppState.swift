@@ -105,6 +105,15 @@ final class AppState {
         dictation?.cancelKeyRecording()
     }
 
+    /// Double-tap the palm rest to start hands-free dictation. Off by default.
+    var chassisTapEnabled = UserDefaults.standard.bool(forKey: ChassisTapTrigger.enabledKey)
+
+    func setChassisTapEnabled(_ enabled: Bool) {
+        chassisTapEnabled = enabled
+        dictation?.setChassisTapEnabled(enabled)
+        Log.tap.info("Palm-rest double tap \(enabled ? "on" : "off", privacy: .public)")
+    }
+
     func setTriggerKey(_ key: TriggerKey) {
         guard key != triggerKey else { return }
         triggerKey = key

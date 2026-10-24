@@ -107,6 +107,18 @@ private struct GeneralPane: View {
                         .foregroundStyle(.orange)
                 }
             }
+            // Hidden on Macs without the palm-rest sensor: an M1 MacBook Air, a desktop.
+            if ChassisTapTrigger.isAvailable {
+                Section("Palm rest") {
+                    Toggle("Double-tap the palm rest to start dictating", isOn: Binding(
+                        get: { state.chassisTapEnabled },
+                        set: { state.setChassisTapEnabled($0) }
+                    ))
+                    Text("Tap twice beside the trackpad, either side, and talk. Double-tap again, press \(state.triggerKey.displayName), or stop talking to finish. Taps while you type or click are ignored. It reads the Mac's motion sensor, never the microphone, and pauses when the screen locks or the battery is under 10%.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+            }
             Section("Shortcuts") {
                 LabeledContent("Dictate", value: "hold \(state.triggerKey.displayName)")
                 LabeledContent("Hands-free", value: "double-tap \(state.triggerKey.displayName)")

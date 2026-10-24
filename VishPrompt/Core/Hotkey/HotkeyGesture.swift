@@ -35,6 +35,10 @@ enum HotkeyEvent: Equatable, Sendable {
     case pasteKey(at: TimeInterval)
     /// The edit key (R) went down while the trigger was held: edit the selection by voice.
     case editKey(at: TimeInterval)
+    /// A double tap on the palm rest. Behaves like a toggle-mode press of the trigger, whatever
+    /// the trigger's own mode: it starts hands-free recording, or ends it. Use `chassisTap(at:)`,
+    /// which also sends the release.
+    case chassisTap(at: TimeInterval)
 }
 
 /// Keys the overlay responds to while a compiled prompt is waiting for approval.
@@ -123,6 +127,9 @@ struct HotkeyGesture: Sendable {
     /// Set when V or R converted the current hold.
     private(set) var chord: Chord?
 
+    /// True when the recording in progress was started by a tap on the palm rest.
+    private(set) var startedByTap = false
+
     /// True when V converted the current hold into a Smart Paste.
     var pasteRequested: Bool { chord == .paste }
 
@@ -159,7 +166,20 @@ struct HotkeyGesture: Sendable {
             handleChordKey(.paste, at: at)
         case let .editKey(at):
             handleChordKey(.edit, at: at)
+        case .chassisTap:
+            handleTap()
         }
+    }
+
+    /// A palm-rest tap is a whole press, down and up at once. From idle it starts a hands-free
+    /// recording; while hands-free it ends one. While the trigger is held, or half-way through
+    /// its own double-tap, it does nothing, so a tap can never cut a held dictation short.
+    mutating func chassisTap(at time: TimeInterval) -> [HotkeyAction] {
+        var actions = [handle(.chassisTap(at: time))]
+        if state == .lockArming || state == .lockStopping {
+            actions.append(handle(.triggerUp(at: time, modifiers: .none)))
+        }
+        return actions.filter { $0 != .none }
     }
 
     // MARK: Private
@@ -193,9 +213,26 @@ struct HotkeyGesture: Sendable {
         }
     }
 
+    private mutating func handleTap() -> HotkeyAction {
+        switch state {
+        case .idle:
+            lastShortTapEnded = nil
+            chord = nil
+            startedByTap = true
+            state = .lockArming
+            return .startCapture
+        case .locked:
+            state = .lockStopping
+            return .none
+        case .holding, .lockArming, .lockStopping:
+            return .none
+        }
+    }
+
     private mutating func handleDown(at time: TimeInterval) -> HotkeyAction {
         switch state {
         case .idle:
+            startedByTap = false
             if config.mode == .toggle {
                 state = .lockArming
                 return .startCapture

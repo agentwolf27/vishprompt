@@ -76,8 +76,8 @@ Tick one only when its VERIFY passes, not when someone says it is done.
 - [x] Tap 1: the palm-rest accelerometer is found only on Macs that have it, and its 22-byte reports parse to g — `make test-class C=SPUAccelerometerTests`
 - [x] Tap 1: a live read on this Mac gets about 800 reports a second when active and about 100 when idle, near 1 g at rest — `make verify-sensor`
 - [ ] Tap 2: on recorded samples a double tap fires once, and single taps, typing, trackpad clicks, setting the Mac down and lifting it fire nothing — `make test-class C=TapDetectorTests`
-- [ ] Tap 3: a double tap starts hands-free recording; a second double tap, the trigger key, Escape or silence ends it; off by default and hidden without the sensor; the capsule says a tap started it — `make test-class C=ChassisTapGestureTests`
-- [ ] Tap 3: sampling stops on screen lock, display sleep and battery under 10%, and idle sampling costs under 1% of a core — `make verify-tap-cpu`
+- [x] Tap 3: a double tap starts hands-free recording; a second double tap, the trigger key, Escape or silence ends it; off by default and hidden without the sensor; the capsule says a tap started it — `make test-class C=ChassisTapGestureTests`
+- [x] Tap 3: sampling stops on screen lock, display sleep and battery under 10%, and idle sampling costs under 1% of a core — `make verify-tap-cpu`
 - [ ] Tap 4: the README explains the tap trigger, held until the LinkedIn post is out — `grep -q "palm rest" README.md`
 
 ## Later

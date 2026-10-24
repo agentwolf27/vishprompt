@@ -8,6 +8,8 @@ struct HUDContext: Equatable, Sendable {
     /// Frozen at key-up, so the take's length stays on screen while it works.
     var takeSeconds: TimeInterval?
     var triggerName: String = "fn"
+    /// The recording was started by a double tap on the palm rest.
+    var startedByTap = false
     /// Set on a notched built-in display: the capsule splits into lobes beside the housing.
     var notch: NotchLayout?
 }
@@ -93,7 +95,9 @@ struct CapsuleModel: Equatable, Sendable {
         case let .listening(level, seconds, locked, partial, mode, app):
             let status: String
             if locked {
-                status = "Hands-free · tap \(context.triggerName) to stop · esc"
+                status = context.startedByTap
+                    ? "Started by a tap · double-tap again to stop · esc"
+                    : "Hands-free · tap \(context.triggerName) to stop · esc"
             } else {
                 switch mode {
                 case .paste: status = "say how, or just release · esc"
