@@ -58,6 +58,9 @@ final class SPUAccelerometer: @unchecked Sendable {
     private var rate: Rate = .idle
     private var samplesSinceCheck = 0
     private var watchdog: DispatchSourceTimer?
+    /// The accelerometer's driver, found once: the watchdog corrects its rate about once a
+    /// second, and searching the registry each time would cost more than the correction.
+    private var driver: io_service_t = 0
     private let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: 64)
     private let secondsPerTick: Double = {
         var info = mach_timebase_info_data_t()
@@ -95,7 +98,7 @@ final class SPUAccelerometer: @unchecked Sendable {
             self.rate = rate
             self.samplesSinceCheck = 0
         }
-        Self.configureDriver(rate: rate)
+        applyRate(rate, wake: true)
 
         let context = Unmanaged.passUnretained(self).toOpaque()
         IOHIDDeviceRegisterInputReportWithTimeStampCallback(device, buffer, 64, { context, _, _, _, _, report, length, timeStamp in
@@ -116,11 +119,15 @@ final class SPUAccelerometer: @unchecked Sendable {
         self.thread = thread
         thread.start()
         ready.wait()
+        // Scheduling the device resets its driver to the default 800 Hz, so the rate set above
+        // only takes once it is set again here (measured: 100 Hz asked before this, 796 given).
+        applyRate(rate)
 
-        // macOS parks the sensor when the Mac sits still. Re-arm the driver only when the rate
-        // has sagged below half of what was asked: writing it unconditionally costs more.
+        // macOS parks the sensor when the Mac sits still, and the driver can drift back to its
+        // default rate. Re-arm it only when the rate is off by more than half or double:
+        // writing it unconditionally costs more.
         let timer = DispatchSource.makeTimerSource(queue: .global(qos: .utility))
-        timer.schedule(deadline: .now() + 1, repeating: 1, leeway: .milliseconds(200))
+        timer.schedule(deadline: .now() + Self.checkInterval, repeating: Self.checkInterval, leeway: .milliseconds(20))
         timer.setEventHandler { [weak self] in self?.checkRate() }
         timer.resume()
         lock.withLock { watchdog = timer }
@@ -134,7 +141,7 @@ final class SPUAccelerometer: @unchecked Sendable {
             samplesSinceCheck = 0
             return true
         }
-        if changed { Self.configureDriver(rate: new) }
+        if changed { applyRate(new) }
     }
 
     func stop() {
@@ -152,6 +159,10 @@ final class SPUAccelerometer: @unchecked Sendable {
             CFRunLoopStop(loop)
         }
         IOHIDDeviceClose(device, IOOptionBits(kIOHIDOptionsTypeNone))
+        lock.withLock {
+            if driver != 0 { IOObjectRelease(driver) }
+            driver = 0
+        }
         thread = nil
         Log.tap.info("Accelerometer stopped")
     }
@@ -163,22 +174,46 @@ final class SPUAccelerometer: @unchecked Sendable {
         onSample?(Double(timeStamp) * secondsPerTick, sample)
     }
 
+    /// How often the delivered rate is checked. Short, because something in macOS (the HID event
+    /// system is a client of the same driver) puts it back to 800 Hz about a second after it is
+    /// set to 100, and every moment at 800 Hz costs CPU. Measured on macOS 15.2: idle averages
+    /// 150–260 Hz this way, against 800 if left alone. Setting the rate through the event system
+    /// instead is refused: the service is motion-restricted.
+    static let checkInterval = 0.1
+
     private func checkRate() {
         let (count, rate) = lock.withLock {
             defer { samplesSinceCheck = 0 }
             return (samplesSinceCheck, self.rate)
         }
-        if count < rate.rawValue / 2 { Self.configureDriver(rate: rate) }
+        // Too slow: macOS parked the sensor. Too fast: macOS put the driver back to 800 Hz.
+        let expected = Double(rate.rawValue) * Self.checkInterval
+        if Double(count) < expected / 2 {
+            applyRate(rate, wake: true)
+        } else if Double(count) > expected * 2 {
+            applyRate(rate)
+        }
     }
 
     /// Tells the accelerometer's driver to report, powered, at `rate`. Only that driver is
     /// touched; the same sensor hub also serves the lid angle, ambient light and others. On
     /// macOS 15.2 the drivers carry no `Product` name, so it is matched by usage 3.
-    private static func configureDriver(rate: Rate) {
-        guard let driver = service(className: "AppleSPUHIDDriver", usage: 3, reportSize: nil) else { return }
-        defer { IOObjectRelease(driver) }
-        IORegistryEntrySetCFProperty(driver, "SensorPropertyReportingState" as CFString, 1 as CFNumber)
-        IORegistryEntrySetCFProperty(driver, "SensorPropertyPowerState" as CFString, 1 as CFNumber)
+    private func applyRate(_ rate: Rate, wake: Bool = false) {
+        let driver = lock.withLock {
+            if self.driver == 0 {
+                self.driver = Self.service(className: "AppleSPUHIDDriver", usage: 3, reportSize: nil) ?? 0
+            }
+            return self.driver
+        }
+        guard driver != 0 else { return }
+        Self.configureDriver(driver, rate: rate, wake: wake)
+    }
+
+    private static func configureDriver(_ driver: io_service_t, rate: Rate, wake: Bool) {
+        if wake {
+            IORegistryEntrySetCFProperty(driver, "SensorPropertyReportingState" as CFString, 1 as CFNumber)
+            IORegistryEntrySetCFProperty(driver, "SensorPropertyPowerState" as CFString, 1 as CFNumber)
+        }
         IORegistryEntrySetCFProperty(driver, "ReportInterval" as CFString, rate.intervalMicroseconds as CFNumber)
     }
 

@@ -30,7 +30,7 @@ final class TapDetectorTests: XCTestCase {
         var taps: [Double] = []
         for s in samples {
             if s.input { detector.noteInput(at: s.t) }
-            if case let .doubleTap(at)? = detector.process(t: s.t, s.a) { taps.append(at) }
+            if case let .doubleTap(_, at)? = detector.process(t: s.t, s.a) { taps.append(at) }
         }
         return (taps, detector)
     }
@@ -157,5 +157,44 @@ final class TapDetectorTests: XCTestCase {
         knock(&s, at: 7.0, g: 0.03)
         knock(&s, at: 7.2, g: 0.03)
         XCTAssertEqual(Self.run(s).taps.count, 1)
+    }
+}
+
+/// The two-speed sensor: the first knock lands at 100 Hz, the second at 800 Hz.
+final class TapPipelineTests: XCTestCase {
+    private final class Box: @unchecked Sendable {
+        var rates: [SPUAccelerometer.Rate] = []
+        var taps: [Double] = []
+    }
+
+    func testAFirstKnockCaughtAt100HzStillMakesADoubleAndRaisesTheRate() throws {
+        let idle = try TapDetectorTests.load("idle")
+        // Every eighth sample is 100 Hz. The rate goes up as soon as the pipeline asks.
+        let box = Box()
+        let pipeline = TapPipeline(setRate: { box.rates.append($0) }, onDoubleTap: { box.taps.append($0) })
+        var fast = false
+        for (i, s) in idle.enumerated() {
+            if !fast, i % 8 != 0 { continue }
+            var a = s.a
+            for (t0, g) in [(3.0, Float(0.03)), (3.22, 0.03)] where s.t >= t0 && s.t < t0 + 0.12 {
+                let dt = s.t - t0
+                let wave = g * Float(exp(-dt / 0.015) * sin(2 * .pi * 120 * dt))
+                a += SIMD3(0.3 * wave, 0.2 * wave, wave)
+            }
+            pipeline.process(t: s.t, a)
+            fast = box.rates.last == .active
+        }
+        XCTAssertEqual(box.rates.first, .active, "the first knock raised the rate")
+        XCTAssertEqual(box.rates.last, .idle, "and it fell back after the palm rest went quiet")
+        XCTAssertEqual(box.taps.count, 1)
+        XCTAssertEqual(box.taps.first ?? 0, 3.0, accuracy: 0.02, "the first knock, caught at 100 Hz")
+    }
+
+    func testRealIdleStaysAt100Hz() throws {
+        let box = Box()
+        let pipeline = TapPipeline(setRate: { box.rates.append($0) }, onDoubleTap: { box.taps.append($0) })
+        for (i, s) in try TapDetectorTests.load("idle").enumerated() where i % 8 == 0 { pipeline.process(t: s.t, s.a) }
+        XCTAssertEqual(box.rates, [], "a still Mac never wakes the sensor to full rate")
+        XCTAssertEqual(box.taps, [])
     }
 }

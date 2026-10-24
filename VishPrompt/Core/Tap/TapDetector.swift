@@ -10,8 +10,9 @@ import simd
 
 /// What the detector concluded, and when.
 enum TapEvent: Equatable, Sendable {
-    /// Two knocks close together, with no key press, click or handling around them.
-    case doubleTap(at: Double)
+    /// Two knocks close together, with no key press, click or handling around them. `first` is
+    /// the first knock and `at` the second, on the sensor's clock.
+    case doubleTap(first: Double, at: Double)
 }
 
 struct TapDetector: Sendable {
@@ -72,6 +73,11 @@ struct TapDetector: Sendable {
     private var knocks: [Double] = []
     private var inputs: [Double] = []
 
+    /// The last time something knock-sized moved the palm rest. The sensor runs slowly until
+    /// then and fast for a moment after, which is most of what keeps it cheap. Anything lower
+    /// would be woken by the Mac's own resting noise.
+    private(set) var lastStir = -10.0
+
     /// Where the detector is, for the overlay's tests and for logging.
     private(set) var rejected: [(at: Double, reason: String)] = []
 
@@ -114,6 +120,7 @@ struct TapDetector: Sendable {
         }
 
         if capturing {
+            lastStir = t
             if m > peak { peak = m; peakT = t }
             if m > max(peak * 0.15, captureThreshold * 0.5) { lastLoud = t }
             let elapsed = t - captureStart
@@ -204,7 +211,7 @@ struct TapDetector: Sendable {
             reject(first, "typing or clicking")
             return nil
         }
-        return .doubleTap(at: second)
+        return .doubleTap(first: first, at: second)
     }
 
     private mutating func reject(_ t: Double, _ reason: String) {

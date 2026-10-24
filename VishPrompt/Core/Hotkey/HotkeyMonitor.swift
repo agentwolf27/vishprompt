@@ -174,6 +174,17 @@ final class HotkeyMonitor: @unchecked Sendable {
         return true
     }
 
+    /// True when the recording in progress was started by a palm-rest tap.
+    var startedByTap: Bool { gesture.withLock { $0.startedByTap } }
+
+    /// A double tap on the palm rest: starts hands-free recording, or ends it. Call on the main
+    /// thread, where the tap's own events are delivered, so the two never interleave.
+    func reportChassisTap() {
+        let now = Double(DispatchTime.now().uptimeNanoseconds) / 1_000_000_000
+        let actions = gesture.withLock { $0.chassisTap(at: now) }
+        actions.forEach(deliver)
+    }
+
     /// Ends a hands-free session because the microphone heard nothing for a while.
     func reportSilenceTimeout() {
         deliver(gesture.withLock { $0.handle(.silenceTimeout) })

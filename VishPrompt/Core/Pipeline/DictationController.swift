@@ -165,9 +165,11 @@ final class DictationController {
         clipboardWatcher.start()
         Log.app.info("DictationController.start: audio prepared, starting monitor")
         try monitor.start()
+        chassisTapTrigger.setDictationRunning(true)
     }
 
     func stop() {
+        chassisTapTrigger.setDictationRunning(false)
         monitor.stop()
         clipboardWatcher.stop()
         capture.shutdown()
@@ -182,6 +184,18 @@ final class DictationController {
 
     func cancelKeyRecording() {
         monitor.cancelRecording()
+    }
+
+    /// Turns the palm-rest double tap on or off. Off by default.
+    func setChassisTapEnabled(_ enabled: Bool) {
+        chassisTapTrigger.setEnabled(enabled)
+    }
+
+    /// The optional second trigger. A double tap acts as a toggle press of the trigger, through
+    /// the same gesture machine, so recording itself does not change.
+    @ObservationIgnored
+    private lazy var chassisTapTrigger = ChassisTapTrigger { [weak self] in
+        self?.monitor.reportChassisTap()
     }
 
     func setTrigger(_ key: TriggerKey) {
@@ -338,6 +352,7 @@ final class DictationController {
             app: listeningApp,
             takeSeconds: nil,
             triggerName: currentTrigger.displayName,
+            startedByTap: monitor.startedByTap,
             notch: NotchGeometry.pointerScreen.flatMap(NotchGeometry.layout(for:))
         )
         // Open the API connection while the user talks, if a rewrite may go there. Detached:

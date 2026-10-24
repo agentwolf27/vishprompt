@@ -114,3 +114,35 @@ Evidence: `make test-class C=TapDetectorTests` — `Executed 12 tests, with 0 fa
 
 Evidence: `make test` — `Executed 479 tests, with 21 tests skipped and 0 failures`; `make release` — `** BUILD SUCCEEDED **`.
 
+## 2026-10-23 — Claude (chassis tap, step 3: the gesture, the setting, the power rules)
+
+A palm-rest double tap is a `chassisTap` event in `HotkeyGesture` (a toggle press plus its
+release), delivered by `HotkeyMonitor.reportChassisTap()` on the main thread. `ChassisTapTrigger`
+owns the sensor, samples only when `ChassisTapPower.shouldSample` holds, and drops a double tap
+within 0.4 s of a key press or click, read from the window server's last-input ages (a grant-less
+app reads the same ages as the shell: no permission). Off by default; the Settings toggle is
+hidden without the sensor; the capsule says "Started by a tap · double-tap again to stop · esc".
+
+**Correction to step 1.** `make verify-sensor` reported idle at 99 Hz, but that was timing luck:
+logging the rate every 0.5 s shows the driver goes back to 800 Hz about a second after each
+change to 100 Hz (`98 100 472 796 798 796 …`). The HID event system is also a client of the
+driver; setting the rate through it is refused (the service is motion-restricted). The watchdog
+now checks every 0.1 s and pulls the rate down again, and caches the driver instead of searching
+the registry each time. Idle now averages 129 Hz, and the check allows up to 400.
+
+Evidence: `make verify-tap-cpu`, six runs (the first three before the driver was cached)
+```
+PROBE tap cpu: 0.94% of one core sampling, 0.05% without, 0.89% for the trigger
+PROBE tap cpu: 0.94% of one core sampling, 0.06% without, 0.88% for the trigger
+PROBE tap cpu: 0.83% of one core sampling, 0.05% without, 0.78% for the trigger
+PROBE tap cpu: 0.78% of one core sampling, 0.05% without, 0.73% for the trigger
+PROBE tap cpu: 0.81% of one core sampling, 0.04% without, 0.76% for the trigger
+PROBE tap cpu: 0.83% of one core sampling, 0.03% without, 0.81% for the trigger
+```
+At a steady 800 Hz it was 1.97%. Under the 1% target, without much room.
+
+Evidence: `make verify-sensor` — `PROBE sensor: active 795 Hz, idle 129 Hz, median 0.994 g`.
+
+Evidence: `make test-class C=ChassisTapGestureTests` passed (12 tests); `TapPipelineTests` passed (2);
+`make test` — `Executed 494 tests, with 22 tests skipped and 0 failures`; `make release` — `** BUILD SUCCEEDED **`.
+

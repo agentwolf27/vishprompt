@@ -5,7 +5,6 @@
 | # | Task | Owner | VERIFY |
 |---|---|---|---|
 | 2 | Chassis tap: the detector; waiting on task 5 for real taps before it is done | Claude | `make test-class C=TapDetectorTests` |
-| 3 | Chassis tap: gesture, setting and power rules | Claude | `make test-class C=ChassisTapGestureTests` |
 
 ## Queued
 
@@ -19,3 +18,4 @@
 | # | Task | Owner | VERIFY |
 |---|---|---|---|
 | 1 | Chassis tap: the sensor | Claude | `make verify-sensor` |
+| 3 | Chassis tap: gesture, setting and power rules | Claude | `make test-class C=ChassisTapGestureTests` |
