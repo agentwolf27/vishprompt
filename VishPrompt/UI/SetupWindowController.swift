@@ -79,30 +79,43 @@ private final class WindowBox {
     weak var window: NSWindow?
 }
 
-/// The History window.
+/// The VishPrompt window: Home, History, Dictionary and Settings. Its sidebar runs up under
+/// the traffic lights, so the title bar is transparent and the title hidden.
 @MainActor
-final class HistoryWindowController: NSWindowController {
+final class HomeWindowController: NSWindowController {
     private let reuse: HistoryReuse
+    let library: HomeLibrary
 
-    init() {
+    init(library: HomeLibrary = HomeLibrary()) {
         let reuse = HistoryReuse()
         self.reuse = reuse
-        let host = NSHostingController(rootView: HistoryView(reuse: reuse))
+        self.library = library
+        let host = NSHostingController(rootView: HomeView(library: library, reuse: reuse))
+        host.sizingOptions = []
         let window = NSWindow(contentViewController: host)
-        window.title = "History"
-        window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
-        window.setContentSize(NSSize(width: 900, height: 600))
+        window.title = "VishPrompt"
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+        window.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
+        window.isMovableByWindowBackground = true
+        window.contentMinSize = HomeView.minimumSize
+        window.setContentSize(NSSize(width: 1120, height: 760))
         window.isReleasedWhenClosed = false
+        window.setFrameAutosaveName("VishPromptHome")
+        window.appearance = library.appearance.appearance
         window.center()
         super.init(window: window)
+        library.onAppearanceChange = { [weak window] choice in window?.appearance = choice.appearance }
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) {
-        fatalError("HistoryWindowController is created in code")
+        fatalError("HomeWindowController is created in code")
     }
 
-    func show() {
+    func show(page: HomePage? = nil) {
+        if let page { library.page = page }
+        library.reload()
         // The app the user was in, so Return pastes back there.
         reuse.noteFront(NSWorkspace.shared.frontmostApplication)
         NSApp.activate()

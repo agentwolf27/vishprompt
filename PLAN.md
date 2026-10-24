@@ -80,6 +80,11 @@ Tick one only when its VERIFY passes, not when someone says it is done.
 - [x] Tap 3: sampling stops on screen lock, display sleep and battery under 10%, and idle sampling costs under 1% of a core — `make verify-tap-cpu`
 - [ ] Tap 4: the README explains the tap trigger, held until the LinkedIn post is out — `grep -q "palm rest" README.md`
 
+- [x] Home 1: one VishPrompt window (at least 1040×700) with Home, History, Dictionary and Settings in a sidebar opens from the menu and ⌘Y, in a warm light and a warm dark theme that follow the Mac unless Settings says otherwise — `make test-class C=HomeWindowTests`
+- [ ] Home 2: each saved dictation is a card with its time, app, mode and where the words went, a Copy that says Copied, what you said with its own Copy, pin and delete; Home counts today from real rows; History searches and groups by day; Return still pastes again — `make test-class C=HistoryCardTests`
+- [ ] Home 3: Dictionary shows the words VishPrompt spells your way; Settings is cards wired to the real trigger, palm-rest, provider and appearance settings — `make test-class C=SettingsCardTests`
+- [ ] Home 4: history is kept for 30, 60 or 90 days or forever; pinned items are never pruned; this install keeps everything and new installs keep 90 days; a shorter period confirms with the real count first — `make test-class C=RetentionTests`
+
 ## Later
 
 From plan.html's phases 3–5. docs/roadmap.html supersedes that plan and, with its twelve items shipped or declined, queues none of these yet.
@@ -395,4 +400,38 @@ An optional second trigger: double-tap the palm rest beside the trackpad and rec
 - **Checked by hand:** double taps on both sides of the palm rest start and stop; typing fast, clicking, closing the lid and setting the Mac down do not.
 
 PLAN FROZEN: 2026-10-23 — chassis tap section. Signed Vish (chat: "allow the sensor property writes, run the probe, then build").
+
+### Home window · 2026-10-24
+
+Vish: "The UI still looks really basic… It's all black. There's no like actual UI. It like just looks like it's normal setting page." He wants a saved list in the style of Wispr Flow, where he can see what he just said and copy it easily. The mockup he approved ("go ahead") is https://claude.ai/artifact/M2Fp1D1r2sWYeq2TkF6U2t: two screens, light and dark.
+
+- **One window.** Sidebar: Home, History, Dictionary, Settings, and a footer "fn hold, or double-tap the palm rest". At least 1040×700, resizable. It opens from the menu and ⌘Y, and replaces the History window.
+- **Theme.** Follows the Mac unless Settings → Appearance says Light or Dark. The type is SF Pro; the mockup's Inter is for the web only. Never pure black.
+  - Light: background #FAF8F5, sidebar #F3F0EA, cards #FFFFFF, lines #E7E2DA, ink #1C1B1A, muted #6B6660.
+  - Dark: background #1A1918, sidebar #151413, cards #242322, lines #34322F, ink #F2F0ED, muted #A8A39C.
+  - One accent: #4B5BDC.
+- **Cards.** Each card shows:
+  - the time, the app and the mode (Dictate, Smart paste, Edit by voice, Screenshot fix);
+  - "Stayed on this Mac" (green) or "Sent to Claude" (blue), from the stored provider. Old rows that never recorded a provider say "Not recorded".
+  - the polished text, and Copy, which says "Copied" for 1.4 s;
+  - "What you said", with its own Copy;
+  - pin (pinned cards come first, with an accent border) and delete.
+- **New columns.** The app name, the mode and pinned: migration v3. Older rows get their mode from the stored level and their destination as their app.
+- **Home and History.** Home counts today from real rows only (dictations, words, stayed on this Mac) and shows today's four most recent. History searches the text, what was said, the app and the mode, groups by Today, Yesterday and dates, and says "Nothing matches “x”. Try an app name, like Slack." when nothing matches. Return on a selected row still pastes again (v2 step 4).
+- **Dictionary.** There is no list of words the user can edit today. Dictionary shows the words from the current repo, read-only, and says so; no store is invented.
+- **Settings as cards:**
+  - How you start talking: the trigger and the palm-rest switch.
+  - Where the rewrite runs: three rows that set the existing provider policy's compile path. "On this Mac" sets both paths.
+  - What can leave this Mac: audio never; screenshot images never; your words "Nothing leaves" when everything is on this Mac, otherwise "Only when a rewrite needs it".
+  - Appearance and history retention.
+  - "More settings…" opens the existing window, for destinations, API key and consent, which these cards don't replace.
+- **Retention.** 30, 60 or 90 days, or Forever.
+  - Pinned items are never pruned; Forever never deletes.
+  - Pruning runs at launch and once a day, on the local SQLite only.
+  - A shorter period confirms first with the real count ("This removes 212 items older than 30 days").
+  - This install defaults to Forever, since it already has history; a new install defaults to 90 days.
+  - The database's size is shown under the control.
+- **Order, one PR each:** the window, sidebar and theme; the cards; Dictionary and the Settings cards; retention. Each screen gets light and dark snapshots. The README images wait for the LinkedIn post.
+
+PLAN FROZEN: 2026-10-24 — Home window section. Signed Vish (chat, relayed by the leader session after he reviewed the mockup: "go ahead").
 
