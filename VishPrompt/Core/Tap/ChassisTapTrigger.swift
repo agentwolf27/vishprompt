@@ -102,10 +102,10 @@ final class ChassisTapTrigger {
     private func startSensor() {
         let sensor = SPUAccelerometer()
         let triples = PalmGestureSettings(defaults: defaults).listensForTriples
-        let pipeline = TapPipeline(setRate: { [weak sensor] rate in sensor?.setRate(rate) }, listensForTriples: triples) { [weak self] event in
+        let pipeline = TapPipeline(setRate: { [weak sensor] rate in sensor?.setRate(rate) }, listensForTriples: triples) { [weak self] event, shapes in
             // Back on the main thread, where the hotkey monitor delivers its own events.
             DispatchQueue.main.async {
-                MainActor.assumeIsolated { self?.accept(event) }
+                MainActor.assumeIsolated { self?.accept(event, shapes: shapes) }
             }
         }
         sensor.onSample = { t, a in pipeline.process(t: t, a) }
@@ -121,11 +121,27 @@ final class ChassisTapTrigger {
 
     /// A gesture from the detector. Dropped when a key, click or trackpad touch came near it:
     /// typing and clicking shake the palm rest too.
-    private func accept(_ event: TapEvent) {
+    private func accept(_ event: TapEvent, shapes: [KnockShape]) {
         guard sensor != nil else { return }
-        let (gesture, first): (PalmGesture, Double) = switch event {
-        case let .doubleTap(first, _): (.double, first)
-        case let .tripleTap(first, _): (.triple, first)
+        let first: Double
+        let gesture: PalmGesture
+        switch event {
+        case let .tripleTap(start, _):
+            first = start
+            gesture = .triple
+        case let .doubleTap(start, _):
+            first = start
+            // With a calibration that separates the sides, a double is placed left or right, or
+            // not run at all if its knocks can't be placed: never a guess. Without one, either side.
+            if let calibration = SideCalibration.saved(in: defaults), calibration.unlocked {
+                guard let side = calibration.side(of: shapes) else {
+                    Log.tap.info("Palm rest: double tap, but its side couldn't be told; not run")
+                    return
+                }
+                gesture = side == .left ? .doubleLeft : .doubleRight
+            } else {
+                gesture = .double
+            }
         }
         let now = Double(DispatchTime.now().uptimeNanoseconds) / 1_000_000_000
         let lastInput = now - TapInputGuard.lastInputAge()
@@ -206,10 +222,10 @@ final class TapPipeline: @unchecked Sendable {
     private var detector: TapDetector
     private var rate = SPUAccelerometer.Rate.idle
     private let setRate: @Sendable (SPUAccelerometer.Rate) -> Void
-    private let onEvent: @Sendable (TapEvent) -> Void
+    private let onEvent: @Sendable (TapEvent, [KnockShape]) -> Void
 
     init(setRate: @escaping @Sendable (SPUAccelerometer.Rate) -> Void, listensForTriples: Bool = false,
-         onEvent: @escaping @Sendable (TapEvent) -> Void) {
+         onEvent: @escaping @Sendable (TapEvent, [KnockShape]) -> Void) {
         var tuning = TapDetector.Tuning()
         tuning.listensForTriples = listensForTriples
         detector = TapDetector(tuning: tuning)
@@ -218,7 +234,7 @@ final class TapPipeline: @unchecked Sendable {
     }
 
     func process(t: Double, _ a: SIMD3<Float>) {
-        if let event = detector.process(t: t, a) { onEvent(event) }
+        if let event = detector.process(t: t, a) { onEvent(event, detector.lastGestureShapes) }
         let wanted: SPUAccelerometer.Rate = t - detector.lastStir < Self.activeHold ? .active : .idle
         if wanted != rate {
             rate = wanted
