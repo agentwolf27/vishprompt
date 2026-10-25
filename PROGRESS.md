@@ -280,3 +280,17 @@ show doubles firing.
 
 Evidence: `make test` — `Executed 537 tests, with 22 tests skipped and 0 failures`; `make release` — `** BUILD SUCCEEDED **`.
 
+## 2026-10-25 — Claude (palm-rest gestures: planned, side separation measured)
+
+The plan for user-chosen palm-rest gestures is frozen and queued behind the detector, which
+waits for desk recordings. Measured on Vish's bed recordings, using the direction of each knock's
+first push (the first 25 ms, high-passed at 13 Hz):
+
+Evidence: `python3 -I side.py double-left.csv double-right.csv` (scratch script, recordings in Fixtures/taps)
+```
+knocks >0.012g: left 6, right 13 | x-sign rule 68% | nearest-centroid (leave-one-out) 42% | chance 68%
+knocks >0.030g: left 5, right 16 | x-sign rule 71% | nearest-centroid (leave-one-out) 52% | chance 76%
+```
+Left and right are at chance on the bed, so the calibration gate would keep the side rows locked
+there.
+
