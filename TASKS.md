@@ -10,6 +10,10 @@
 
 | # | Task | Owner | VERIFY |
 |---|---|---|---|
+| 10 | Chassis tap: attack-based detector tuned on desk recordings (blocked on task 5) | Claude | `make test-class C=TapRecordingTests` |
+| 11 | Palm-rest gestures: mapping, triple vs double (blocked on task 10) | Claude | `make test-class C=PalmGestureTests` |
+| 12 | Palm-rest gestures: side calibration gate (blocked on task 10) | Claude | `make test-class C=SideCalibrationTests` |
+| 13 | Palm-rest gestures: the Palm rest card and Test area (blocked on task 10) | Claude | `make test-class C=PalmRestCardTests` |
 | 4 | Chassis tap: README section, after the LinkedIn post (2026-10-24 10:00 PT) | Claude | `grep -q "palm rest" README.md` |
 | 5 | Re-record double-left and double-right at a desk, and clicks and trackpad with the new recorder (the bed set is in) | Vish | a person tapping a MacBook; no command can do it |
 

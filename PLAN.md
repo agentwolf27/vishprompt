@@ -87,6 +87,9 @@ Tick one only when its VERIFY passes, not when someone says it is done.
 - [x] Tap fix 1: a trackpad tap, hold, scroll or Force Touch press near the knocks stops a double tap, as keys and clicks already did — `make test-class C=TapInputGuardTests`
 - [x] Tap fix 2a: on Vish's five negative recordings (idle, single, typing, clicks, handling) nothing fires, at 800 Hz and at the live sample rate after the input veto — `make test-class C=TapRecordingTests`
 - [ ] Tap fix 2: tuned on Vish's own recordings, double taps beside the trackpad fire on both sides, and nothing fires from the trackpad, typing, clicks or handling — `make test-class C=TapRecordingTests`
+- [ ] Gestures 1: each palm-rest gesture (double-tap either side, triple-tap; double-tap left and right once calibrated) maps to Off, Dictate, Smart paste, Edit selection or Fix screenshot, saved per Mac; a triple never also fires the double — `make test-class C=PalmGestureTests`
+- [ ] Gestures 2: left and right unlock only when a calibration run separates this Mac's sides at 95% or better; an inseparable run keeps the one either-side row and says why — `make test-class C=SideCalibrationTests`
+- [ ] Gestures 3: the Palm rest card (gesture rows, sensitivity, a Test area that lights up the gesture it heard) renders in light and dark — `make test-class C=PalmRestCardTests`
 
 ## Later
 
@@ -437,4 +440,24 @@ Vish: "The UI still looks really basic… It's all black. There's no like actual
 - **Order, one PR each:** the window, sidebar and theme; the cards; Dictionary and the Settings cards; retention. Each screen gets light and dark snapshots. The README images wait for the LinkedIn post.
 
 PLAN FROZEN: 2026-10-24 — Home window section. Signed Vish (chat, relayed by the leader session after he reviewed the mockup: "go ahead").
+
+### Palm-rest gestures you choose · 2026-10-25
+
+Vish: "we need it so like a person can setup right or left side which they want to use for what feature giving them the full access to what and how they want to customize it".
+
+- **Blocked on the detector.** This builds on the attack-based detector (Tap fix 2), which waits for Vish's desk recordings. It is not started before that lands.
+- **The card.** Settings gets its own Palm rest card, with one row per gesture and a picker on each: Off, Dictate (hands-free), Smart paste, Edit selection by voice, Fix screenshot.
+  - The gestures are "Double-tap (either side)" and "Triple-tap (either side)". "Double-tap left" and "Double-tap right" appear only after a successful calibration.
+  - Sensitivity: Light, Normal or Firm, mapped onto the detector's thresholds.
+  - A Test area lights up the gesture it heard, without starting anything.
+- **Sides are calibrated, never guessed.** "Tap left 5 times, now right 5 times."
+  - The two side rows unlock only if this Mac's taps separate at 95% or better on that run. Otherwise one either-side row stays, saying "This Mac can't tell your left and right taps apart on this surface; try calibrating at a desk."
+  - The calibration is stored per Mac, with a Recalibrate button.
+  - Measured on Vish's bed recordings (2026-10-25): sides are at chance. The "which way does x move first" rule gets 68–71% against 68–76% for always guessing the larger side. Nearest-centroid on direction, leave-one-out, gets 42–52%. The bed set alone would keep the side rows locked.
+- **Triple vs double.** The burst window is waited out before deciding, so a triple never also fires the double.
+- **Actions reuse what exists.** Each action is the same entry point as fn, fn+V, fn+R and the screenshot "fix this" flow, with no new behaviour inside it. Edit with nothing selected, and Fix screenshot with no fresh screenshot, show their existing capsule messages.
+- **Defaults.** Everything is off until the palm rest is turned on. The first time it is, Double-tap (either side) → Dictate.
+- **Tests:** mapping and persistence, triple vs double, the calibration gate (an inseparable fixture must not unlock the side rows), and the card's light and dark snapshots.
+
+PLAN FROZEN: 2026-10-25 — palm-rest gestures section, building blocked on Tap fix 2. Signed Vish (chat, relayed by the leader session: "we need it so like a person can setup right or left side which they want to use for what feature").
 
