@@ -185,3 +185,21 @@ Evidence: `make test-class C=HistoryCardTests` — `test-class: HistoryCardTests
 
 Evidence: `make test` — `Executed 512 tests, with 22 tests skipped and 0 failures`; `make release` — `** BUILD SUCCEEDED **`.
 
+## 2026-10-24 — Claude (Home window, step 3: the Settings cards)
+
+Settings in the window is now four cards, each wired to a setting that already existed:
+- How you start talking: the trigger's key cap, and the palm-rest switch, which drives
+  `AppState.setChassisTapEnabled` and on a Mac without the sensor says so and is disabled.
+- Where the rewrite runs: three rows that set `ProviderPolicy.compilePath`. "On this Mac" sets
+  the offline policy; a quick-cleanup path set elsewhere is kept.
+- What can leave this Mac: audio and screenshot images are Never; your words say "Nothing leaves"
+  only under the offline policy.
+- Appearance.
+
+Dictionary shipped in step 1 (the repo's words, read-only, saying there is no list of your own
+yet). The sidebar footer offers the palm rest only when it is on and the sensor is present.
+
+Evidence: `make test-class C=SettingsCardTests` — `test-class: SettingsCardTests passed` (7 tests).
+
+Evidence: `make test` — `Executed 519 tests, with 22 tests skipped and 0 failures`; `make release` — `** BUILD SUCCEEDED **`.
+

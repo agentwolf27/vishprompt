@@ -154,6 +154,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         guard let homeWindow else { return }
         homeWindow.library.triggerName = state.triggerKey.displayName
+        homeWindow.library.palmRestAvailable = ChassisTapTrigger.isAvailable
+        homeWindow.library.onSetPalmRest = { _ in }
+        homeWindow.library.palmRestEnabled = state.chassisTapEnabled
+        homeWindow.library.onSetPalmRest = { [weak self] on in self?.state.setChassisTapEnabled(on) }
+        homeWindow.library.providerPolicy = ProviderSettings().policy()
+        homeWindow.library.hasAPIKey = APIKeyCache.shared.hasKey
         let vocabulary = dictation.lastVocabulary
         homeWindow.library.dictionaryWords = vocabulary?.terms ?? []
         homeWindow.library.dictionarySource = vocabulary.map { v in v.branch.map { "\(v.repository) on \($0)" } ?? v.repository }
