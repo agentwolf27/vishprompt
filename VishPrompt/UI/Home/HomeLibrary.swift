@@ -94,10 +94,82 @@ final class HomeLibrary {
         HomeStats.today(entries.map(\.record), now: now)
     }
 
-    /// Today's most recent dictations, for Home.
+    /// Today's four most recent dictations for Home, pinned ones first.
     func recentToday(limit: Int = 4, now: Date = Date(), calendar: Calendar = .current) -> [HistoryEntry] {
-        Array(entries.filter { calendar.isDate($0.record.createdAt, inSameDayAs: now) }.prefix(limit))
+        let today = entries.filter { calendar.isDate($0.record.createdAt, inSameDayAs: now) }
+        return Array((today.filter(\.record.pinned) + today.filter { !$0.record.pinned }).prefix(limit))
     }
+
+    // MARK: History
+
+    var query = ""
+    /// The card Return pastes again and ⌘C copies.
+    var selection: String?
+    /// A row deleted a moment ago, for Undo.
+    private(set) var lastDeleted: HistoryEntry?
+    /// Which cards show "What you said".
+    var expanded: Set<String> = []
+
+    /// History's cards for the current search, in groups.
+    func historyGroups(now: Date = Date()) -> [(label: String, entries: [HistoryEntry])] {
+        HistoryFormat.groups(entries.filter { HistoryFormat.matches($0.record, query: query) }, now: now)
+    }
+
+    /// The cards in the order they are shown, for moving the selection with the arrow keys.
+    func historyOrder(now: Date = Date()) -> [String] {
+        historyGroups(now: now).flatMap(\.entries).map(\.id)
+    }
+
+    func moveSelection(by step: Int, now: Date = Date()) {
+        let order = historyOrder(now: now)
+        guard !order.isEmpty else { return }
+        guard let current = selection, let index = order.firstIndex(of: current) else {
+            selection = step >= 0 ? order.first : order.last
+            return
+        }
+        selection = order[min(max(index + step, 0), order.count - 1)]
+    }
+
+    var selectedText: String? {
+        entries.first { $0.id == selection }.flatMap { HistoryFormat.reusableText($0.record) }
+    }
+
+    func setPinned(_ pinned: Bool, _ entry: HistoryEntry) {
+        guard let queue = queue() else { return }
+        do {
+            try HistoryStore.setPinned(pinned, id: entry.id, in: queue)
+            reload()
+        } catch {
+            loadError = "That couldn't be pinned. Try again."
+            Log.db.error("Pin failed: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    func delete(_ entry: HistoryEntry) {
+        guard let queue = queue() else { return }
+        do {
+            try HistoryStore.delete(id: entry.id, in: queue)
+            lastDeleted = entry
+            if selection == entry.id { selection = nil }
+            reload()
+        } catch {
+            loadError = "That couldn't be deleted. Try again."
+            Log.db.error("Delete failed: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    func undoDelete() {
+        guard let queue = queue(), let entry = lastDeleted else { return }
+        do {
+            try HistoryStore.restore(entry, in: queue)
+            lastDeleted = nil
+            reload()
+        } catch {
+            Log.db.error("Undo delete failed: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    func dismissUndo() { lastDeleted = nil }
 
     func reload() {
         guard let queue = queue() else {
@@ -105,7 +177,8 @@ final class HomeLibrary {
             return
         }
         do {
-            entries = try HistoryStore.recent(in: queue, limit: 2000)
+            // Enough for search to cover what a person keeps; the window is not paged.
+            entries = try HistoryStore.recent(in: queue, limit: 5000)
             loadError = nil
         } catch {
             loadError = "History couldn't be read. Close this window and open it again."

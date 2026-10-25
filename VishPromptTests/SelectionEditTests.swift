@@ -113,7 +113,8 @@ final class SelectionEditTests: XCTestCase {
         try queue.write { db in try record.insert(db) }
         return try queue.read { db in
             let row = try XCTUnwrap(try Row.fetchOne(db, sql: "SELECT * FROM dictation WHERE id = ?", arguments: [record.id]))
-            return row.columnNames.compactMap { row[$0] as String? }
+            // Text values only: a cast to String would trap on an integer column such as `pinned`.
+            return row.columnNames.compactMap { String.fromDatabaseValue(row[$0] as DatabaseValue) }
         }
     }
 

@@ -85,6 +85,9 @@ final class DictationController {
     @ObservationIgnored private var lastPreview: PreviewHUD?
     /// The app in front at key-down, named while listening so the user sees where it will go.
     @ObservationIgnored private var listeningApp: String?
+    /// Set while the dictation in flight is a screenshot turned into a prompt, so History can
+    /// say "Screenshot fix". Cleared at every key-down.
+    @ObservationIgnored private var isScreenshotFix = false
 
     /// A screenshot prompt waiting in the preview. Tab drops or restores the screenshot text.
     private struct FixPreview {
@@ -347,6 +350,7 @@ final class DictationController {
         let frontmost = FocusContextProvider.frontmost()
         capturedContext = frontmost
         listeningApp = NSWorkspace.shared.frontmostApplication?.localizedName
+        isScreenshotFix = false
         hudContext = HUDContext(
             mode: .dictate,
             app: listeningApp,
@@ -604,6 +608,7 @@ final class DictationController {
         context: FocusContext,
         modifiers: GestureModifiers
     ) async throws {
+        isScreenshotFix = true
         hudContext.mode = .fix
         show(.compiling(partial: "Reading the screenshot on this Mac…"))
         let read = try await ScreenshotOCR.read(image)
@@ -1178,7 +1183,7 @@ final class DictationController {
         guard let queue = Database.queue else { return }
         // A Smart Paste writes its own row: what went into the field may hold a secret the
         // user copied, put back on this Mac, and history must never keep that.
-        let record = paste?.historyResult.record(
+        var record = paste?.historyResult.record(
             id: trace.id.uuidString,
             instruction: transcript.text,
             destination: destination,
@@ -1195,11 +1200,15 @@ final class DictationController {
             status: compiled.usedRawFallback ? .rawFallback : status,
             provider: compiled.sentTo?.rawValue ?? "local"
         )
+        record.app = listeningApp
+        record.mode = (paste.map { $0.isEdit ? DictationMode.edit : .smartPaste }
+            ?? (isScreenshotFix ? .screenshotFix : .dictate)).rawValue
+        let saved = record
         let timings = StageTimingRecord.rows(for: trace, dictationId: record.id)
         Task.detached {
             do {
                 try await queue.write { db in
-                    try record.insert(db)
+                    try saved.insert(db)
                     for var row in timings { try row.insert(db) }
                 }
             } catch {
