@@ -62,13 +62,13 @@ final class TapDetectorTests: XCTestCase {
     }
 
     func testTheRealIdleRecordingFiresNothing() throws {
-        let idle = try Self.load("idle-desk")
+        let idle = try Self.load("idle-quiet")
         XCTAssertGreaterThan(idle.count, 7000, "10 s at about 800 Hz")
         XCTAssertEqual(Self.run(idle).taps, [])
     }
 
     func testADoubleTapFiresOnceAtItsSecondKnock() throws {
-        var s = try Self.load("idle-desk")
+        var s = try Self.load("idle-quiet")
         knock(&s, at: 3.0, g: 0.03)
         knock(&s, at: 3.22, g: 0.03)
         let taps = Self.run(s).taps
@@ -78,14 +78,14 @@ final class TapDetectorTests: XCTestCase {
 
     func testAFaintDoubleTapStillCounts() throws {
         // The right side of the palm rest can read as little as 7–15 mg.
-        var s = try Self.load("idle-desk")
+        var s = try Self.load("idle-quiet")
         knock(&s, at: 3.0, g: 0.012)
         knock(&s, at: 3.25, g: 0.012)
         XCTAssertEqual(Self.run(s).taps.count, 1)
     }
 
     func testTwoDoublesAFewSecondsApartFireTwice() throws {
-        var s = try Self.load("idle-desk")
+        var s = try Self.load("idle-quiet")
         for t0 in [2.0, 6.0] {
             knock(&s, at: t0, g: 0.03)
             knock(&s, at: t0 + 0.2, g: 0.03)
@@ -94,26 +94,26 @@ final class TapDetectorTests: XCTestCase {
     }
 
     func testSingleTapsFireNothing() throws {
-        var s = try Self.load("idle-desk")
+        var s = try Self.load("idle-quiet")
         for t0 in stride(from: 1.0, to: 9.0, by: 1.5) { knock(&s, at: t0, g: 0.04) }
         XCTAssertEqual(Self.run(s).taps, [])
     }
 
     func testKnocksTooCloseOrTooFarApartFireNothing() throws {
-        var s = try Self.load("idle-desk")
+        var s = try Self.load("idle-quiet")
         knock(&s, at: 2.0, g: 0.03)
         knock(&s, at: 2.0 + 0.7, g: 0.03)
         XCTAssertEqual(Self.run(s).taps, [], "0.7 s apart is two single taps")
     }
 
     func testABurstOfThreeIsNotADouble() throws {
-        var s = try Self.load("idle-desk")
+        var s = try Self.load("idle-quiet")
         for k in 0..<3 { knock(&s, at: 3.0 + Double(k) * 0.15, g: 0.03) }
         XCTAssertEqual(Self.run(s).taps, [])
     }
 
     func testKnocksWithKeyPressesAreTyping() throws {
-        var s = try Self.load("idle-desk")
+        var s = try Self.load("idle-quiet")
         for (k, t0) in [3.0, 3.2].enumerated() {
             knock(&s, at: t0, g: 0.05)
             // The key event is reported a little after the vibration, on the second knock only.
@@ -125,7 +125,7 @@ final class TapDetectorTests: XCTestCase {
     }
 
     func testAKeyPressJustBeforeTheKnocksAlsoCounts() throws {
-        var s = try Self.load("idle-desk")
+        var s = try Self.load("idle-quiet")
         markInput(&s, at: 2.75)
         knock(&s, at: 3.0, g: 0.05)
         knock(&s, at: 3.2, g: 0.05)
@@ -133,7 +133,7 @@ final class TapDetectorTests: XCTestCase {
     }
 
     func testLiftingAndSettingTheMacDownIsHandling() throws {
-        var s = try Self.load("idle-desk")
+        var s = try Self.load("idle-quiet")
         handle(&s, at: 2.0, degrees: 6)
         // A knock as firm as the set-down thud, 0.3 s after it: shaped like a double tap, and it
         // must still not count, because the Mac was moving just before.
@@ -145,14 +145,14 @@ final class TapDetectorTests: XCTestCase {
     }
 
     func testALongRingIsNotATap() throws {
-        var s = try Self.load("idle-desk")
+        var s = try Self.load("idle-quiet")
         knock(&s, at: 3.0, g: 0.05, ring: 0.2)
         knock(&s, at: 3.25, g: 0.05, ring: 0.2)
         XCTAssertEqual(Self.run(s).taps, [])
     }
 
     func testAGapInTheStreamRestartsCleanly() throws {
-        var s = try Self.load("idle-desk")
+        var s = try Self.load("idle-quiet")
         // A 2 s hole, as when sampling pauses for a locked screen.
         s.removeAll { $0.t > 4 && $0.t < 6 }
         knock(&s, at: 7.0, g: 0.03)
@@ -169,7 +169,7 @@ final class TapPipelineTests: XCTestCase {
     }
 
     func testAFirstKnockCaughtAt100HzStillMakesADoubleAndRaisesTheRate() throws {
-        let idle = try TapDetectorTests.load("idle-desk")
+        let idle = try TapDetectorTests.load("idle-quiet")
         // Every eighth sample is 100 Hz. The rate goes up as soon as the pipeline asks.
         let box = Box()
         let pipeline = TapPipeline(setRate: { box.rates.append($0) }, onDoubleTap: { box.taps.append($0) })
@@ -194,7 +194,7 @@ final class TapPipelineTests: XCTestCase {
     func testRealIdleStaysAt100Hz() throws {
         let box = Box()
         let pipeline = TapPipeline(setRate: { box.rates.append($0) }, onDoubleTap: { box.taps.append($0) })
-        for (i, s) in try TapDetectorTests.load("idle-desk").enumerated() where i % 8 == 0 { pipeline.process(t: s.t, s.a) }
+        for (i, s) in try TapDetectorTests.load("idle-quiet").enumerated() where i % 8 == 0 { pipeline.process(t: s.t, s.a) }
         XCTAssertEqual(box.rates, [], "a still Mac never wakes the sensor to full rate")
         XCTAssertEqual(box.taps, [])
     }
