@@ -90,7 +90,7 @@ Tick one only when its VERIFY passes, not when someone says it is done.
 - [ ] Tap fix 2: tuned on Vish's own recordings, double taps beside the trackpad fire on both sides, and nothing fires from the trackpad, typing, clicks or handling — `make test-class C=TapRecordingTests`
 - [x] Gestures 1: each palm-rest gesture (double-tap either side, triple-tap; double-tap left and right once calibrated) maps to Off, Dictate, Smart paste, Edit selection or Fix screenshot, saved per Mac; a triple never also fires the double — `make test-class C=PalmGestureTests`
 - [x] Gestures 2: left and right unlock only when a calibration run separates this Mac's sides at 95% or better; an inseparable run keeps the one either-side row and says why — `make test-class C=SideCalibrationTests`
-- [ ] Gestures 3: the Palm rest card (gesture rows, sensitivity, a Test area that lights up the gesture it heard) renders in light and dark — `make test-class C=PalmRestCardTests`
+- [x] Gestures 3: the Palm rest card (gesture rows, sensitivity, a Test area that lights up the gesture it heard) renders in light and dark — `make test-class C=PalmRestCardTests`
 
 ## Later
 

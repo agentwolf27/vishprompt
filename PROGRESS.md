@@ -428,3 +428,29 @@ test.
 
 Evidence: `make test` — `Executed 558 tests, with 22 tests skipped and 0 failures`; `make release` passed.
 
+## 2026-10-25 — Claude (palm-rest gestures, step 3: the Palm rest card)
+
+Settings has a Palm rest card of its own: the switch; a row per gesture with a picker (Off,
+Dictate, Smart paste, Edit selection by voice, Fix screenshot); How firm a tap (Light, Normal,
+Firm); a Test area that shows the gesture it heard and runs nothing; and Left and right, with the
+calibration run (five double-taps a side), the saved result either way, and Recalibrate.
+- Normal is exactly the tuning every tap test ran on. Light and Firm move only the two onset
+  thresholds. Firm (30 mg) still hears the second bed session's doubles (left 6, right 5) and
+  nothing from either session's clicks, typing or single taps.
+- A pure `PalmRoute` decides what a heard gesture becomes (near input, calibration, test, side
+  unclear, run), so the Test area and calibration are tested without the sensor.
+- Leaving Settings, closing the window or turning the palm rest off ends a test or calibration,
+  so taps go back to running their actions.
+- On a first unlock both side rows start with what the either-side row did; a recalibration never
+  overwrites a choice. A failed run is saved too, and the card shows the locked reason.
+
+Evidence: `make test-class C=PalmRestCardTests` — passed (12 tests), with
+```
+PROBE firm bed2/double-left: 6 doubles
+PROBE firm bed2/double-right: 5 doubles
+PROBE bed2 run: Calibrated 25 Oct 2026: this Mac told your sides apart 95% of the time.
+```
+The first bed session's knocks through the run keep the side rows locked and show the reason.
+
+Evidence: `make test` — `Executed 570 tests, with 22 tests skipped and 0 failures`; `make release` — `** BUILD SUCCEEDED **`.
+

@@ -97,3 +97,58 @@ struct SideCalibration: Codable, Equatable, Sendable {
         zip(a, b).map { ($0 - $1) * ($0 - $1) }.reduce(0, +).squareRoot()
     }
 }
+
+/// One calibration run: double-tap left five times, then right five times. Each double gives two
+/// knock shapes, so ten a side.
+struct SideCalibrationRun: Equatable, Sendable {
+    enum Phase: Equatable, Sendable { case left, right, done }
+
+    private(set) var left: [KnockShape] = []
+    private(set) var right: [KnockShape] = []
+    private(set) var result: SideCalibration?
+
+    var phase: Phase {
+        if left.count < SideCalibration.tapsPerSide { return .left }
+        if right.count < SideCalibration.tapsPerSide { return .right }
+        return .done
+    }
+
+    /// Double-taps still wanted on the current side.
+    var remainingDoubles: Int {
+        let have = phase == .left ? left.count : right.count
+        return max(0, (SideCalibration.tapsPerSide - have + 1) / 2)
+    }
+
+    var instruction: String {
+        switch phase {
+        case .left: "Double-tap the palm rest left of the trackpad: \(remainingDoubles) more."
+        case .right: "Now the right side: \(remainingDoubles) more."
+        case .done: "Done."
+        }
+    }
+
+    /// Feeds one double tap's knocks. Returns the measurement once both sides are in.
+    mutating func add(_ shapes: [KnockShape], model: String = SideCalibration.hardwareModel, date: Date = Date()) -> SideCalibration? {
+        switch phase {
+        case .left: left.append(contentsOf: shapes.prefix(SideCalibration.tapsPerSide - left.count))
+        case .right: right.append(contentsOf: shapes.prefix(SideCalibration.tapsPerSide - right.count))
+        case .done: return result
+        }
+        guard phase == .done else { return nil }
+        result = SideCalibration.measure(left: left, right: right, model: model, date: date)
+        return result
+    }
+}
+
+extension SideCalibration {
+    /// What the card says about the saved calibration.
+    var statusText: String {
+        let when = date.formatted(date: .abbreviated, time: .omitted)
+        let percent = Int((accuracy * 100).rounded())
+        return unlocked
+            ? "Calibrated \(when): this Mac told your sides apart \(percent)% of the time."
+            : "Calibrated \(when): \(percent)%. \(Self.lockedReason)"
+    }
+
+    static let notCalibrated = "Not calibrated. Until it is, both sides do the same thing."
+}

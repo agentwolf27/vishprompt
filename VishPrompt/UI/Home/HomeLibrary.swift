@@ -62,7 +62,10 @@ enum HomePage: String, CaseIterable, Identifiable, Sendable {
 final class HomeLibrary {
     private(set) var entries: [HistoryEntry] = []
     private(set) var loadError: String?
-    var page: HomePage = .home
+    var page: HomePage = .home {
+        // Leaving Settings ends a tap test or calibration, so taps go back to doing their job.
+        didSet { if page != .settings { leavePalmRest() } }
+    }
 
     /// The trigger's name, for the sidebar's key cap.
     var triggerName = "fn"
@@ -83,9 +86,141 @@ final class HomeLibrary {
     /// Whether this Mac has the palm-rest sensor. Without it the switch says so and is off.
     var palmRestAvailable = false
     var palmRestEnabled = false {
-        didSet { if palmRestEnabled != oldValue { onSetPalmRest(palmRestEnabled) } }
+        didSet {
+            guard palmRestEnabled != oldValue else { return }
+            onSetPalmRest(palmRestEnabled)
+            if !palmRestEnabled { leavePalmRest() }
+        }
     }
     @ObservationIgnored var onSetPalmRest: (Bool) -> Void = { _ in }
+
+    // MARK: Palm-rest gestures
+
+    var palmSensitivity: PalmSensitivity {
+        didSet {
+            guard palmSensitivity != oldValue else { return }
+            palmSensitivity.save(in: defaults)
+            onPalmGesturesChanged()
+        }
+    }
+    /// Called when a gesture's action or the sensitivity changes, so the sensor picks it up.
+    @ObservationIgnored var onPalmGesturesChanged: () -> Void = {}
+    /// Bumped when an action changes, so views that read the settings redraw.
+    private(set) var palmGesturesVersion = 0
+
+    func palmAction(for gesture: PalmGesture) -> PalmAction {
+        _ = palmGesturesVersion
+        return PalmGestureSettings(defaults: defaults).action(for: gesture)
+    }
+
+    func setPalmAction(_ action: PalmAction, for gesture: PalmGesture) {
+        PalmGestureSettings(defaults: defaults).set(action, for: gesture)
+        palmGesturesVersion += 1
+        onPalmGesturesChanged()
+    }
+
+    /// The saved calibration for this Mac, if any.
+    var sideCalibration: SideCalibration?
+
+    /// The rows the card shows: left and right only once a calibration told them apart.
+    var visiblePalmGestures: [PalmGesture] {
+        sideCalibration?.unlocked == true ? [.doubleLeft, .doubleRight, .triple] : [.double, .triple]
+    }
+
+    var palmCalibrationStatus: String {
+        sideCalibration?.statusText ?? SideCalibration.notCalibrated
+    }
+
+    // The Test area: gestures light up here and run nothing.
+    private(set) var palmTesting = false
+    private(set) var palmHeard: PalmTestResult?
+    @ObservationIgnored var onSetPalmTesting: (Bool) -> Void = { _ in }
+    @ObservationIgnored private var heardGeneration = 0
+
+    func startPalmTest() {
+        cancelCalibration()
+        palmHeard = nil
+        palmTesting = true
+        onSetPalmTesting(true)
+    }
+
+    func stopPalmTest() {
+        guard palmTesting else { return }
+        palmTesting = false
+        palmHeard = nil
+        onSetPalmTesting(false)
+    }
+
+    func palmTestHeard(_ result: PalmTestResult) {
+        palmHeard = result
+        heardGeneration += 1
+        let generation = heardGeneration
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(3))
+            guard let self, heardGeneration == generation else { return }
+            palmHeard = nil
+        }
+    }
+
+    // A calibration run.
+    private(set) var calibrationRun: SideCalibrationRun?
+    /// What the last run concluded, shown until the next one starts.
+    private(set) var calibrationNote: String?
+    @ObservationIgnored var onSetCalibrating: (Bool) -> Void = { _ in }
+
+    func startCalibration() {
+        stopPalmTest()
+        calibrationNote = nil
+        calibrationRun = SideCalibrationRun()
+        onSetCalibrating(true)
+    }
+
+    func cancelCalibration() {
+        guard calibrationRun != nil else { return }
+        calibrationRun = nil
+        onSetCalibrating(false)
+    }
+
+    /// One double tap's knocks during a run. When both sides are in, the result is saved either
+    /// way: a failed run is the truth about this surface.
+    func calibrationHeard(_ shapes: [KnockShape], model: String = SideCalibration.hardwareModel, date: Date = Date()) {
+        guard var run = calibrationRun else { return }
+        let result = run.add(shapes, model: model, date: date)
+        calibrationRun = run
+        guard run.phase == .done else { return }
+        calibrationRun = nil
+        onSetCalibrating(false)
+        guard let result else {
+            calibrationNote = "Too few taps were heard to judge. Try again, tapping firmly."
+            return
+        }
+        applyCalibration(result)
+    }
+
+    /// On a first unlock, both side rows start with what the either-side row did, so a working
+    /// gesture is not lost.
+    func applyCalibration(_ result: SideCalibration) {
+        result.save(in: defaults)
+        let wasUnlocked = sideCalibration?.unlocked == true
+        sideCalibration = result
+        calibrationNote = result.statusText
+        if result.unlocked, !wasUnlocked {
+            let settings = PalmGestureSettings(defaults: defaults)
+            if settings.action(for: .doubleLeft) == .off, settings.action(for: .doubleRight) == .off {
+                let either = settings.action(for: .double)
+                settings.set(either, for: .doubleLeft)
+                settings.set(either, for: .doubleRight)
+            }
+            palmGesturesVersion += 1
+        }
+        onPalmGesturesChanged()
+    }
+
+    /// Ends a test or a calibration, so taps go back to running their actions.
+    func leavePalmRest() {
+        stopPalmTest()
+        cancelCalibration()
+    }
 
     var providerPolicy: ProviderPolicy {
         didSet { ProviderSettings(defaults: defaults).save(providerPolicy) }
@@ -157,6 +292,8 @@ final class HomeLibrary {
         self.queue = queue
         self.defaults = defaults
         appearance = AppearanceChoice.saved(in: defaults)
+        palmSensitivity = PalmSensitivity.saved(in: defaults)
+        sideCalibration = SideCalibration.saved(in: defaults)
         providerPolicy = ProviderSettings(defaults: defaults).policy()
     }
 

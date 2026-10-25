@@ -155,6 +155,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if homeWindow == nil {
             homeWindow = HomeWindowController()
             homeWindow?.library.onShowMoreSettings = { [weak self] in self?.showSettings() }
+            // The Palm rest card: its changes restart the sensor, and its Test area and
+            // calibration take gestures over while they run.
+            homeWindow?.library.onPalmGesturesChanged = { [weak self] in self?.dictation.palmGesturesChanged() }
+            homeWindow?.library.onSetPalmTesting = { [weak self] on in
+                guard let self else { return }
+                let library = homeWindow?.library
+                var observer: (@MainActor (PalmTestResult) -> Void)?
+                if on { observer = { [weak library] result in library?.palmTestHeard(result) } }
+                dictation.setPalmTestObserver(observer)
+            }
+            homeWindow?.library.onSetCalibrating = { [weak self] on in
+                guard let self else { return }
+                let library = homeWindow?.library
+                var observer: (@MainActor ([KnockShape]) -> Void)?
+                if on { observer = { [weak library] shapes in library?.calibrationHeard(shapes) } }
+                dictation.setPalmCalibrationObserver(observer)
+            }
         }
         guard let homeWindow else { return }
         homeWindow.library.triggerName = state.triggerKey.displayName

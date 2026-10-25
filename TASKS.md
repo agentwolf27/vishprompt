@@ -10,7 +10,6 @@
 
 | # | Task | Owner | VERIFY |
 |---|---|---|---|
-| 13 | Palm-rest gestures: the Palm rest card and Test area (unblocked) | Claude | `make test-class C=PalmRestCardTests` |
 | 4 | Chassis tap: README section, after the LinkedIn post (2026-10-24 10:00 PT) | Claude | `grep -q "palm rest" README.md` |
 | 5 | Record at a table (all scenarios, SURFACE=desk), and the trackpad scenario (hold, Force Touch, scroll); there is no desk data yet | Vish | a person tapping a MacBook; no command can do it |
 
@@ -27,3 +26,4 @@
 | 10 | Chassis tap: detector tuned on two bed sessions | Claude | `make test-class C=TapRecordingTests` |
 | 11 | Palm-rest gestures: mapping, triple vs double | Claude | `make test-class C=PalmGestureTests` |
 | 12 | Palm-rest gestures: side calibration gate | Claude | `make test-class C=SideCalibrationTests` |
+| 13 | Palm-rest gestures: the Palm rest card and Test area | Claude | `make test-class C=PalmRestCardTests` |
