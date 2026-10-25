@@ -266,7 +266,7 @@ final class HotkeyMonitor: @unchecked Sendable {
             // V asks for a Smart Paste, R to edit the selection. Swallowed only when it counts,
             // so a letter typed later in a dictation still reaches the app as before.
             for chordKey in [pasteKeyCode, editKeyCode]
-            where Self.isChordKey(keyCode: keyCode, flags: event.flags, trigger: trigger, chordKeyCode: chordKey) {
+            where trigger.allowsChords && Self.isChordKey(keyCode: keyCode, flags: event.flags, trigger: trigger, chordKeyCode: chordKey) {
                 let now = Double(DispatchTime.now().uptimeNanoseconds) / 1_000_000_000
                 let timed: HotkeyEvent = chordKey == pasteKeyCode ? .pasteKey(at: now) : .editKey(at: now)
                 let (action, converted) = gesture.withLock { machine in
@@ -274,6 +274,15 @@ final class HotkeyMonitor: @unchecked Sendable {
                 }
                 deliver(action)
                 if converted { return false }
+            }
+
+            // Any other key while the trigger is held is a shortcut (⌘C with Right Command,
+            // fn+Delete), not a dictation. The gesture decides whether to cancel; the key always
+            // goes through. Escape keeps its own meaning below.
+            if keyCode != CGKeyCode(kVK_Escape), gesture.withLock({ $0.isHolding }) {
+                let now = Double(DispatchTime.now().uptimeNanoseconds) / 1_000_000_000
+                deliver(gesture.withLock { $0.handle(.otherKey(at: now, shortcutTrigger: trigger.isShortcutModifier)) })
+                return true
             }
 
             if previewMode.withLock({ $0 }), let key = Self.previewKey(for: keyCode, flags: event.flags) {
@@ -425,5 +434,24 @@ enum FnKeyUsage: Int, Sendable {
         let value = UserDefaults.standard.persistentDomain(forName: "com.apple.HIToolbox")?["AppleFnUsageType"]
         guard let number = value as? Int else { return .showEmojiPicker }
         return FnKeyUsage(rawValue: number) ?? .showEmojiPicker
+    }
+
+    /// Whether Apple's own dictation is on. Its default shortcut is pressing fn twice, the same
+    /// gesture as VishPrompt's hands-free lock, so both would start.
+    static var appleDictationEnabled: Bool {
+        (UserDefaults.standard.persistentDomain(forName: "com.apple.HIToolbox")?["AppleDictationAutoEnable"] as? Int ?? 0) == 1
+    }
+
+    /// What to tell the user when fn is the trigger and macOS also acts on it, or nil.
+    static func hint(for usage: FnKeyUsage, appleDictation: Bool, trigger: TriggerKey) -> String? {
+        guard trigger == .fn else { return nil }
+        var parts: [String] = []
+        if usage.conflictsWithTrigger {
+            parts.append("macOS also uses fn: a tap \(usage.description). Set Keyboard → “Press 🌐 key to” → Do Nothing, or a quick tap does both.")
+        }
+        if appleDictation {
+            parts.append("Apple's dictation is on, and its shortcut can be pressing fn twice, the same as VishPrompt's hands-free double-tap. Set Keyboard → Dictation → Shortcut to another key.")
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: " ")
     }
 }

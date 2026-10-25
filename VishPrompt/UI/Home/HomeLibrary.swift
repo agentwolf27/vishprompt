@@ -94,6 +94,13 @@ final class HomeLibrary {
     }
     @ObservationIgnored var onSetPalmRest: (Bool) -> Void = { _ in }
 
+    /// Shown on Home once, after a saved trigger had to be replaced at launch.
+    var triggerNote: String?
+    @ObservationIgnored var onDismissTriggerNote: () -> Void = {}
+    /// What macOS does with fn that competes with it as the trigger, or nil.
+    var fnHint: String?
+    @ObservationIgnored var onOpenKeyboardSettings: () -> Void = {}
+
     // MARK: Palm-rest gestures
 
     var palmSensitivity: PalmSensitivity {

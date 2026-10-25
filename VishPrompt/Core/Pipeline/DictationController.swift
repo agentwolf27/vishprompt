@@ -85,6 +85,8 @@ final class DictationController {
     @ObservationIgnored private var lastPreview: PreviewHUD?
     /// The app in front at key-down, named while listening so the user sees where it will go.
     @ObservationIgnored private var listeningApp: String?
+    /// The capsule waiting to appear, for triggers that may turn out to be a shortcut.
+    @ObservationIgnored private var revealTask: Task<Void, Never>?
     /// Set while the dictation in flight is a screenshot turned into a prompt, so History can
     /// say "Screenshot fix". Cleared at every key-down.
     @ObservationIgnored private var isScreenshotFix = false
@@ -351,6 +353,9 @@ final class DictationController {
             case .tooShort:
                 noteCaptureLength(0)
                 hide(after: 0)
+            case .shortcut:
+                // ⌘C with Right Command, fn+Delete: the key went through; nothing to say.
+                hide(after: 0)
             case .escape, .resynchronise:
                 pasteRead = nil
                 editRead = nil
@@ -417,8 +422,7 @@ final class DictationController {
             try capture.start()
             trace.mark(.captureStarted)
             livePartial = ""
-            show(.listening(level: 0, seconds: 0, locked: false, app: listeningApp))
-            startMeter()
+            revealListening()
             // Transcribe while the user is still talking, so the words are already decoded when
             // the key comes up rather than the whole utterance waiting until then.
             Task { [weak self] in
@@ -1278,7 +1282,26 @@ final class DictationController {
 
     /// Hides the overlay. Always releases the preview keys first: an invisible overlay must
     /// never still be capturing Return, Tab, Escape and R.
+    /// The capsule and the meter. With Right Command or Right Option as the trigger, a hold that
+    /// turns out to be ⌘C or an ⌥ character is cancelled within 150 ms, so the capsule waits that
+    /// long rather than flashing on every shortcut. fn and ordinary keys show it at once.
+    private func revealListening() {
+        revealTask?.cancel()
+        guard currentTrigger.isShortcutModifier else {
+            show(.listening(level: 0, seconds: 0, locked: false, app: listeningApp))
+            startMeter()
+            return
+        }
+        revealTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(150))
+            guard !Task.isCancelled, let self, monitor.isRecording else { return }
+            show(.listening(level: 0, seconds: 0, locked: false, app: listeningApp))
+            startMeter()
+        }
+    }
+
     private func hide(after delay: TimeInterval) {
+        revealTask?.cancel()
         dismissTask?.cancel()
         dismissTask = Task { [weak self] in
             if delay > 0 {

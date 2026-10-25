@@ -40,6 +40,14 @@ struct SettingsPageView: View {
             } trailing: {
                 KeyCap(label: library.triggerName).scaleEffect(1.1)
             }
+            if let hint = library.fnHint {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(hint).font(.system(size: 12)).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
+                    Button("Open Keyboard Settings…") { library.onOpenKeyboardSettings() }
+                        .buttonStyle(.link).font(.system(size: 12)).foregroundStyle(theme.accent.color)
+                }
+                .padding(.top, 8)
+            }
             SettingsRow {
                 RowText(title: "Tap the palm rest", note: "Choose what each tap does in the Palm rest card below.")
             } trailing: {

@@ -27,3 +27,4 @@
 | 11 | Palm-rest gestures: mapping, triple vs double | Claude | `make test-class C=PalmGestureTests` |
 | 12 | Palm-rest gestures: side calibration gate | Claude | `make test-class C=SideCalibrationTests` |
 | 13 | Palm-rest gestures: the Palm rest card and Test area | Claude | `make test-class C=PalmRestCardTests` |
+| 14 | Trigger safety: shortcut modifiers refused, shortcuts pass through, overlap audit | Claude | `make test-class C=TriggerSafetyTests` |
