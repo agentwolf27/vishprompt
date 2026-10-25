@@ -179,9 +179,9 @@ final class HotkeyMonitor: @unchecked Sendable {
 
     /// A double tap on the palm rest: starts hands-free recording, or ends it. Call on the main
     /// thread, where the tap's own events are delivered, so the two never interleave.
-    func reportChassisTap() {
+    func reportChassisTap(chord: HotkeyGesture.Chord? = nil) {
         let now = Double(DispatchTime.now().uptimeNanoseconds) / 1_000_000_000
-        let actions = gesture.withLock { $0.chassisTap(at: now) }
+        let actions = gesture.withLock { $0.chassisTap(at: now, chord: chord) }
         actions.forEach(deliver)
     }
 

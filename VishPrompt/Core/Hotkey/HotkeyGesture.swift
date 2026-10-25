@@ -174,8 +174,14 @@ struct HotkeyGesture: Sendable {
     /// A palm-rest tap is a whole press, down and up at once. From idle it starts a hands-free
     /// recording; while hands-free it ends one. While the trigger is held, or half-way through
     /// its own double-tap, it does nothing, so a tap can never cut a held dictation short.
-    mutating func chassisTap(at time: TimeInterval) -> [HotkeyAction] {
+    mutating func chassisTap(at time: TimeInterval, chord requested: Chord? = nil) -> [HotkeyAction] {
         var actions = [handle(.chassisTap(at: time))]
+        // A gesture assigned to Smart Paste or an edit starts the same hands-free capture, then
+        // sends the same action fn+V or fn+R would, before the overlay says what it is doing.
+        if let requested, state == .lockArming, startedByTap {
+            chord = requested
+            actions.append(requested == .paste ? .smartPaste : .editSelection)
+        }
         if state == .lockArming || state == .lockStopping {
             actions.append(handle(.triggerUp(at: time, modifiers: .none)))
         }
@@ -288,6 +294,7 @@ struct HotkeyGesture: Sendable {
         case .lockStopping:
             state = .idle
             lastShortTapEnded = nil
+            chord = nil
             return .finishCapture(modifiers: modifiers, locked: true)
         }
     }
@@ -295,6 +302,7 @@ struct HotkeyGesture: Sendable {
     private mutating func handleSilence() -> HotkeyAction {
         guard state == .locked else { return .none }
         state = .idle
+        chord = nil
         return .finishCapture(modifiers: .none, locked: true)
     }
 

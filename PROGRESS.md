@@ -370,3 +370,31 @@ rather than side. There was no gyro in these recordings. The gestures plan's cal
 measures each run as it happens, so it decides per session. Until desk recordings exist, the
 default is "either side".
 
+## 2026-10-25 — Claude (palm-rest gestures, step 1: mapping, and triple vs double)
+
+Each gesture (double-tap either side, triple-tap; left and right come with calibration) maps to
+Off, Dictate, Smart paste, Edit selection or Fix screenshot, saved on this Mac. Everything is Off
+until the palm rest is turned on; the first time, double-tap → Dictate.
+- **Dispatch uses the existing entry points.** Dictate is the hands-free tap session. Smart paste
+  and Edit start the same capture and send the same `.smartPaste` / `.editSelection` action as
+  fn+V and fn+R. Fix screenshot is fn+V's screenshot path when the clipboard holds an image. It
+  says "No screenshot on the clipboard…" when it doesn't: the one new line of copy, because no
+  existing message covered it.
+- **Triples.** With a triple assigned, the detector waits out the double window (0.45 s) before
+  calling a double, so a triple never also fires the double.
+
+Turning triples on exposed two false gestures in the first bed session, and both are fixed:
+- a run of eight knocks 0.1 s apart (single taps file, 13.6–14.3 s): a gesture's first knock
+  now needs 0.5 s of no knocks before it;
+- a "triple" whose last two knocks were 0.09 s apart (handling): knocks must now be at least
+  0.12 s apart.
+
+A weak third knock spoils the gesture instead of being dropped, and each knock of a triple must
+reach 50 mg.
+
+The cost: the first session's right-side file now fires 0 (it was 4), because its light taps came
+in runs. It was measured, not required. The second session is unchanged at 6 of 6 and 4 of 6.
+
+Evidence: `make test-class C=PalmGestureTests` — `test-class: PalmGestureTests passed` (12 tests).
+Evidence: `make test` — `Executed 550 tests, with 22 tests skipped and 0 failures`; `make release` passed; `make verify-tap-cpu` — `0.50% for the trigger`.
+

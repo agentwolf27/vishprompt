@@ -10,7 +10,6 @@
 
 | # | Task | Owner | VERIFY |
 |---|---|---|---|
-| 11 | Palm-rest gestures: mapping, triple vs double (unblocked) | Claude | `make test-class C=PalmGestureTests` |
 | 12 | Palm-rest gestures: side calibration gate (unblocked) | Claude | `make test-class C=SideCalibrationTests` |
 | 13 | Palm-rest gestures: the Palm rest card and Test area (unblocked) | Claude | `make test-class C=PalmRestCardTests` |
 | 4 | Chassis tap: README section, after the LinkedIn post (2026-10-24 10:00 PT) | Claude | `grep -q "palm rest" README.md` |
@@ -27,3 +26,4 @@
 | 8 | Home window: Dictionary and Settings cards | Claude | `make test-class C=SettingsCardTests` |
 | 9 | Home window: history retention | Claude | `make test-class C=RetentionTests` |
 | 10 | Chassis tap: detector tuned on two bed sessions | Claude | `make test-class C=TapRecordingTests` |
+| 11 | Palm-rest gestures: mapping, triple vs double | Claude | `make test-class C=PalmGestureTests` |

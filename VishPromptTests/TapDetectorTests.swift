@@ -172,7 +172,7 @@ final class TapPipelineTests: XCTestCase {
         let idle = try TapDetectorTests.load("idle-quiet")
         // Every eighth sample is 100 Hz. The rate goes up as soon as the pipeline asks.
         let box = Box()
-        let pipeline = TapPipeline(setRate: { box.rates.append($0) }, onDoubleTap: { box.taps.append($0) })
+        let pipeline = TapPipeline(setRate: { box.rates.append($0) }, onEvent: { if case let .doubleTap(first, _) = $0 { box.taps.append(first) } })
         var fast = false
         for (i, s) in idle.enumerated() {
             if !fast, i % 8 != 0 { continue }
@@ -193,7 +193,7 @@ final class TapPipelineTests: XCTestCase {
 
     func testRealIdleStaysAt100Hz() throws {
         let box = Box()
-        let pipeline = TapPipeline(setRate: { box.rates.append($0) }, onDoubleTap: { box.taps.append($0) })
+        let pipeline = TapPipeline(setRate: { box.rates.append($0) }, onEvent: { if case let .doubleTap(first, _) = $0 { box.taps.append(first) } })
         for (i, s) in try TapDetectorTests.load("idle-quiet").enumerated() where i % 8 == 0 { pipeline.process(t: s.t, s.a) }
         XCTAssertEqual(box.rates, [], "a still Mac never wakes the sensor to full rate")
         XCTAssertEqual(box.taps, [])

@@ -117,7 +117,7 @@ final class ChassisTapGestureTests: XCTestCase {
     @MainActor
     func testItIsOffByDefault() {
         let defaults = UserDefaults(suiteName: "ChassisTapGestureTests-\(UUID())")!
-        let trigger = ChassisTapTrigger(defaults: defaults) {}
+        let trigger = ChassisTapTrigger(defaults: defaults) { _ in }
         trigger.setDictationRunning(true)
         XCTAssertFalse(trigger.isSampling, "nothing is read until the user turns it on")
         XCTAssertFalse(defaults.bool(forKey: ChassisTapTrigger.enabledKey))
