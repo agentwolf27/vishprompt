@@ -83,10 +83,13 @@ verify-tap-cpu: gen
 
 ## Guided recording of real palm-rest taps, typing, clicks and handling into Fixtures/taps/,
 ## for TapDetectorTests. Run it in a terminal and follow the prompts. ONLY=<scenario> redoes one.
+## SURFACE names where the Mac sits (desk, bed, lap); recordings go to Fixtures/taps/<surface>/,
+## so a desk session never overwrites a bed one.
+SURFACE ?= desk
 record-taps:
 	@mkdir -p build
 	swiftc -O -o build/record-taps scripts/record-taps/main.swift VishPrompt/Core/Tap/SPUAccelerometer.swift VishPrompt/Core/Tap/TapInputGuard.swift VishPrompt/Core/Tap/TapDetector.swift VishPrompt/Core/Logging/Log.swift
-	build/record-taps Fixtures/taps $(ONLY)
+	build/record-taps Fixtures/taps/$(SURFACE) $(ONLY)
 
 ## Time the real key-up path on the Release build: 20 runs, median and p90, raw rows in
 ## build/latency/. Needs the speech models (downloaded on first run). See LatencyHarnessTests.
