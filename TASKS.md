@@ -11,7 +11,7 @@
 | # | Task | Owner | VERIFY |
 |---|---|---|---|
 | 4 | Chassis tap: README section, after the LinkedIn post (2026-10-24 10:00 PT) | Claude | `grep -q "palm rest" README.md` |
-| 5 | Record real taps on the palm rest for the detector's tests | Vish | a person tapping a MacBook; no command can do it |
+| 5 | Re-record double-left and double-right at a desk, and clicks and trackpad with the new recorder (the bed set is in) | Vish | a person tapping a MacBook; no command can do it |
 
 ## Done
 

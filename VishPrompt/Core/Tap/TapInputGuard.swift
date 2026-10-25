@@ -16,7 +16,10 @@ enum TapInputGuard {
     static let eventTypes: [(name: String, raw: UInt32)] = [
         ("key down", 10),
         ("left click", 1),
+        // A Force Touch trackpad thumps on release as well as on press.
+        ("left release", 2),
         ("right click", 3),
+        ("right release", 4),
         ("other click", 25),
         ("scroll", 22),
         ("trackpad touch", 29),
@@ -28,8 +31,13 @@ enum TapInputGuard {
         eventTypes.map { age($0.raw) }.min() ?? .infinity
     }
 
+    /// The newer of the hardware-level and session-level counters. Vish's click recording shows
+    /// trackpad clicks never reach the hardware-level left-click counter (20 s of clicks, no
+    /// mark, against 101 key presses caught the same way), so both are read.
     static func systemAge(_ raw: UInt32) -> Double {
-        CGEventSource.secondsSinceLastEventType(.hidSystemState, eventType: unsafeBitCast(raw, to: CGEventType.self))
+        let type = unsafeBitCast(raw, to: CGEventType.self)
+        return min(CGEventSource.secondsSinceLastEventType(.hidSystemState, eventType: type),
+                   CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: type))
     }
 
     /// Whether input came close enough to a double tap to have caused it: any time from just

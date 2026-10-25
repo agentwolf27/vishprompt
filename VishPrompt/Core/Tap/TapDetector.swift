@@ -28,7 +28,7 @@ struct TapDetector: Sendable {
         /// A change in the direction of gravity, in g, means the Mac was lifted or tilted.
         var maximumTilt: Float = 0.05
         /// Knocks this soon after handling are ignored: setting a Mac down rattles.
-        var handlingQuiet: Double = 0.8
+        var handlingQuiet: Double = 1.5
         /// The second knock of a double comes this soon after the first, and no sooner.
         var doubleWindow: ClosedRange<Double> = 0.08...0.45
         /// No third knock may follow this soon after the second: a burst is not a gesture.
