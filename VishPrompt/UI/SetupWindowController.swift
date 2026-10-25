@@ -116,6 +116,7 @@ final class HomeWindowController: NSWindowController {
     func show(page: HomePage? = nil) {
         if let page { library.page = page }
         library.reload()
+        library.refreshRetention()
         // The app the user was in, so Return pastes back there.
         reuse.noteFront(NSWorkspace.shared.frontmostApplication)
         NSApp.activate()

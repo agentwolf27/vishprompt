@@ -203,3 +203,20 @@ Evidence: `make test-class C=SettingsCardTests` — `test-class: SettingsCardTes
 
 Evidence: `make test` — `Executed 519 tests, with 22 tests skipped and 0 failures`; `make release` — `** BUILD SUCCEEDED **`.
 
+## 2026-10-24 — Claude (Home window, step 4: history retention)
+
+Settings → Appearance → "Keep history for": 30 days, 60 days, 90 days or Forever, with the
+history file's size on disk (WAL included) under it.
+- Pruning deletes unpinned rows older than the period, and their timings, from the local SQLite
+  only. It runs at launch and every 24 hours, after the app's test-host guard, so a test run
+  never touches the real file.
+- Forever deletes nothing, and pinned rows are never pruned under any period.
+- The first read decides the default and saves it: an install with history keeps Forever (this
+  one), a new install keeps 90 days.
+- A shorter period that would remove anything asks first, with the real count ("This removes 2
+  items older than 30 days. Pinned items stay."). A longer one applies at once.
+
+Evidence: `make test-class C=RetentionTests` — `test-class: RetentionTests passed` (10 tests).
+
+Evidence: `make test` — `Executed 529 tests, with 22 tests skipped and 0 failures`; `make release` — `** BUILD SUCCEEDED **`.
+
