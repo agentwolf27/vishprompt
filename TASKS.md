@@ -10,12 +10,11 @@
 
 | # | Task | Owner | VERIFY |
 |---|---|---|---|
-| 10 | Chassis tap: attack-based detector tuned on desk recordings (blocked on task 5) | Claude | `make test-class C=TapRecordingTests` |
-| 11 | Palm-rest gestures: mapping, triple vs double (blocked on task 10) | Claude | `make test-class C=PalmGestureTests` |
-| 12 | Palm-rest gestures: side calibration gate (blocked on task 10) | Claude | `make test-class C=SideCalibrationTests` |
-| 13 | Palm-rest gestures: the Palm rest card and Test area (blocked on task 10) | Claude | `make test-class C=PalmRestCardTests` |
+| 11 | Palm-rest gestures: mapping, triple vs double (unblocked) | Claude | `make test-class C=PalmGestureTests` |
+| 12 | Palm-rest gestures: side calibration gate (unblocked) | Claude | `make test-class C=SideCalibrationTests` |
+| 13 | Palm-rest gestures: the Palm rest card and Test area (unblocked) | Claude | `make test-class C=PalmRestCardTests` |
 | 4 | Chassis tap: README section, after the LinkedIn post (2026-10-24 10:00 PT) | Claude | `grep -q "palm rest" README.md` |
-| 5 | Re-record double-left and double-right at a desk, and clicks and trackpad with the new recorder (the bed set is in) | Vish | a person tapping a MacBook; no command can do it |
+| 5 | Record the trackpad scenario (hold, Force Touch, scroll) with the new recorder, so "nothing fires from the trackpad" has a fixture | Vish | a person tapping a MacBook; no command can do it |
 
 ## Done
 
@@ -27,3 +26,4 @@
 | 7 | Home window: cards, copy, pin, delete, search | Claude | `make test-class C=HistoryCardTests` |
 | 8 | Home window: Dictionary and Settings cards | Claude | `make test-class C=SettingsCardTests` |
 | 9 | Home window: history retention | Claude | `make test-class C=RetentionTests` |
+| 10 | Chassis tap: detector tuned on desk recordings | Claude | `make test-class C=TapRecordingTests` |
