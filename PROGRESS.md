@@ -220,3 +220,20 @@ Evidence: `make test-class C=RetentionTests` — `test-class: RetentionTests pas
 
 Evidence: `make test` — `Executed 529 tests, with 22 tests skipped and 0 failures`; `make release` — `** BUILD SUCCEEDED **`.
 
+## 2026-10-25 — Claude (chassis tap fix 1: the trackpad)
+
+Vish: "the palm rest tap works on the mouse pad when i double tap and hold it not the sides of
+the mouse where the mouse dont exist". Reproduced from the app's own log of his session:
+`Double tap on the palm rest` eight times from 14:25 to 14:29, and only two `Double tap ignored`
+(key or click 0.04 s and 0.27 s from the knock). The suppression read key presses and clicks
+only. A trackpad tap or hold raises touch (gesture) events and no click, and a Force Touch
+press fires the Taptic Engine, a clean knock to the accelerometer.
+
+The window server's per-type ages answer for touch (29) and pressure (34) with no permission.
+A grant-less probe read `gesture29 0.08 pressure34 0.08` while the trackpad was in use, and
+`key 24.33`. `TapInputGuard` now watches keys, clicks, scrolls, trackpad touches and Force Touch
+pressure. The sensor's clock matches uptime (`sensor t 32153.821  uptime 32154.131` after a
+0.3 s wait), so the window is measured on one clock.
+
+Evidence: `make test-class C=TapInputGuardTests` — `test-class: TapInputGuardTests passed` (4 tests).
+

@@ -4,7 +4,8 @@
 // SPUAccelerometer.swift and Log.swift, so the recording reads the sensor exactly as the app does.
 // Each scenario is prompted on screen and written to Fixtures/taps/<scenario>.csv as
 // "t,x,y,z,input": seconds from the start, acceleration in g, and 1 on the first sample after a
-// key press or a mouse or trackpad click.
+// key press, click, scroll, trackpad touch or Force Touch press (the same events TapInputGuard
+// watches).
 
 import CoreGraphics
 import Foundation
@@ -22,6 +23,7 @@ let scenarios = [
     Scenario(name: "single", seconds: 20, prompt: "Single taps only, either side, about every 2 seconds."),
     Scenario(name: "typing", seconds: 20, prompt: "Type quickly into this window: anything, keep going."),
     Scenario(name: "clicks", seconds: 20, prompt: "Click the trackpad, single and double clicks, every second or so."),
+    Scenario(name: "trackpad", seconds: 20, prompt: "On the trackpad itself: double-tap and hold, press hard (Force Touch), scroll with two fingers. Repeat."),
     Scenario(name: "handling", seconds: 20, prompt: "Lift the front of the Mac an inch and set it down, then slide it, then nudge the lid. Repeat."),
 ]
 
@@ -61,17 +63,15 @@ let recorder = Recorder()
 sensor.onSample = { recorder.add($0, $1) }
 try sensor.start(rate: .active)
 
-// Key presses and clicks, polled every 5 ms from the window server's counters.
+// The input TapInputGuard watches, polled every 5 ms from the window server's counters.
 let input = DispatchSource.makeTimerSource(queue: .global(qos: .userInteractive))
-var lastKey = CGEventSource.secondsSinceLastEventType(.hidSystemState, eventType: .keyDown)
-var lastClick = CGEventSource.secondsSinceLastEventType(.hidSystemState, eventType: .leftMouseDown)
+final class Ages: @unchecked Sendable { var last = TapInputGuard.lastInputAge() }
+let ages = Ages()
 input.schedule(deadline: .now(), repeating: .milliseconds(5))
 input.setEventHandler {
-    let key = CGEventSource.secondsSinceLastEventType(.hidSystemState, eventType: .keyDown)
-    let click = CGEventSource.secondsSinceLastEventType(.hidSystemState, eventType: .leftMouseDown)
-    if key < lastKey || click < lastClick { recorder.markInput() }
-    lastKey = key
-    lastClick = click
+    let age = TapInputGuard.lastInputAge()
+    if age < ages.last { recorder.markInput() }
+    ages.last = age
 }
 input.resume()
 
