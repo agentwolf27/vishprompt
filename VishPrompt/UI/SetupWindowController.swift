@@ -85,6 +85,7 @@ private final class WindowBox {
 final class HomeWindowController: NSWindowController {
     private let reuse: HistoryReuse
     let library: HomeLibrary
+    private var closeObserver: NSObjectProtocol?
 
     init(library: HomeLibrary = HomeLibrary()) {
         let reuse = HistoryReuse()
@@ -106,6 +107,10 @@ final class HomeWindowController: NSWindowController {
         window.center()
         super.init(window: window)
         library.onAppearanceChange = { [weak window] choice in window?.appearance = choice.appearance }
+        // Closing the window ends a tap test or calibration, so taps go back to doing their job.
+        closeObserver = NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: window, queue: .main) { [weak library] _ in
+            MainActor.assumeIsolated { library?.leavePalmRest() }
+        }
     }
 
     @available(*, unavailable)

@@ -16,6 +16,9 @@ struct SettingsPageView: View {
                         startCard
                         rewriteCard
                     }
+                    GridRow {
+                        PalmRestCard(library: library).gridCellColumns(2)
+                    }
                     GridRow(alignment: .top) {
                         leavesCard
                         appearanceCard
@@ -38,14 +41,9 @@ struct SettingsPageView: View {
                 KeyCap(label: library.triggerName).scaleEffect(1.1)
             }
             SettingsRow {
-                RowText(title: "Double-tap the palm rest",
-                        note: library.palmRestAvailable ? "Uses the motion sensor, never the mic." : "This Mac has no palm-rest sensor. It needs an M2 or later MacBook.")
+                RowText(title: "Tap the palm rest", note: "Choose what each tap does in the Palm rest card below.")
             } trailing: {
-                Toggle("Double-tap the palm rest", isOn: $library.palmRestEnabled)
-                    .toggleStyle(.switch)
-                    .tint(theme.accent.color)
-                    .labelsHidden()
-                    .disabled(!library.palmRestAvailable)
+                Text(library.palmRestEnabled ? "On" : "Off").font(.system(size: 13)).foregroundStyle(theme.muted.color)
             }
         }
     }
@@ -118,7 +116,7 @@ struct SettingsPageView: View {
     }
 }
 
-private struct SettingsCard<Content: View>: View {
+struct SettingsCard<Content: View>: View {
     let title: String
     @ViewBuilder var content: () -> Content
 
@@ -134,7 +132,7 @@ private struct SettingsCard<Content: View>: View {
     }
 }
 
-private struct SettingsRow<Leading: View, Trailing: View>: View {
+struct SettingsRow<Leading: View, Trailing: View>: View {
     @Environment(\.homeTheme) private var theme
     @ViewBuilder var leading: () -> Leading
     @ViewBuilder var trailing: () -> Trailing
@@ -151,7 +149,7 @@ private struct SettingsRow<Leading: View, Trailing: View>: View {
     }
 }
 
-private struct RowText: View {
+struct RowText: View {
     @Environment(\.homeTheme) private var theme
     let title: String
     let note: String

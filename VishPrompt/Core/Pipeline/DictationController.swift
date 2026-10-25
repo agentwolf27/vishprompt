@@ -201,9 +201,19 @@ final class DictationController {
         self?.handlePalmGesture(gesture)
     }
 
-    /// The gestures' assignments changed in Settings.
+    /// The gestures' assignments or the sensitivity changed in Settings.
     func palmGesturesChanged() {
         chassisTapTrigger.gesturesChanged()
+    }
+
+    /// The Palm rest card's Test area: while set, gestures are shown there and run nothing.
+    func setPalmTestObserver(_ observer: (@MainActor (PalmTestResult) -> Void)?) {
+        chassisTapTrigger.testObserver = observer
+    }
+
+    /// A calibration run: while set, each double tap's knocks go here and run nothing.
+    func setPalmCalibrationObserver(_ observer: (@MainActor ([KnockShape]) -> Void)?) {
+        chassisTapTrigger.calibrationObserver = observer
     }
 
     /// A palm-rest gesture: does what it is assigned, through the same entry points as fn, fn+V

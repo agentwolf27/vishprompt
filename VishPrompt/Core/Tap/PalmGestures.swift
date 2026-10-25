@@ -13,6 +13,15 @@ enum PalmGesture: String, CaseIterable, Codable, Sendable {
         case .doubleRight: "Double-tap right"
         }
     }
+
+    var note: String {
+        switch self {
+        case .double: "Two quick taps beside the trackpad, either side."
+        case .triple: "Three quick taps beside the trackpad."
+        case .doubleLeft: "Two quick taps left of the trackpad."
+        case .doubleRight: "Two quick taps right of the trackpad."
+        }
+    }
 }
 
 /// What a gesture does. Each is an entry point the app already has, nothing new inside it.
@@ -94,4 +103,108 @@ enum PalmDispatch: Equatable, Sendable {
     }
 
     static let noScreenshot = "No screenshot on the clipboard. Copy one with ⌘⌃⇧4, then tap again."
+}
+
+/// How firm a tap has to be. Normal is what every tap test was tuned on; the others move only
+/// the onset thresholds, so the rest of the detector behaves the same.
+enum PalmSensitivity: String, CaseIterable, Identifiable, Sendable {
+    case light, normal, firm
+
+    static let key = "palmSensitivity"
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .light: "Light"
+        case .normal: "Normal"
+        case .firm: "Firm"
+        }
+    }
+
+    var note: String {
+        switch self {
+        case .light: "Catches softer taps. On a soft surface, expect more false starts."
+        case .normal: "A fingertip tap, as the detector was tuned."
+        case .firm: "Only a firm knock, 30 mg or more. Typing and clicks never reach it."
+        }
+    }
+
+    /// The thresholds this level sets on the detector's tuning.
+    func apply(to tuning: inout TapDetector.Tuning) {
+        switch self {
+        case .light:
+            tuning.minimumPeak = 0.004
+            tuning.noiseMultiple = 4.5
+        case .normal:
+            break
+        case .firm:
+            tuning.minimumPeak = 0.03
+            tuning.noiseMultiple = 8
+        }
+    }
+
+    static func saved(in defaults: UserDefaults = .standard) -> PalmSensitivity {
+        defaults.string(forKey: key).flatMap(PalmSensitivity.init(rawValue:)) ?? .normal
+    }
+
+    func save(in defaults: UserDefaults = .standard) {
+        defaults.set(rawValue, forKey: Self.key)
+    }
+
+    /// The detector tuning for the saved settings: this level, and whether triples are listened for.
+    static func tuning(in defaults: UserDefaults = .standard) -> TapDetector.Tuning {
+        var tuning = TapDetector.Tuning()
+        saved(in: defaults).apply(to: &tuning)
+        tuning.listensForTriples = PalmGestureSettings(defaults: defaults).listensForTriples
+        return tuning
+    }
+}
+
+/// What a heard gesture becomes, decided in one place so the Test area and calibration can be
+/// checked without the sensor.
+enum PalmRoute: Equatable, Sendable {
+    /// A key, click or trackpad touch came near it: typing or clicking, not a tap.
+    case nearInput
+    /// A calibration run is collecting double taps: these knocks go to it, and nothing runs.
+    case calibrate([KnockShape])
+    /// The sides are calibrated but this double's knocks could not be placed. Never guessed.
+    case sideUnclear
+    /// The Test area is on: show the gesture, run nothing.
+    case test(PalmGesture)
+    case run(PalmGesture)
+
+    static func resolve(_ event: TapEvent, shapes: [KnockShape], calibration: SideCalibration?,
+                        nearInput: Bool, testing: Bool, calibrating: Bool) -> PalmRoute {
+        if nearInput { return .nearInput }
+        let gesture: PalmGesture
+        switch event {
+        case .tripleTap:
+            gesture = .triple
+        case .doubleTap:
+            if calibrating { return .calibrate(shapes) }
+            if let calibration, calibration.unlocked {
+                guard let side = calibration.side(of: shapes) else { return .sideUnclear }
+                gesture = side == .left ? .doubleLeft : .doubleRight
+            } else {
+                gesture = .double
+            }
+        }
+        return testing ? .test(gesture) : .run(gesture)
+    }
+}
+
+/// What the Test area shows after a tap.
+enum PalmTestResult: Equatable, Sendable {
+    case heard(PalmGesture)
+    case nearInput
+    case sideUnclear
+
+    var text: String {
+        switch self {
+        case let .heard(gesture): "Heard: \(gesture.title)"
+        case .nearInput: "Heard a tap, but you were typing or clicking, so it wouldn't count."
+        case .sideUnclear: "Heard a double-tap, but couldn't tell which side. It wouldn't run."
+        }
+    }
 }

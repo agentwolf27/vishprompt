@@ -51,6 +51,10 @@ final class ChassisTapTrigger {
 
     private let onTap: @MainActor (PalmGesture) -> Void
     private let defaults: UserDefaults
+    /// Set while the Palm rest card's Test area is on: gestures are shown there and run nothing.
+    var testObserver: (@MainActor (PalmTestResult) -> Void)?
+    /// Set during a calibration run: each double tap's knocks go here and run nothing.
+    var calibrationObserver: (@MainActor ([KnockShape]) -> Void)?
     private var power: ChassisTapPower
     private var sensor: SPUAccelerometer?
     private var observers: [(NotificationCenter, NSObjectProtocol)] = []
@@ -101,8 +105,8 @@ final class ChassisTapTrigger {
 
     private func startSensor() {
         let sensor = SPUAccelerometer()
-        let triples = PalmGestureSettings(defaults: defaults).listensForTriples
-        let pipeline = TapPipeline(setRate: { [weak sensor] rate in sensor?.setRate(rate) }, listensForTriples: triples) { [weak self] event, shapes in
+        let tuning = PalmSensitivity.tuning(in: defaults)
+        let pipeline = TapPipeline(setRate: { [weak sensor] rate in sensor?.setRate(rate) }, tuning: tuning) { [weak self] event, shapes in
             // Back on the main thread, where the hotkey monitor delivers its own events.
             DispatchQueue.main.async {
                 MainActor.assumeIsolated { self?.accept(event, shapes: shapes) }
@@ -123,38 +127,36 @@ final class ChassisTapTrigger {
     /// typing and clicking shake the palm rest too.
     private func accept(_ event: TapEvent, shapes: [KnockShape]) {
         guard sensor != nil else { return }
-        let first: Double
-        let gesture: PalmGesture
-        switch event {
-        case let .tripleTap(start, _):
-            first = start
-            gesture = .triple
-        case let .doubleTap(start, _):
-            first = start
-            // With a calibration that separates the sides, a double is placed left or right, or
-            // not run at all if its knocks can't be placed: never a guess. Without one, either side.
-            if let calibration = SideCalibration.saved(in: defaults), calibration.unlocked {
-                guard let side = calibration.side(of: shapes) else {
-                    Log.tap.info("Palm rest: double tap, but its side couldn't be told; not run")
-                    return
-                }
-                gesture = side == .left ? .doubleLeft : .doubleRight
-            } else {
-                gesture = .double
-            }
+        let first = switch event {
+        case let .tripleTap(start, _), let .doubleTap(start, _): start
         }
         let now = Double(DispatchTime.now().uptimeNanoseconds) / 1_000_000_000
         let lastInput = now - TapInputGuard.lastInputAge()
-        guard !TapInputGuard.touched(lastInput: lastInput, firstKnock: first) else {
-            Log.tap.info("\(gesture.rawValue, privacy: .public) tap ignored: typing, a click or the trackpad came \(String(format: "%.2f", lastInput - first), privacy: .public) s from it")
-            return
+        let route = PalmRoute.resolve(
+            event, shapes: shapes, calibration: SideCalibration.saved(in: defaults),
+            nearInput: TapInputGuard.touched(lastInput: lastInput, firstKnock: first),
+            testing: testObserver != nil, calibrating: calibrationObserver != nil
+        )
+        switch route {
+        case .nearInput:
+            Log.tap.info("Tap ignored: typing, a click or the trackpad came \(String(format: "%.2f", lastInput - first), privacy: .public) s from it")
+            testObserver?(.nearInput)
+        case let .calibrate(knocks):
+            calibrationObserver?(knocks)
+        case .sideUnclear:
+            // The sides are calibrated, but this double's knocks could not be placed. Never a guess.
+            Log.tap.info("Palm rest: double tap, but its side couldn't be told; not run")
+            testObserver?(.sideUnclear)
+        case let .test(gesture):
+            testObserver?(.heard(gesture))
+        case let .run(gesture):
+            Log.tap.info("Palm rest: \(gesture.rawValue, privacy: .public) tap")
+            onTap(gesture)
         }
-        Log.tap.info("Palm rest: \(gesture.rawValue, privacy: .public) tap")
-        onTap(gesture)
     }
 
-    /// The gesture settings changed: a running sensor restarts so the detector knows whether to
-    /// wait for triple taps.
+    /// The gesture or sensitivity settings changed: a running sensor restarts so the detector
+    /// picks up its new tuning.
     func gesturesChanged() {
         guard let sensor else { return }
         sensor.stop()
@@ -224,10 +226,8 @@ final class TapPipeline: @unchecked Sendable {
     private let setRate: @Sendable (SPUAccelerometer.Rate) -> Void
     private let onEvent: @Sendable (TapEvent, [KnockShape]) -> Void
 
-    init(setRate: @escaping @Sendable (SPUAccelerometer.Rate) -> Void, listensForTriples: Bool = false,
+    init(setRate: @escaping @Sendable (SPUAccelerometer.Rate) -> Void, tuning: TapDetector.Tuning = TapDetector.Tuning(),
          onEvent: @escaping @Sendable (TapEvent, [KnockShape]) -> Void) {
-        var tuning = TapDetector.Tuning()
-        tuning.listensForTriples = listensForTriples
         detector = TapDetector(tuning: tuning)
         self.setRate = setRate
         self.onEvent = onEvent
