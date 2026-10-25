@@ -135,6 +135,22 @@ private struct HomePageView: View {
                     StatTile(value: stats.words, label: stats.words == 1 ? "word" : "words")
                     StatTile(value: stats.stayedOnThisMac, label: "stayed on this Mac")
                 }
+                if let note = library.triggerNote {
+                    HStack(alignment: .top, spacing: 12) {
+                        Image(systemName: "keyboard").foregroundStyle(theme.accent.color).padding(.top, 2)
+                        Text(note).font(.system(size: 13)).lineSpacing(3).fixedSize(horizontal: false, vertical: true)
+                        Spacer(minLength: 8)
+                        Button("Dismiss") {
+                            library.onDismissTriggerNote()
+                            library.triggerNote = nil
+                        }
+                        .buttonStyle(.link)
+                        .foregroundStyle(theme.accent.color)
+                    }
+                    .padding(14)
+                    .homeCard(radius: 12, border: theme.accent)
+                    .accessibilityElement(children: .combine)
+                }
                 if let error = library.loadError {
                     EmptyNote(text: error)
                 } else if recent.isEmpty {

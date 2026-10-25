@@ -96,6 +96,40 @@ struct TriggerKey: Codable, Sendable, Equatable, Hashable {
 
     var isSuitable: Bool { unsuitableReason == nil }
 
+    // MARK: Refusal
+
+    /// Why a key cannot be the trigger at all, or nil when it may.
+    ///
+    /// The shortcut modifiers are refused rather than warned about. With Left Command as the
+    /// trigger, every ⌘C and ⌘V held the trigger, and a ⌘V within a second read as the fn+V
+    /// Smart Paste gesture, so copying and pasting stopped working (Vish, 2026-10-25). Right
+    /// Option and Right Command stay allowed: shortcuts are rarely typed with them, and some
+    /// keyboards have no fn.
+    var refusalReason: String? {
+        switch Int(keyCode) {
+        case kVK_Command: refusal("Left Command", "⌘C, ⌘V and ⌘Z")
+        case kVK_Option: refusal("Left Option", "⌥ shortcuts and special characters")
+        case kVK_Control, kVK_RightControl: refusal(displayName, "⌃ shortcuts, above all in the Terminal")
+        case kVK_Shift, kVK_RightShift: refusal(displayName, "every capital letter")
+        default: nil
+        }
+    }
+
+    private func refusal(_ name: String, _ uses: String) -> String {
+        "\(name) can't be the trigger. It's used all day for \(uses), and holding it to talk would turn each of those into a dictation."
+    }
+
+    /// Whether a key may be chosen, or restored from a previous launch, as the trigger.
+    var isAllowed: Bool { refusalReason == nil }
+
+    /// Right Option and Right Command: modifiers other keys are typed with. A key pressed while
+    /// one is held is a shortcut or a character, never part of a dictation.
+    var isShortcutModifier: Bool { isModifier && self != .fn }
+
+    /// Whether V and R during a hold mean Smart Paste and Edit. Only with fn or an ordinary key:
+    /// with Right Command held, V is ⌘V and has to paste.
+    var allowsChords: Bool { !isShortcutModifier }
+
     /// The general modifier flag this key sets while held, such as `.maskCommand` for Right
     /// Command. Empty for an ordinary key.
     ///
@@ -195,5 +229,51 @@ struct TriggerKey: Codable, Sendable, Equatable, Hashable {
             guard status == noErr, length > 0 else { return nil }
             return String(utf16CodeUnits: characters, count: length)
         }
+    }
+}
+
+/// Where the trigger is kept, and the one-time replacement of a saved key that is no longer
+/// allowed.
+struct TriggerStore: @unchecked Sendable {
+    static let key = "triggerKeyV2"
+    static let noteKey = "triggerMigrationNote"
+    private let defaults: UserDefaults
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+    }
+
+    /// The saved trigger. A saved key that is refused now comes back as fn, with a note kept
+    /// until the person dismisses it; one that would type characters comes back as fn silently,
+    /// as before.
+    func load() -> TriggerKey {
+        guard let data = defaults.data(forKey: Self.key),
+              let saved = try? JSONDecoder().decode(TriggerKey.self, from: data)
+        else { return .fn }
+        if saved.refusalReason != nil {
+            save(.fn)
+            defaults.set(Self.note(replacing: saved), forKey: Self.noteKey)
+            Log.hotkey.error("Saved trigger \(saved.displayName, privacy: .public) is no longer allowed; replaced with fn")
+            return .fn
+        }
+        guard saved.isSuitable else {
+            Log.hotkey.error("Ignoring unsuitable saved trigger \(saved.displayName, privacy: .public); falling back to fn")
+            return .fn
+        }
+        return saved
+    }
+
+    func save(_ key: TriggerKey) {
+        if let data = try? JSONEncoder().encode(key) { defaults.set(data, forKey: Self.key) }
+    }
+
+    var migrationNote: String? { defaults.string(forKey: Self.noteKey) }
+
+    func dismissMigrationNote() {
+        defaults.removeObject(forKey: Self.noteKey)
+    }
+
+    static func note(replacing key: TriggerKey) -> String {
+        "Your trigger key was \(key.displayName). Shortcuts typed with it, like ⌘C and ⌘V, each started a dictation, and ⌘V pasted through VishPrompt instead of the app. The trigger is fn (Globe) now. Pick another key in Settings if you prefer; the shortcut modifiers are no longer offered."
     }
 }

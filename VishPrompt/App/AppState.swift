@@ -16,20 +16,17 @@ final class AppState {
     /// the built-in keyboard, so anyone on an external keyboard has to change this.
     /// Persisted as JSON, because a trigger is now any key the keyboard can send rather than
     /// one of a fixed pair.
-    var triggerKey: TriggerKey = {
-        if let data = UserDefaults.standard.data(forKey: "triggerKeyV2"),
-           let decoded = try? JSONDecoder().decode(TriggerKey.self, from: data) {
-            // A saved key that types characters would fire on ordinary typing, which makes the
-            // app unusable before the user can reach the setting to change it. Shift was
-            // selectable before the suitability check existed, so refuse to restore one.
-            guard decoded.isSuitable else {
-                Log.hotkey.error("Ignoring unsuitable saved trigger \(decoded.displayName, privacy: .public); falling back to fn")
-                return .fn
-            }
-            return decoded
-        }
-        return .fn
-    }()
+    var triggerKey: TriggerKey = TriggerStore().load()
+
+    /// Why the key the user just chose was refused, shown where the key is chosen.
+    var triggerRefusal: String?
+    /// Set when a saved trigger had to be replaced at launch, until the user dismisses it.
+    var triggerMigrationNote: String? = TriggerStore().migrationNote
+
+    func dismissTriggerMigrationNote() {
+        triggerMigrationNote = nil
+        TriggerStore().dismissMigrationNote()
+    }
 
     /// How the fn key is currently configured system-wide. When it is not "Do Nothing" the
     /// system opens the emoji picker on a tap, which competes with using fn as a trigger.
@@ -115,11 +112,15 @@ final class AppState {
     }
 
     func setTriggerKey(_ key: TriggerKey) {
+        if let reason = key.refusalReason {
+            triggerRefusal = reason
+            Log.hotkey.info("Refused \(key.displayName, privacy: .public) as the trigger")
+            return
+        }
+        triggerRefusal = nil
         guard key != triggerKey else { return }
         triggerKey = key
-        if let data = try? JSONEncoder().encode(key) {
-            UserDefaults.standard.set(data, forKey: "triggerKeyV2")
-        }
+        TriggerStore().save(key)
         dictation?.setTrigger(key)
         Log.hotkey.info("Trigger key changed to \(key.displayName, privacy: .public) (code \(key.keyCode, privacy: .public), mask \(key.flagMask, privacy: .public))")
     }

@@ -155,6 +155,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if homeWindow == nil {
             homeWindow = HomeWindowController()
             homeWindow?.library.onShowMoreSettings = { [weak self] in self?.showSettings() }
+            homeWindow?.library.onDismissTriggerNote = { [weak self] in self?.state.dismissTriggerMigrationNote() }
+            homeWindow?.library.onOpenKeyboardSettings = {
+                NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.Keyboard-Settings.extension")!)
+            }
             // The Palm rest card: its changes restart the sensor, and its Test area and
             // calibration take gestures over while they run.
             homeWindow?.library.onPalmGesturesChanged = { [weak self] in self?.dictation.palmGesturesChanged() }
@@ -175,6 +179,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         guard let homeWindow else { return }
         homeWindow.library.triggerName = state.triggerKey.displayName
+        homeWindow.library.triggerNote = state.triggerMigrationNote
+        homeWindow.library.fnHint = FnKeyUsage.hint(for: state.fnUsage, appleDictation: FnKeyUsage.appleDictationEnabled, trigger: state.triggerKey)
         homeWindow.library.palmRestAvailable = ChassisTapTrigger.isAvailable
         homeWindow.library.onSetPalmRest = { _ in }
         homeWindow.library.palmRestEnabled = state.chassisTapEnabled

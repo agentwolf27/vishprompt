@@ -153,6 +153,13 @@ struct OnboardingView: View {
             .padding(12)
             .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
 
+            if let refusal = state.triggerRefusal {
+                Text(refusal)
+                    .font(.callout)
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
             if !state.isListening {
                 Text("Grant the permissions above first; the key can only be recorded once the app is watching the keyboard.")
                     .font(.caption)

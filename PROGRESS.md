@@ -454,3 +454,36 @@ The first bed session's knocks through the run keep the side rows locked and sho
 
 Evidence: `make test` — `Executed 570 tests, with 22 tests skipped and 0 failures`; `make release` — `** BUILD SUCCEEDED **`.
 
+## 2026-10-25 — Claude (trigger safety: copy and paste must never be eaten)
+
+Vish: "cant really copy and paste text due to the vishprompt hotkeys". His saved trigger was Left
+Command (`triggerKeyV2` = keyCode 55, flagMask 8), so every ⌘C and ⌘V held the trigger, and a ⌘V
+within a second read as the fn+V Smart Paste gesture: the V was swallowed and VishPrompt pasted
+the clipboard itself. The leader session reset him to fn by hand; the app now stops it:
+- Left Command, Left Option, both Controls and both Shifts are refused as the trigger, with the
+  reason shown where the key is chosen. Right Option, Right Command, fn and the F-keys stay.
+- A saved refused key is replaced by fn at launch (`TriggerStore.load`), with a note on Home
+  until dismissed.
+- Another key within 150 ms of the trigger is a shortcut, whatever the trigger (fn+Delete is
+  forward delete); with Right Command or Right Option it is one at any time. The capture is
+  cancelled silently and the key goes through. Hands-free and a hold already made a Smart Paste
+  or an edit are left alone.
+- V and R are chords only with fn or an ordinary key; with Right Command held, V is ⌘V.
+- With Right Command or Right Option the capsule waits 150 ms before appearing, so it does not
+  flash on every shortcut. fn and ordinary keys show it at once, as before.
+- The Settings card says when macOS also acts on fn (Globe → emoji, input source or dictation;
+  Apple's dictation on, whose shortcut can be fn twice) with a button to Keyboard settings. On
+  Vish's Mac: no Globe setting stored (macOS default, the emoji picker on a tap) and Apple's
+  dictation off (symbolic hot key 164 disabled).
+
+The overlap audit is in PR #50. One thing is reported, not changed: the preview card's keys
+(Return, Tab, ⇧Tab, Esc, R, ↑↓, 1–4, unmodified only) are intercepted while the card is on
+screen, globally, because the overlay is a non-activating panel that never has focus; the card
+goes away on its own after 90 s.
+
+Evidence: `make test-class C=TriggerSafetyTests` — passed (11 tests): refusal and reasons; a saved
+Left Command comes back as fn with a note until dismissed; an allowed trigger is kept; chords only
+for fn and ordinary keys; a key right after the trigger, with Right Command at any time, cancels
+silently; fn keeps dictating; hands-free typing is left alone; fn+V still works; the hint copy.
+Evidence: `make test` — `Executed 581 tests, with 22 tests skipped and 0 failures`; `make release` — `** BUILD SUCCEEDED **`.
+
