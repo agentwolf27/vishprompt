@@ -35,7 +35,7 @@ struct TapDetector: Sendable {
         /// in a bump's ring is weaker; a real second tap is about as firm as the first.
         var secondShare: Float = 0.4
         /// The first tap of a double starts from stillness: the shaking just before it is under
-        /// this share of its peak (desk taps: about 2%; a wobble in a long settle: about half).
+        /// this share of its peak (Vish's taps: about 2%; a wobble while the Mac settles: about half).
         var quietLead: Float = 0.3
         /// How far the ~300 ms posture may drift from the ~600 ms gravity, while no knock rings,
         /// before the Mac counts as being moved.
@@ -88,7 +88,7 @@ struct TapDetector: Sendable {
     private var leadIn: Float = 0
     /// The Mac's posture: acceleration averaged over ~300 ms, slow enough that a tap's own swing
     /// averages out, fast enough to see a lift. A firm tap moves the chassis for a moment
-    /// without changing how it sits; lifting or tilting it does (desk recordings, 2026-10-25).
+    /// without changing how it sits; lifting or tilting it does (Vish's recordings, 2026-10-25).
     private var posture = SIMD3<Float>(0, 0, -1)
     private var inputs: [Double] = []
 
@@ -148,7 +148,7 @@ struct TapDetector: Sendable {
         if capturing {
             lastStir = t
             let elapsed = t - captureStart
-            // A second tap often lands while the first still rings (desk recordings: 0.28-0.31 s
+            // A second tap often lands while the first still rings (Vish's second session: 0.28-0.31 s
             // apart, the first ringing at 20-60% of its peak). A fresh rise to 60% of the peak
             // after the ring dipped below 35% closes the first knock and starts the next.
             if elapsed > 0.08, trough < peak * 0.35, m > peak * 0.6 {

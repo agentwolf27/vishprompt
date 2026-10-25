@@ -83,9 +83,9 @@ verify-tap-cpu: gen
 
 ## Guided recording of real palm-rest taps, typing, clicks and handling into Fixtures/taps/,
 ## for TapDetectorTests. Run it in a terminal and follow the prompts. ONLY=<scenario> redoes one.
-## SURFACE names where the Mac sits (desk, bed, lap); recordings go to Fixtures/taps/<surface>/,
-## so a desk session never overwrites a bed one.
-SURFACE ?= desk
+## SURFACE names where the Mac sits and which session it is (desk, bed3, lap); recordings go to
+## Fixtures/taps/<surface>/, so one session never overwrites another. No default: say where.
+SURFACE ?= unlabelled
 record-taps:
 	@mkdir -p build
 	swiftc -O -o build/record-taps scripts/record-taps/main.swift VishPrompt/Core/Tap/SPUAccelerometer.swift VishPrompt/Core/Tap/TapInputGuard.swift VishPrompt/Core/Tap/TapDetector.swift VishPrompt/Core/Logging/Log.swift

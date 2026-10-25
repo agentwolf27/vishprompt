@@ -2,9 +2,11 @@ import XCTest
 @testable import VishPrompt
 
 /// The detector against Vish's own recordings from his 13-inch M2 MacBook Pro (Mac14,7), made
-/// with `make record-taps` on 2026-10-25: `bed/` on a bed under a blanket, `desk/` at a desk.
+/// with `make record-taps` on 2026-10-25, all on a bed under a blanket: `bed1/` (all seven
+/// scenarios) and `bed2/` (double-left, double-right, single, clicks, about half an hour later).
+/// There is no desk recording yet.
 ///
-/// Every negative file fires nothing, except `bed/idle`, which holds one real double knock at
+/// Every negative file fires nothing, except `bed1/idle`, which holds one real double knock at
 /// 5.63 s (two sharp hits 0.20 s apart, 185 and 154 mg) that is shaped exactly like a double tap;
 /// no detector on this sensor can drop it without dropping real taps, so the test pins it.
 /// Each check runs at 800 Hz and replayed at the app's live sample rate with its input veto.
@@ -44,25 +46,25 @@ final class TapRecordingTests: XCTestCase {
     }
 
     func testNothingFiresWhenNobodyTapsThePalmRest() throws {
-        for name in ["bed/single", "bed/typing", "bed/clicks", "bed/handling", "desk/single", "desk/clicks"] {
+        for name in ["bed1/single", "bed1/typing", "bed1/clicks", "bed1/handling", "bed2/single", "bed2/clicks"] {
             let result = try check(name)
             XCTAssertEqual(result.full, [], "\(name) at 800 Hz")
             XCTAssertEqual(result.live, [], "\(name) as the app samples it")
         }
     }
 
-    func testTheBedIdleFileHoldsOneRealDoubleKnockAndNothingElse() throws {
-        let result = try check("bed/idle")
+    func testTheFirstSessionIdleHoldsOneRealDoubleKnockAndNothingElse() throws {
+        let result = try check("bed1/idle")
         XCTAssertEqual(result.full.count, 1)
         XCTAssertEqual(result.full.first ?? 0, 5.82, accuracy: 0.05, "the double knock at 5.63 s")
         XCTAssertEqual(result.live.count, 1)
     }
 
-    func testDeskDoubleTapsFireOnBothSides() throws {
-        let left = try check("desk/double-left")
+    func testSecondBedSessionDoubleTapsFireOnBothSides() throws {
+        let left = try check("bed2/double-left")
         XCTAssertGreaterThanOrEqual(left.full.count, 6, "six doubles to the left of the trackpad")
         XCTAssertGreaterThanOrEqual(left.live.count, 6)
-        let right = try check("desk/double-right")
+        let right = try check("bed2/double-right")
         XCTAssertGreaterThanOrEqual(right.full.count, 4, "at least four of the six, lighter, doubles to the right")
         XCTAssertGreaterThanOrEqual(right.live.count, 4)
         XCTAssertLessThanOrEqual(left.full.count, 6, "and never more than were tapped")
@@ -70,16 +72,16 @@ final class TapRecordingTests: XCTestCase {
     }
 
     func testWhatTheBedYieldsIsMeasured() throws {
-        // Recorded on a bed under a blanket: measured, not required. Light taps there are the size
-        // of the resting noise.
-        _ = try check("bed/double-left")
-        _ = try check("bed/double-right")
+        // The first session's taps: measured, not required. Light taps there are the size of the
+        // resting noise.
+        _ = try check("bed1/double-left")
+        _ = try check("bed1/double-right")
     }
 
-    func testClicksReachTheVetoAtADeskButNotOnTheBed() throws {
+    func testClicksReachedTheVetoInOneBedSessionButNotTheOther() throws {
         // 20 s of trackpad clicks with the left-click age polled every 5 ms.
-        XCTAssertEqual(try Self.load("bed/clicks").filter(\.input).count, 0, "on the bed: not one click mark")
-        XCTAssertGreaterThan(try Self.load("desk/clicks").filter(\.input).count, 10, "at the desk: they arrive")
-        XCTAssertGreaterThan(try Self.load("bed/typing").filter(\.input).count, 50, "keys always arrive")
+        XCTAssertEqual(try Self.load("bed1/clicks").filter(\.input).count, 0, "first session: not one click mark")
+        XCTAssertGreaterThan(try Self.load("bed2/clicks").filter(\.input).count, 10, "second session: they arrive")
+        XCTAssertGreaterThan(try Self.load("bed1/typing").filter(\.input).count, 50, "keys always arrive")
     }
 }

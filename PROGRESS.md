@@ -338,3 +338,35 @@ Evidence: `make test` — `Executed 538 tests, with 22 tests skipped and 0 failu
 Tap fix 2 stays unticked until a trackpad recording (hold, Force Touch, scroll) backs "nothing
 fires from the trackpad".
 
+## 2026-10-25 — Claude (correction: there is no desk data)
+
+**Corrects** the entry "chassis tap fix 2b: the detector, tuned on desk recordings", PR #45 and
+its commit message. Vish: "i wasnt at the desk i was on my bed the whole time". The four files
+recorded 16:53–16:55 (double-left, double-right, single, clicks) are a **second bed session**.
+- `Fixtures/taps/bed/` is now `bed1/`, `Fixtures/taps/desk/` is now `bed2/`, and
+  `idle-desk.csv` is now `idle-quiet.csv` (where that Mac sat on 2026-10-23 is not known).
+- `make record-taps` has no default surface any more, so a session has to be named.
+
+The detector's results stand; only the label changes. Second session: left 6 of 6, right 4 of 6,
+nothing from its single taps or clicks. Negatives in both sessions: nothing, except the real
+double knock in bed1/idle.
+
+Left vs right, measured properly, per tap (both taps of each double, onset = an envelope rise
+over 30 mg to 4× its value 10 ms earlier), leaving one tap out:
+
+Evidence: `python3 -I side2.py bed2 bed1` (scratch script, run in Fixtures/taps/)
+```
+bed2: 12 left taps, 12 right taps (peaks L 0.38 g, R 0.14 g) | chance 50%
+   first-push direction   centroid  96%  logistic  96%  5-NN  96%
+   axis energy            centroid 100%  logistic 100%  5-NN 100%
+   all features           centroid 100%  logistic 100%  5-NN 100%
+bed1: 5 left taps, 14 right taps (peaks L 0.29 g, R 0.14 g) | chance 74%
+   first-push direction   centroid  42%  logistic  63%  5-NN  53%
+   all features           centroid  53%  logistic  47%  5-NN  68%
+```
+Both are bed sessions: the difference is within the bed (how firm, where), not the surface. In
+bed2 the left taps were much firmer than the right, so part of that separation may be strength
+rather than side. There was no gyro in these recordings. The gestures plan's calibration gate
+measures each run as it happens, so it decides per session. Until desk recordings exist, the
+default is "either side".
+
