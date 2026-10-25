@@ -49,14 +49,14 @@ struct ChassisTapPower: Equatable, Sendable {
 final class ChassisTapTrigger {
     static let enabledKey = "chassisTapEnabled"
 
-    private let onTap: @MainActor () -> Void
+    private let onTap: @MainActor (PalmGesture) -> Void
     private let defaults: UserDefaults
     private var power: ChassisTapPower
     private var sensor: SPUAccelerometer?
     private var observers: [(NotificationCenter, NSObjectProtocol)] = []
     private var batteryTimer: Timer?
 
-    init(defaults: UserDefaults = .standard, onTap: @escaping @MainActor () -> Void) {
+    init(defaults: UserDefaults = .standard, onTap: @escaping @MainActor (PalmGesture) -> Void) {
         self.defaults = defaults
         self.onTap = onTap
         power = ChassisTapPower(
@@ -75,6 +75,7 @@ final class ChassisTapTrigger {
     /// Follows the setting.
     func setEnabled(_ enabled: Bool) {
         defaults.set(enabled, forKey: Self.enabledKey)
+        if enabled { PalmGestureSettings(defaults: defaults).applyFirstTimeDefaults() }
         update { $0.enabled = enabled }
     }
 
@@ -100,10 +101,11 @@ final class ChassisTapTrigger {
 
     private func startSensor() {
         let sensor = SPUAccelerometer()
-        let pipeline = TapPipeline(setRate: { [weak sensor] rate in sensor?.setRate(rate) }) { [weak self] first in
+        let triples = PalmGestureSettings(defaults: defaults).listensForTriples
+        let pipeline = TapPipeline(setRate: { [weak sensor] rate in sensor?.setRate(rate) }, listensForTriples: triples) { [weak self] event in
             // Back on the main thread, where the hotkey monitor delivers its own events.
             DispatchQueue.main.async {
-                MainActor.assumeIsolated { self?.accept(firstKnock: first) }
+                MainActor.assumeIsolated { self?.accept(event) }
             }
         }
         sensor.onSample = { t, a in pipeline.process(t: t, a) }
@@ -117,18 +119,31 @@ final class ChassisTapTrigger {
         }
     }
 
-    /// A double tap from the detector. Dropped when a key or click came near it: typing and
-    /// clicking shake the palm rest too.
-    private func accept(firstKnock first: Double) {
+    /// A gesture from the detector. Dropped when a key, click or trackpad touch came near it:
+    /// typing and clicking shake the palm rest too.
+    private func accept(_ event: TapEvent) {
         guard sensor != nil else { return }
+        let (gesture, first): (PalmGesture, Double) = switch event {
+        case let .doubleTap(first, _): (.double, first)
+        case let .tripleTap(first, _): (.triple, first)
+        }
         let now = Double(DispatchTime.now().uptimeNanoseconds) / 1_000_000_000
         let lastInput = now - TapInputGuard.lastInputAge()
         guard !TapInputGuard.touched(lastInput: lastInput, firstKnock: first) else {
-            Log.tap.info("Double tap ignored: typing, a click or the trackpad came \(String(format: "%.2f", lastInput - first), privacy: .public) s from it")
+            Log.tap.info("\(gesture.rawValue, privacy: .public) tap ignored: typing, a click or the trackpad came \(String(format: "%.2f", lastInput - first), privacy: .public) s from it")
             return
         }
-        Log.tap.info("Double tap on the palm rest")
-        onTap()
+        Log.tap.info("Palm rest: \(gesture.rawValue, privacy: .public) tap")
+        onTap(gesture)
+    }
+
+    /// The gesture settings changed: a running sensor restarts so the detector knows whether to
+    /// wait for triple taps.
+    func gesturesChanged() {
+        guard let sensor else { return }
+        sensor.stop()
+        self.sensor = nil
+        startSensor()
     }
 
     private func observe() {
@@ -188,18 +203,22 @@ final class ChassisTapTrigger {
 final class TapPipeline: @unchecked Sendable {
     static let activeHold = 2.0
 
-    private var detector = TapDetector()
+    private var detector: TapDetector
     private var rate = SPUAccelerometer.Rate.idle
     private let setRate: @Sendable (SPUAccelerometer.Rate) -> Void
-    private let onDoubleTap: @Sendable (Double) -> Void
+    private let onEvent: @Sendable (TapEvent) -> Void
 
-    init(setRate: @escaping @Sendable (SPUAccelerometer.Rate) -> Void, onDoubleTap: @escaping @Sendable (Double) -> Void) {
+    init(setRate: @escaping @Sendable (SPUAccelerometer.Rate) -> Void, listensForTriples: Bool = false,
+         onEvent: @escaping @Sendable (TapEvent) -> Void) {
+        var tuning = TapDetector.Tuning()
+        tuning.listensForTriples = listensForTriples
+        detector = TapDetector(tuning: tuning)
         self.setRate = setRate
-        self.onDoubleTap = onDoubleTap
+        self.onEvent = onEvent
     }
 
     func process(t: Double, _ a: SIMD3<Float>) {
-        if case let .doubleTap(first, _)? = detector.process(t: t, a) { onDoubleTap(first) }
+        if let event = detector.process(t: t, a) { onEvent(event) }
         let wanted: SPUAccelerometer.Rate = t - detector.lastStir < Self.activeHold ? .active : .idle
         if wanted != rate {
             rate = wanted

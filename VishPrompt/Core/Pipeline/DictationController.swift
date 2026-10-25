@@ -197,8 +197,33 @@ final class DictationController {
     /// The optional second trigger. A double tap acts as a toggle press of the trigger, through
     /// the same gesture machine, so recording itself does not change.
     @ObservationIgnored
-    private lazy var chassisTapTrigger = ChassisTapTrigger { [weak self] in
-        self?.monitor.reportChassisTap()
+    private lazy var chassisTapTrigger = ChassisTapTrigger { [weak self] gesture in
+        self?.handlePalmGesture(gesture)
+    }
+
+    /// The gestures' assignments changed in Settings.
+    func palmGesturesChanged() {
+        chassisTapTrigger.gesturesChanged()
+    }
+
+    /// A palm-rest gesture: does what it is assigned, through the same entry points as fn, fn+V
+    /// and fn+R.
+    private func handlePalmGesture(_ gesture: PalmGesture) {
+        let dispatch = PalmDispatch.resolve(gesture, settings: PalmGestureSettings(), recording: monitor.isRecording) {
+            if case .image = ClipboardReader.read() { return true }
+            return false
+        }
+        switch dispatch {
+        case .ignore:
+            Log.tap.info("Palm rest: \(gesture.rawValue, privacy: .public) is off")
+        case .stop:
+            monitor.reportChassisTap()
+        case let .start(chord):
+            monitor.reportChassisTap(chord: chord)
+        case .needsScreenshot:
+            show(.failed(message: PalmDispatch.noScreenshot))
+            hide(after: HUDCopy.rescueDuration)
+        }
     }
 
     func setTrigger(_ key: TriggerKey) {

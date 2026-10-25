@@ -28,7 +28,7 @@ final class ChassisTapCPUTests: XCTestCase {
     func testIdleSamplingCostsUnderOnePercentOfACoreAndStopsOnLock() throws {
         let defaults = UserDefaults(suiteName: "ChassisTapCPUTests-\(UUID())")!
         defaults.set(true, forKey: ChassisTapTrigger.enabledKey)
-        let trigger = ChassisTapTrigger(defaults: defaults) {}
+        let trigger = ChassisTapTrigger(defaults: defaults) { _ in }
 
         // The same process with the sensor off, then on: the difference is the trigger's cost.
         RunLoop.current.run(until: Date(timeIntervalSinceNow: 1))

@@ -20,7 +20,7 @@ final class TapRecordingTests: XCTestCase {
     static func replayLive(_ samples: [TapDetectorTests.Sample]) -> [Double] {
         final class Box: @unchecked Sendable { var fast = false; var taps: [Double] = [] }
         let box = Box()
-        let pipeline = TapPipeline(setRate: { box.fast = $0 == .active }, onDoubleTap: { box.taps.append($0) })
+        let pipeline = TapPipeline(setRate: { box.fast = $0 == .active }, onEvent: { if case let .doubleTap(first, _) = $0 { box.taps.append(first) } })
         for (i, s) in samples.enumerated() where box.fast || i % 8 == 0 {
             pipeline.process(t: s.t, s.a)
         }

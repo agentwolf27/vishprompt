@@ -13,6 +13,8 @@ enum TapEvent: Equatable, Sendable {
     /// Two knocks close together, with no key press, click or handling around them. `first` is
     /// the first knock and `at` the second, on the sensor's clock.
     case doubleTap(first: Double, at: Double)
+    /// Three knocks, each close behind the one before. Only when `Tuning.listensForTriples`.
+    case tripleTap(first: Double, at: Double)
 }
 
 struct TapDetector: Sendable {
@@ -30,7 +32,7 @@ struct TapDetector: Sendable {
         /// Knocks this soon after handling are ignored: setting a Mac down rattles.
         var handlingQuiet: Double = 1.5
         /// The second knock of a double comes this soon after the first, and no sooner.
-        var doubleWindow: ClosedRange<Double> = 0.08...0.45
+        var doubleWindow: ClosedRange<Double> = 0.12...0.45
         /// The second knock must be a new hit, at least this share of the first's peak. A bounce
         /// in a bump's ring is weaker; a real second tap is about as firm as the first.
         var secondShare: Float = 0.4
@@ -42,6 +44,14 @@ struct TapDetector: Sendable {
         var postureDrift: Float = 0.03
         /// No third knock may follow this soon after the second: a burst is not a gesture.
         var burstGuard: Double = 0.25
+        /// Whether a third knock makes a triple tap. When it does, a double is decided only once
+        /// a third could no longer arrive, so a triple never also fires the double's action.
+        var listensForTriples = false
+        /// A gesture's first knock must come at least this long after any knock before it: a run
+        /// of knocks a tenth of a second apart is shaking, and its tail is not a gesture.
+        var isolation: Double = 0.5
+        /// Every knock of a triple must be at least this firm, in g.
+        var tripleMinimumPeak: Float = 0.05
         /// A key press or click this close to a knock (before it, or just after it, since the
         /// event can be reported a little late) means the knock was typing or clicking.
         var inputBefore: Double = 0.4
@@ -72,6 +82,10 @@ struct TapDetector: Sendable {
     private var lastLoud = 0.0
     private var gravityBefore = SIMD3<Float>.zero
     private var lastOnset = -10.0
+    /// The start of the last knock of any kind, accepted or not.
+    private var lastKnock = -10.0
+    /// The newest knock whose tilt has been judged.
+    private var tiltCheckedAfter = -10.0
     /// The quietest the ring has been since its peak, to spot a second tap landing inside it.
     private var trough: Float = 0
 
@@ -204,6 +218,8 @@ struct TapDetector: Sendable {
 
     private mutating func finishKnock(at t: Double, ringing: Bool) {
         capturing = false
+        let previousKnock = lastKnock
+        lastKnock = captureStart
         echoPeak = peak
         echoT = t
         let reason: String?
@@ -225,12 +241,16 @@ struct TapDetector: Sendable {
             knocks.removeAll()
             return
         }
+        if knocks.isEmpty, captureStart - previousKnock < tuning.isolation {
+            reject(captureStart, "in a run of knocks")
+            return
+        }
         knocks.append((captureStart, peak, gravityBefore, leadIn))
         heard.append((captureStart, peak))
         if heard.count > 64 { heard.removeFirst(heard.count - 64) }
     }
 
-    /// Turns accepted knocks into a double tap once nothing can still spoil it.
+    /// Turns accepted knocks into a double or triple tap once nothing can still spoil it.
     private mutating func decide(at t: Double) -> TapEvent? {
         guard let firstKnock = knocks.first else { return nil }
         let first = firstKnock.t
@@ -241,45 +261,97 @@ struct TapDetector: Sendable {
             if t - first > tuning.doubleWindow.upperBound, !capturing { knocks.removeAll() }
             return nil
         }
-        let second = knocks[1].t
-        if knocks.count == 2, knocks[1].peak < tuning.secondShare * firstKnock.peak {
-            // A bounce in the first knock's ring, not a second tap: drop it and keep waiting.
-            knocks.removeLast()
-            return nil
-        }
-        if knocks.count == 2, firstKnock.lead > tuning.quietLead * firstKnock.peak {
-            reject(first, "began in shaking")
-            knocks.removeAll()
-            return nil
-        }
-        if knocks.count >= 3 {
+        let count = knocks.count
+        if count > (tuning.listensForTriples ? 3 : 2) {
+            // More knocks than any gesture has, before it was decided: shaking, not a gesture.
             reject(first, "a burst of knocks")
             knocks.removeAll()
             return nil
         }
-        guard tuning.doubleWindow.contains(second - first) else {
-            // Too far apart for a double: the second may still start one.
-            knocks.removeFirst()
+        let previous = knocks[count - 2]
+        let newest = knocks[count - 1]
+        if newest.peak < tuning.secondShare * previous.peak {
+            if count == 2 {
+                // A bounce in the first knock's ring, not a second tap: drop it and keep waiting.
+                knocks.removeLast()
+                return nil
+            }
+            // A weak third knock spoils the gesture rather than being dropped: otherwise a
+            // wobble pair in a settle survives as a double (Vish's first bed session, 14.2 s).
+            reject(first, "a burst of knocks")
+            knocks.removeAll()
             return nil
         }
-        guard t - second >= max(tuning.burstGuard, tuning.inputAfter), !capturing else { return nil }
+        if count == 2, firstKnock.lead > tuning.quietLead * firstKnock.peak {
+            reject(first, "began in shaking")
+            knocks.removeAll()
+            return nil
+        }
+        if !tuning.doubleWindow.contains(newest.t - previous.t) {
+            if count == 2 {
+                // Too far apart for a double: the second may still start one.
+                knocks.removeFirst()
+                return nil
+            }
+            // A third knock before the pair was decided, too late to make a triple: a burst of
+            // knocks, which is shaking rather than a gesture (it drops a false double in Vish's
+            // first bed session, single taps at 12.1 s).
+            reject(first, "a burst of knocks")
+            knocks.removeAll()
+            return nil
+        }
+        guard !capturing else { return nil }
+        let quiet = max(tuning.burstGuard, tuning.inputAfter)
+        // Tilt is judged at the same moment after the newest knock however long the decision
+        // waits: waiting longer for a possible triple lets a moved Mac settle back and read as
+        // still (Vish's first bed session, single taps at 14.2 s).
+        if t - newest.t >= quiet, tiltCheckedAfter != newest.t {
+            tiltCheckedAfter = newest.t
+            let tilt = simd_length(posture - firstKnock.before)
+            if tilt > tuning.maximumTilt {
+                lastHandling = t
+                reject(first, String(format: "the Mac moved %.3f", tilt))
+                knocks.removeAll()
+                return nil
+            }
+        }
+        if count == 2 {
+            // Wait out the burst guard, or with triples on the whole window a third could use.
+            let wait = tuning.listensForTriples ? max(quiet, tuning.doubleWindow.upperBound) : quiet
+            guard t - newest.t >= wait else { return nil }
+            let pair = knocks
+            knocks.removeAll()
+            return finish(pair, makes: .double, at: t)
+        }
+        guard t - newest.t >= quiet else { return nil }
+        let triple = knocks
         knocks.removeAll()
-        // Judged now, a quarter second after the second knock, when the taps' swing has
-        // averaged out of the posture: did the Mac end up sitting differently?
-        let tilt = simd_length(posture - firstKnock.before)
-        if tilt > tuning.maximumTilt {
-            lastHandling = t
-            reject(first, String(format: "the Mac moved %.3f", tilt))
+        if triple.contains(where: { $0.peak < tuning.tripleMinimumPeak }) {
+            // Three weak knocks are how a Mac shakes as it is handled (Vish's first bed session,
+            // three of 21-31 mg); his real taps were 0.1-0.5 g.
+            reject(first, "too light for a triple")
             return nil
         }
+        return finish(triple, makes: .triple, at: t)
+    }
+
+    private enum Kind { case double, triple }
+
+    /// The last check before a gesture counts: no key or click may have come near any of its
+    /// knocks. (Tilt was judged 0.25 s after the last knock, in `decide`.)
+    private mutating func finish(_ taps: [(t: Double, peak: Float, before: SIMD3<Float>, lead: Float)], makes kind: Kind, at t: Double) -> TapEvent? {
+        guard let firstTap = taps.first, let lastTap = taps.last else { return nil }
         let touched = inputs.contains { input in
-            [first, second].contains { knock in input >= knock - tuning.inputBefore && input <= knock + tuning.inputAfter }
+            taps.contains { knock in input >= knock.t - tuning.inputBefore && input <= knock.t + tuning.inputAfter }
         }
         if touched {
-            reject(first, "typing or clicking")
+            reject(firstTap.t, "typing or clicking")
             return nil
         }
-        return .doubleTap(first: first, at: second)
+        switch kind {
+        case .double: return .doubleTap(first: firstTap.t, at: lastTap.t)
+        case .triple: return .tripleTap(first: firstTap.t, at: lastTap.t)
+        }
     }
 
     private mutating func reject(_ t: Double, _ reason: String) {
