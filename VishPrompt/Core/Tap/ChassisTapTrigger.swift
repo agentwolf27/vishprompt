@@ -122,20 +122,13 @@ final class ChassisTapTrigger {
     private func accept(firstKnock first: Double) {
         guard sensor != nil else { return }
         let now = Double(DispatchTime.now().uptimeNanoseconds) / 1_000_000_000
-        let lastInput = now - Self.lastInputAge()
-        guard lastInput < first - TapDetector.Tuning().inputBefore else {
-            Log.tap.info("Double tap ignored: a key or click came \(String(format: "%.2f", lastInput - first), privacy: .public) s from it")
+        let lastInput = now - TapInputGuard.lastInputAge()
+        guard !TapInputGuard.touched(lastInput: lastInput, firstKnock: first) else {
+            Log.tap.info("Double tap ignored: typing, a click or the trackpad came \(String(format: "%.2f", lastInput - first), privacy: .public) s from it")
             return
         }
         Log.tap.info("Double tap on the palm rest")
         onTap()
-    }
-
-    /// Seconds since the last key press or mouse or trackpad click, from the window server.
-    private static func lastInputAge() -> Double {
-        [CGEventType.keyDown, .leftMouseDown, .rightMouseDown, .otherMouseDown]
-            .map { CGEventSource.secondsSinceLastEventType(.hidSystemState, eventType: $0) }
-            .min() ?? .infinity
     }
 
     private func observe() {

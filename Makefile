@@ -85,7 +85,7 @@ verify-tap-cpu: gen
 ## for TapDetectorTests. Run it in a terminal and follow the prompts. ONLY=<scenario> redoes one.
 record-taps:
 	@mkdir -p build
-	swiftc -O -o build/record-taps scripts/record-taps/main.swift VishPrompt/Core/Tap/SPUAccelerometer.swift VishPrompt/Core/Logging/Log.swift
+	swiftc -O -o build/record-taps scripts/record-taps/main.swift VishPrompt/Core/Tap/SPUAccelerometer.swift VishPrompt/Core/Tap/TapInputGuard.swift VishPrompt/Core/Tap/TapDetector.swift VishPrompt/Core/Logging/Log.swift
 	build/record-taps Fixtures/taps $(ONLY)
 
 ## Time the real key-up path on the Release build: 20 runs, median and p90, raw rows in
