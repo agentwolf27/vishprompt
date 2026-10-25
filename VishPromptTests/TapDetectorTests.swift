@@ -135,11 +135,12 @@ final class TapDetectorTests: XCTestCase {
     func testLiftingAndSettingTheMacDownIsHandling() throws {
         var s = try Self.load("idle-desk")
         handle(&s, at: 2.0, degrees: 6)
-        // A knock right after setting it down, and one after: the pair must not count.
-        knock(&s, at: 2.9, g: 0.03)
+        // A knock as firm as the set-down thud, 0.3 s after it: shaped like a double tap, and it
+        // must still not count, because the Mac was moving just before.
+        knock(&s, at: 2.9, g: 0.25)
         let result = Self.run(s)
         XCTAssertEqual(result.taps, [])
-        XCTAssertTrue(result.detector.rejected.contains { ["the Mac moved", "rang too long", "right after handling"].contains($0.reason) },
+        XCTAssertTrue(result.detector.rejected.contains { r in ["the Mac moved", "rang too long", "right after handling", "began in shaking"].contains { r.reason.hasPrefix($0) } },
                       "rejected as handling, not by luck: \(result.detector.rejected)")
     }
 

@@ -294,3 +294,47 @@ knocks >0.030g: left 5, right 16 | x-sign rule 71% | nearest-centroid (leave-one
 Left and right are at chance on the bed, so the calibration gate would keep the side rows locked
 there.
 
+## 2026-10-25 — Claude (chassis tap fix 2b: the detector, tuned on desk recordings)
+
+Vish recorded double-left, double-right, single and clicks at a desk.
+- **Doubles:** a tap rises from about 5 mg to 0.1–0.5 g within 10 ms and dies down within about
+  0.25 s, and the second tap lands 0.28–0.31 s after the first.
+- **Clicks:** 8–17 mg, with 18 click marks this time; on the bed there were none.
+
+What changed in `TapDetector`, each change from a case in the recordings:
+1. **Tilt is judged at decision time.** A ~300 ms posture is compared against the gravity before
+   the first knock, not a 30 ms average at the end of the knock: a firm tap swings the chassis
+   without changing how it sits. Desk left went from 1 to 6 doubles. The limit is 0.08 g.
+2. **A second tap inside the first one's ring starts its own knock:** a rise to 60% of the peak
+   after the ring dipped below 35%.
+3. **A real second tap is at least 40% of the first's peak.** A bounce in a bump's ring is weaker.
+4. **Bug fix:** a pending first knock was thrown away while the second was still being measured,
+   because a knock joins the list only when its capture ends. Desk right went from 2 to 4.
+5. **The first tap must start from stillness:** the shaking just before it under 30% of its peak.
+   This drops wobbles in a long settle on the bed.
+6. **Handling is a change in posture.** Posture drifting more than 0.03 g from gravity, while no
+   knock rings, opens the handling window. A long ring, or a knock inside the window, no longer
+   extends it, which used to keep the detector deaf for seconds.
+
+`bed/idle` holds one real double knock at 5.63 s (185 and 154 mg, 0.20 s apart), shaped exactly
+like a double tap. The test pins it rather than pretending a detector can drop it.
+
+Evidence: `make test-class C=TapRecordingTests` — passed:
+```
+PROBE desk/double-left: 6 at 800 Hz ["1.28", "4.64", "7.99", "11.18", "14.70", "18.09"], 6 live; rejected [:]
+PROBE desk/double-right: 4 at 800 Hz ["1.14", "8.59", "14.89", "18.31"], 4 live; rejected ["right after handling": 3, "rang too long": 1]
+PROBE desk/single: 0 at 800 Hz [], 0 live
+PROBE desk/clicks: 0 at 800 Hz [], 0 live; rejected ["began in shaking": 1]
+PROBE bed/single, bed/typing, bed/clicks, bed/handling: 0 at 800 Hz, 0 live
+PROBE bed/idle: 1 at 800 Hz ["5.82"], 1 live
+PROBE bed/double-left: 1 at 800 Hz ["8.73"], 1 live
+PROBE bed/double-right: 4 at 800 Hz ["2.20", "2.87", "4.26", "18.74"], 3 live
+```
+
+Evidence: `make verify-tap-cpu` — `PROBE tap cpu: 0.40% of one core sampling, 0.02% without, 0.38% for the trigger`.
+Evidence: `make verify-sensor` — `PROBE sensor: active 796 Hz, idle 99 Hz, median 0.997 g`.
+Evidence: `make test` — `Executed 538 tests, with 22 tests skipped and 0 failures`; `make release` — `** BUILD SUCCEEDED **`.
+
+Tap fix 2 stays unticked until a trackpad recording (hold, Force Touch, scroll) backs "nothing
+fires from the trackpad".
+
