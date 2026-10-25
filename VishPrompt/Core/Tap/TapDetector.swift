@@ -8,6 +8,17 @@
 import Foundation
 import simd
 
+/// A knock's shape in its first 20 ms: the unit direction of its strongest push, and how its
+/// energy splits across the three axes. What side calibration compares.
+struct KnockShape: Equatable, Sendable {
+    var direction: SIMD3<Float>
+    var energy: SIMD3<Float>
+    /// The average sign of each axis over the first six samples: which way the chassis first moved.
+    var early: SIMD3<Float> = .zero
+
+    var vector: [Float] { [direction.x, direction.y, direction.z, energy.x, energy.y, energy.z, early.x, early.y, early.z] }
+}
+
 /// What the detector concluded, and when.
 enum TapEvent: Equatable, Sendable {
     /// Two knocks close together, with no key press, click or handling around them. `first` is
@@ -95,7 +106,14 @@ struct TapDetector: Sendable {
     private var lastHandling = -10.0
 
     // Accepted knocks waiting to become (or not become) a double tap, and recent input.
-    private var knocks: [(t: Double, peak: Float, before: SIMD3<Float>, lead: Float)] = []
+    private var knocks: [(t: Double, peak: Float, before: SIMD3<Float>, lead: Float, shape: KnockShape)] = []
+    // The forming knock's shape: its strongest push and per-axis energy in the first 20 ms.
+    private var attackPeak = SIMD3<Float>.zero
+    private var attackEnergy = SIMD3<Float>.zero
+    private var attackSigns = SIMD3<Float>.zero
+    private var attackSamples = 0
+    /// The shapes of the knocks behind the gesture just reported, for side calibration.
+    private(set) var lastGestureShapes: [KnockShape] = []
     /// The shaking just before now (~30 ms average of the high-passed magnitude). A tap starts
     /// from stillness; a wobble in a long settle starts from shaking.
     private var level: Float = 0
@@ -113,6 +131,8 @@ struct TapDetector: Sendable {
 
     /// Knocks accepted as taps (time, peak in g), for tests and the Test area to come.
     private(set) var heard: [(at: Double, peak: Float)] = []
+    /// The shape of each knock in `heard`, in the same order.
+    private(set) var heardShapes: [KnockShape] = []
 
     /// Where the detector is, for the overlay's tests and for logging.
     private(set) var rejected: [(at: Double, reason: String)] = []
@@ -171,6 +191,14 @@ struct TapDetector: Sendable {
                 beginCapture(at: t, magnitude: m, threshold: threshold, lead: trough)
                 return decide(at: t)
             }
+            if attackSamples < 6 {
+                attackSigns += SIMD3(highPass.x.sign == .minus ? -1 : 1, highPass.y.sign == .minus ? -1 : 1, highPass.z.sign == .minus ? -1 : 1)
+                attackSamples += 1
+            }
+            if elapsed <= 0.02 {
+                attackEnergy += highPass * highPass
+                if m > simd_length(attackPeak) { attackPeak = highPass }
+            }
             if m > peak { peak = m; peakT = t; trough = m }
             if t - peakT > 0.01 { trough = min(trough, m) }
             if m > max(peak * 0.15, captureThreshold * 0.5) { lastLoud = t }
@@ -211,6 +239,10 @@ struct TapDetector: Sendable {
         peak = m
         peakT = t
         trough = m
+        attackPeak = highPass
+        attackEnergy = highPass * highPass
+        attackSigns = SIMD3(highPass.x.sign == .minus ? -1 : 1, highPass.y.sign == .minus ? -1 : 1, highPass.z.sign == .minus ? -1 : 1)
+        attackSamples = 1
         lastLoud = t
         lastOnset = t
         gravityBefore = gravity
@@ -245,8 +277,13 @@ struct TapDetector: Sendable {
             reject(captureStart, "in a run of knocks")
             return
         }
-        knocks.append((captureStart, peak, gravityBefore, leadIn))
+        let total = max(attackEnergy.x + attackEnergy.y + attackEnergy.z, 1e-12)
+        let shape = KnockShape(direction: attackPeak / max(simd_length(attackPeak), 1e-9), energy: attackEnergy / total,
+                               early: attackSigns / Float(max(attackSamples, 1)))
+        knocks.append((captureStart, peak, gravityBefore, leadIn, shape))
         heard.append((captureStart, peak))
+        heardShapes.append(shape)
+        if heardShapes.count > 64 { heardShapes.removeFirst(heardShapes.count - 64) }
         if heard.count > 64 { heard.removeFirst(heard.count - 64) }
     }
 
@@ -339,7 +376,7 @@ struct TapDetector: Sendable {
 
     /// The last check before a gesture counts: no key or click may have come near any of its
     /// knocks. (Tilt was judged 0.25 s after the last knock, in `decide`.)
-    private mutating func finish(_ taps: [(t: Double, peak: Float, before: SIMD3<Float>, lead: Float)], makes kind: Kind, at t: Double) -> TapEvent? {
+    private mutating func finish(_ taps: [(t: Double, peak: Float, before: SIMD3<Float>, lead: Float, shape: KnockShape)], makes kind: Kind, at t: Double) -> TapEvent? {
         guard let firstTap = taps.first, let lastTap = taps.last else { return nil }
         let touched = inputs.contains { input in
             taps.contains { knock in input >= knock.t - tuning.inputBefore && input <= knock.t + tuning.inputAfter }
@@ -348,6 +385,7 @@ struct TapDetector: Sendable {
             reject(firstTap.t, "typing or clicking")
             return nil
         }
+        lastGestureShapes = taps.map(\.shape)
         switch kind {
         case .double: return .doubleTap(first: firstTap.t, at: lastTap.t)
         case .triple: return .tripleTap(first: firstTap.t, at: lastTap.t)

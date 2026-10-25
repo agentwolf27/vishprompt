@@ -398,3 +398,33 @@ in runs. It was measured, not required. The second session is unchanged at 6 of 
 Evidence: `make test-class C=PalmGestureTests` — `test-class: PalmGestureTests passed` (12 tests).
 Evidence: `make test` — `Executed 550 tests, with 22 tests skipped and 0 failures`; `make release` passed; `make verify-tap-cpu` — `0.50% for the trigger`.
 
+## 2026-10-25 — Claude (palm-rest gestures, step 2: the side calibration gate)
+
+The detector now records each knock's shape in its first 20 ms: its strongest push (direction),
+the share of its energy on each axis, and the average sign of each axis over its first six
+samples. `SideCalibration` classifies calibration taps by the nearest side centre, leaving one
+out, and unlocks the left and right rows only at 95% or better. It is stored per Mac (keyed by
+hw.model) and can be forgotten. Once unlocked, a double is placed left or right only if both its
+knocks clearly agree (each at most 70% of the distance to the other side's centre); otherwise it
+is not run.
+
+**Changed from the plan: 10 taps a side, not 5.** Five a side from Vish's first bed session,
+whose sides are at chance over every knock, scored 100% by chance and would have unlocked.
+
+Evidence: `make test-class C=SideCalibrationTests` — passed:
+```
+PROBE bed1 with 10 taps a side (10 left, 10 right heard): 65% → locked
+PROBE bed1 with 99 taps a side (10 left, 15 right heard): 68% → locked
+PROBE bed1 with 5 taps a side (5 left, 5 right heard): 80% → locked
+PROBE bed2 with 10 taps a side (10 left, 10 right heard): 95% → unlocked
+PROBE bed2 with 99 taps a side (12 left, 11 right heard): 96% → unlocked
+PROBE bed2/double-left: 6 doubles, 6 placed left, 0 on the wrong side, 0 not placed
+PROBE bed2/double-right: 4 doubles, 4 placed right, 0 on the wrong side, 0 not placed
+```
+(The 80% for bed1 at 5 a side is with the early-sign feature added. Before it, the same five
+scored 100%, which is what showed five was too few.) The placement check is in-sample: the
+calibration taps come from the same files. A real calibration run on another day is the honest
+test.
+
+Evidence: `make test` — `Executed 558 tests, with 22 tests skipped and 0 failures`; `make release` passed.
+
