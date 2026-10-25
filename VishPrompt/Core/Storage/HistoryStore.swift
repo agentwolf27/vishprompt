@@ -149,3 +149,123 @@ enum HistoryFormat {
         return duration(ms: last.offsetMs - keyUp.offsetMs)
     }
 }
+
+/// How a dictation was made, as the Home window's cards name it.
+enum DictationMode: String, CaseIterable, Sendable {
+    case dictate, smartPaste, edit, screenshotFix
+
+    var title: String {
+        switch self {
+        case .dictate: "Dictate"
+        case .smartPaste: "Smart paste"
+        case .edit: "Edit by voice"
+        case .screenshotFix: "Screenshot fix"
+        }
+    }
+
+    /// The stored mode, or for rows from before it was stored, what the level says: Smart Paste
+    /// and edits wrote "paste…" and "edit…" levels. An old screenshot fix reads as a dictation,
+    /// because nothing in the row told them apart.
+    static func of(_ record: DictationRecord) -> DictationMode {
+        if let stored = record.mode.flatMap(DictationMode.init(rawValue:)) { return stored }
+        if record.level.hasPrefix("edit") { return .edit }
+        if record.level.hasPrefix("paste") { return .smartPaste }
+        return .dictate
+    }
+}
+
+/// Where the words went, as a card's pill says it.
+enum WhereItWent: Equatable, Sendable {
+    case stayedOnThisMac
+    case sentToClaude
+    /// Rows from before the provider was recorded. Said plainly rather than guessed.
+    case notRecorded
+
+    init(_ record: DictationRecord) {
+        switch record.provider {
+        case nil: self = .notRecorded
+        case "local": self = .stayedOnThisMac
+        default: self = .sentToClaude
+        }
+    }
+
+    var label: String {
+        switch self {
+        case .stayedOnThisMac: "Stayed on this Mac"
+        case .sentToClaude: "Sent to Claude"
+        case .notRecorded: "Not recorded"
+        }
+    }
+}
+
+extension HistoryFormat {
+    /// The app a card names: the app in front at the time, or for older rows, the destination.
+    static func appName(_ record: DictationRecord) -> String {
+        record.app ?? destinationName(record.destination)
+    }
+
+    /// Whether a row matches a History search: what came out, what was said, the app or the mode.
+    static func matches(_ record: DictationRecord, query: String) -> Bool {
+        let needle = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !needle.isEmpty else { return true }
+        let haystack = [record.compiledText ?? "", record.rawTranscript, appName(record), DictationMode.of(record).title]
+        return haystack.contains { $0.localizedCaseInsensitiveContains(needle) }
+    }
+
+    /// "Nothing matches “x”. Try an app name, like Slack."
+    static func noMatch(_ query: String) -> String {
+        "Nothing matches “\(query.trimmingCharacters(in: .whitespacesAndNewlines))”. Try an app name, like Slack."
+    }
+
+    /// History's groups: Pinned first, then Today, Yesterday and each earlier date, newest first.
+    static func groups(_ entries: [HistoryEntry], now: Date = Date(), calendar: Calendar = .current) -> [(label: String, entries: [HistoryEntry])] {
+        var groups: [(label: String, entries: [HistoryEntry])] = []
+        let pinned = entries.filter(\.record.pinned)
+        if !pinned.isEmpty { groups.append(("Pinned", pinned)) }
+        for entry in entries where !entry.record.pinned {
+            let label = dayLabel(entry.record.createdAt, now: now, calendar: calendar)
+            if groups.last?.label == label, groups.last?.label != "Pinned" {
+                groups[groups.count - 1].entries.append(entry)
+            } else {
+                groups.append((label, [entry]))
+            }
+        }
+        return groups
+    }
+
+    static func dayLabel(_ date: Date, now: Date = Date(), calendar: Calendar = .current) -> String {
+        if calendar.isDate(date, inSameDayAs: now) { return "Today" }
+        if let yesterday = calendar.date(byAdding: .day, value: -1, to: now), calendar.isDate(date, inSameDayAs: yesterday) {
+            return "Yesterday"
+        }
+        let sameYear = calendar.component(.year, from: date) == calendar.component(.year, from: now)
+        return date.formatted(sameYear ? .dateTime.weekday(.abbreviated).day().month(.abbreviated)
+                                       : .dateTime.day().month(.abbreviated).year())
+    }
+}
+
+extension HistoryStore {
+    static func setPinned(_ pinned: Bool, id: String, in queue: DatabaseQueue) throws {
+        try queue.write { db in
+            try db.execute(sql: "UPDATE dictation SET pinned = ? WHERE id = ?", arguments: [pinned, id])
+        }
+    }
+
+    /// Deletes a row and, through the foreign key, its timings. Local SQLite only.
+    static func delete(id: String, in queue: DatabaseQueue) throws {
+        try queue.write { db in
+            _ = try DictationRecord.deleteOne(db, key: id)
+        }
+    }
+
+    /// Puts back a row deleted a moment ago, timings included, for Undo.
+    static func restore(_ entry: HistoryEntry, in queue: DatabaseQueue) throws {
+        try queue.write { db in
+            try entry.record.insert(db)
+            for var timing in entry.timings {
+                timing.id = nil
+                try timing.insert(db)
+            }
+        }
+    }
+}

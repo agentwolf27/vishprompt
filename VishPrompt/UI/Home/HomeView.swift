@@ -34,8 +34,8 @@ private struct HomeLayout: View {
                 .overlay(alignment: .trailing) { theme.line.color.frame(width: 1) }
             Group {
                 switch library.page {
-                case .home: HomePageView(library: library, now: now())
-                case .history: HistoryView(reuse: reuse)
+                case .home: HomePageView(library: library, reuse: reuse, now: now())
+                case .history: HistoryPageView(library: library, reuse: reuse, now: now())
                 case .dictionary: DictionaryPageView(library: library)
                 case .settings: SettingsPageView(library: library)
                 }
@@ -113,6 +113,7 @@ private struct HomeSidebar: View {
 private struct HomePageView: View {
     @Environment(\.homeTheme) private var theme
     let library: HomeLibrary
+    let reuse: HistoryReuse
     let now: Date
 
     var body: some View {
@@ -139,38 +140,20 @@ private struct HomePageView: View {
                 } else {
                     SectionLabel(text: "Recent")
                     ForEach(recent) { entry in
-                        EntrySummaryCard(entry: entry)
+                        DictationCard(entry: entry, library: library, reuse: reuse)
+                    }
+                    if library.lastDeleted != nil {
+                        HStack(spacing: 10) {
+                            Text("Deleted from this Mac.").foregroundStyle(theme.muted.color)
+                            Button("Undo") { library.undoDelete() }.buttonStyle(.link).foregroundStyle(theme.accent.color)
+                        }
+                        .font(.system(size: 13))
                     }
                 }
             }
             .padding(.horizontal, 36).padding(.top, 40).padding(.bottom, 28)
         }
         .scrollContentBackground(.hidden)
-    }
-}
-
-/// Read-only for now; copy, pin and delete come with the next step.
-struct EntrySummaryCard: View {
-    @Environment(\.homeTheme) private var theme
-    let entry: HistoryEntry
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 10) {
-                Text(entry.record.createdAt.formatted(date: .omitted, time: .shortened))
-                    .font(.system(size: 12, design: .monospaced))
-                Text("→ \(HistoryFormat.destinationName(entry.record.destination))")
-                    .font(.system(size: 12))
-            }
-            .foregroundStyle(theme.muted.color)
-            Text(HistoryFormat.reusableText(entry.record) ?? "(nothing said)")
-                .font(.system(size: 15))
-                .lineSpacing(4)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .textSelection(.enabled)
-        }
-        .padding(.horizontal, 16).padding(.vertical, 14)
-        .homeCard(radius: 14)
     }
 }
 

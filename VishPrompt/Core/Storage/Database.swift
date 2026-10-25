@@ -95,6 +95,16 @@ enum Database {
                 t.add(column: "provider", .text)
             }
         }
+        // For the Home window's cards: the app the words went to, how they were made, and
+        // whether the user pinned them. Old rows keep null app and mode, which the cards read
+        // from the destination and the level instead.
+        migrator.registerMigration("v3-app-mode-pinned") { db in
+            try db.alter(table: "dictation") { t in
+                t.add(column: "app", .text)
+                t.add(column: "mode", .text)
+                t.add(column: "pinned", .boolean).notNull().defaults(to: false)
+            }
+        }
         return migrator
     }
 }
@@ -120,6 +130,12 @@ struct DictationRecord: Codable, FetchableRecord, PersistableRecord, Equatable {
     /// The provider the words were sent to, or "local" when nothing left the Mac. Nil on rows
     /// recorded before the provider was.
     var provider: String? = nil
+    /// The app in front when the dictation started, by name. Nil on older rows.
+    var app: String? = nil
+    /// A `DictationMode` raw value. Nil on older rows, which the level tells apart.
+    var mode: String? = nil
+    /// Pinned rows come first in History and are never pruned.
+    var pinned: Bool = false
 }
 
 struct StageTimingRecord: Codable, FetchableRecord, PersistableRecord, Equatable {

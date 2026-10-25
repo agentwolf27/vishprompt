@@ -162,3 +162,26 @@ background 26,25,24 (#1A1918), dark sidebar 21,20,19 (#151413).
 
 Evidence: `make test` — `Executed 501 tests, with 22 tests skipped and 0 failures`; `make release` — `** BUILD SUCCEEDED **`.
 
+## 2026-10-24 — Claude (Home window, step 2: the cards)
+
+Every saved dictation on Home and History is now a card showing:
+- the time, the app (the app in front at key-down; for older rows, the destination) and the
+  mode (Dictate, Smart paste, Edit by voice, Screenshot fix; older rows read theirs from the
+  level);
+- "Stayed on this Mac" or "Sent to Claude" from the stored provider, or "Not recorded" for rows
+  from before it was stored;
+- Copy, which says Copied for 1.4 s; "What you said" with its own Copy; pin; and delete, with
+  Undo.
+
+Migration v3 adds `app`, `mode` and `pinned`. History searches the text, what was said, the app
+and the mode, and groups Pinned, Today, Yesterday and dates. The arrow keys move the selection,
+Return pastes the selection again and ⌘C copies it. The old History view is removed.
+
+Correction: `SmartPasteHistoryTests` and `SelectionEditTests` cast every column of a row to
+String, which traps on the new integer `pinned` column. They now collect text values only, as
+their doc comments say.
+
+Evidence: `make test-class C=HistoryCardTests` — `test-class: HistoryCardTests passed` (11 tests).
+
+Evidence: `make test` — `Executed 512 tests, with 22 tests skipped and 0 failures`; `make release` — `** BUILD SUCCEEDED **`.
+
