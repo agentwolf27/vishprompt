@@ -89,6 +89,8 @@ final class HomeWindowTests: XCTestCase {
         let queue = try HomeSnapshot.sampleQueue(now: now)
         for dark in [false, true] {
             let library = HomeLibrary(queue: { queue }, defaults: UserDefaults(suiteName: "HomeWindowTests-\(UUID())")!)
+            library.palmRestAvailable = true
+            library.palmRestEnabled = true
             let view = HomeView(library: library, reuse: HistoryReuse(), now: { now })
             let bitmap = try XCTUnwrap(HomeSnapshot.capture(view, size: size, dark: dark, name: "home"))
             let theme = dark ? HomeTheme.dark : HomeTheme.light

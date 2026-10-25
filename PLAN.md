@@ -82,7 +82,7 @@ Tick one only when its VERIFY passes, not when someone says it is done.
 
 - [x] Home 1: one VishPrompt window (at least 1040×700) with Home, History, Dictionary and Settings in a sidebar opens from the menu and ⌘Y, in a warm light and a warm dark theme that follow the Mac unless Settings says otherwise — `make test-class C=HomeWindowTests`
 - [x] Home 2: each saved dictation is a card with its time, app, mode and where the words went, a Copy that says Copied, what you said with its own Copy, pin and delete; Home counts today from real rows; History searches and groups by day; Return still pastes again — `make test-class C=HistoryCardTests`
-- [ ] Home 3: Dictionary shows the words VishPrompt spells your way; Settings is cards wired to the real trigger, palm-rest, provider and appearance settings — `make test-class C=SettingsCardTests`
+- [x] Home 3: Dictionary shows the words VishPrompt spells your way; Settings is cards wired to the real trigger, palm-rest, provider and appearance settings — `make test-class C=SettingsCardTests`
 - [ ] Home 4: history is kept for 30, 60 or 90 days or forever; pinned items are never pruned; this install keeps everything and new installs keep 90 days; a shorter period confirms with the real count first — `make test-class C=RetentionTests`
 
 ## Later

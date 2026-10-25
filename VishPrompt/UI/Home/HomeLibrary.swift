@@ -78,6 +78,25 @@ final class HomeLibrary {
         }
     }
 
+    // MARK: Settings
+
+    /// Whether this Mac has the palm-rest sensor. Without it the switch says so and is off.
+    var palmRestAvailable = false
+    var palmRestEnabled = false {
+        didSet { if palmRestEnabled != oldValue { onSetPalmRest(palmRestEnabled) } }
+    }
+    @ObservationIgnored var onSetPalmRest: (Bool) -> Void = { _ in }
+
+    var providerPolicy: ProviderPolicy {
+        didSet { ProviderSettings(defaults: defaults).save(providerPolicy) }
+    }
+    /// Whether an Anthropic key is saved, so the API row can say what it needs.
+    var hasAPIKey = false
+
+    func chooseRewrite(_ choice: ProviderChoice) {
+        providerPolicy = RewriteChoice.policy(selecting: choice, from: providerPolicy)
+    }
+
     @ObservationIgnored var onAppearanceChange: (AppearanceChoice) -> Void = { _ in }
     @ObservationIgnored var onShowMoreSettings: () -> Void = {}
 
@@ -88,6 +107,7 @@ final class HomeLibrary {
         self.queue = queue
         self.defaults = defaults
         appearance = AppearanceChoice.saved(in: defaults)
+        providerPolicy = ProviderSettings(defaults: defaults).policy()
     }
 
     func stats(now: Date = Date()) -> HomeStats {
@@ -184,5 +204,41 @@ final class HomeLibrary {
             loadError = "History couldn't be read. Close this window and open it again."
             Log.db.error("Home read failed: \(error.localizedDescription, privacy: .public)")
         }
+    }
+}
+
+/// Settings → "Where the rewrite runs": one choice over the provider policy's two paths.
+/// The row picks where prompts are compiled; "On this Mac" keeps quick cleanup there too, so
+/// nothing leaves at all.
+enum RewriteChoice {
+    static let options: [ProviderChoice] = [.local, .subscription, .apiKey]
+
+    static func selected(in policy: ProviderPolicy) -> ProviderChoice {
+        policy.compilePath
+    }
+
+    static func policy(selecting choice: ProviderChoice, from policy: ProviderPolicy) -> ProviderPolicy {
+        choice == .local ? .offline : ProviderPolicy(fastPath: policy.fastPath, compilePath: choice)
+    }
+
+    static func title(_ choice: ProviderChoice) -> String {
+        switch choice {
+        case .local: "On this Mac"
+        case .subscription: "Your Claude subscription"
+        case .apiKey: "Anthropic API key"
+        }
+    }
+
+    static func note(_ choice: ProviderChoice, hasKey: Bool) -> String {
+        switch choice {
+        case .local: "Instant and free. Cleans up fillers and punctuation."
+        case .subscription: "Best rewrites. Included in your plan."
+        case .apiKey: hasKey ? "Fastest model rewrite. About $0.002 a dictation." : "Fastest model rewrite. Add your key in More settings first."
+        }
+    }
+
+    /// "What can leave this Mac" → your words.
+    static func wordsLeave(_ policy: ProviderPolicy) -> String {
+        policy.fastPath == .local && policy.compilePath == .local ? "Nothing leaves" : "Only when a rewrite needs it"
     }
 }

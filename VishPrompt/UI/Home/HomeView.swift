@@ -94,7 +94,9 @@ private struct HomeSidebar: View {
                 Text("To talk").font(.system(size: 12)).foregroundStyle(theme.muted.color)
                 HStack(spacing: 6) {
                     KeyCap(label: library.triggerName)
-                    Text("hold, or double-tap the palm rest").font(.system(size: 13))
+                    // Only offers the palm rest when it would actually work.
+                    Text(library.palmRestAvailable && library.palmRestEnabled ? "hold, or double-tap the palm rest" : "hold to talk")
+                        .font(.system(size: 13))
                 }
             }
             .padding(.horizontal, 12).padding(.vertical, 14)
@@ -250,28 +252,6 @@ struct FlowLayout: Layout {
 }
 
 // MARK: Settings
-
-private struct SettingsPageView: View {
-    @Environment(\.homeTheme) private var theme
-    @Bindable var library: HomeLibrary
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Settings").font(.system(size: 26, weight: .semibold))
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Appearance").font(.system(size: 15, weight: .semibold))
-                ChoiceRow(options: AppearanceChoice.allCases, selection: $library.appearance, title: \.title)
-            }
-            .padding(.horizontal, 20).padding(.vertical, 18)
-            .frame(maxWidth: 480, alignment: .leading)
-            .homeCard(radius: 14)
-            Button("More settings…") { library.onShowMoreSettings() }
-                .buttonStyle(.link)
-                .foregroundStyle(theme.accent.color)
-        }
-        .padding(.horizontal, 36).padding(.top, 40).padding(.bottom, 28)
-    }
-}
 
 /// A row of equal buttons, one selected: Appearance, and later history retention.
 struct ChoiceRow<Option: Hashable>: View {
