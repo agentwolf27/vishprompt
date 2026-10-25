@@ -93,6 +93,56 @@ final class HomeLibrary {
     /// Whether an Anthropic key is saved, so the API row can say what it needs.
     var hasAPIKey = false
 
+    // MARK: Retention
+
+    /// Read lazily: the first read decides the default for this install.
+    var retention: RetentionPeriod = .forever
+    /// A shorter period waiting for the user to confirm the real count it removes.
+    private(set) var pendingRetention: (period: RetentionPeriod, count: Int)?
+    private(set) var databaseSize: String?
+
+    func refreshRetention(fileURL: URL? = Database.fileURL) {
+        retention = HistoryRetention.period(in: defaults, queue: queue())
+        databaseSize = HistoryRetention.databaseSize(at: fileURL)
+    }
+
+    /// A longer period, or one that removes nothing, applies at once; one that would remove
+    /// something waits for confirmation with the real count.
+    func requestRetention(_ period: RetentionPeriod, now: Date = Date()) {
+        guard period != retention else { return }
+        let count = queue().flatMap { try? HistoryRetention.count(removedBy: period, now: now, in: $0) } ?? 0
+        if count > 0 {
+            pendingRetention = (period, count)
+        } else {
+            applyRetention(period, now: now)
+        }
+    }
+
+    func confirmRetention(now: Date = Date()) {
+        guard let pending = pendingRetention else { return }
+        pendingRetention = nil
+        applyRetention(pending.period, now: now)
+    }
+
+    func cancelRetention() {
+        pendingRetention = nil
+    }
+
+    private func applyRetention(_ period: RetentionPeriod, now: Date) {
+        defaults.set(period.rawValue, forKey: RetentionPeriod.key)
+        retention = period
+        if let queue = queue() {
+            do {
+                try HistoryRetention.prune(period, now: now, in: queue)
+            } catch {
+                loadError = "Older history couldn't be removed. It's still on this Mac; try again."
+                Log.db.error("Retention prune failed: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+        reload()
+        databaseSize = HistoryRetention.databaseSize(at: Database.fileURL)
+    }
+
     func chooseRewrite(_ choice: ProviderChoice) {
         providerPolicy = RewriteChoice.policy(selecting: choice, from: providerPolicy)
     }

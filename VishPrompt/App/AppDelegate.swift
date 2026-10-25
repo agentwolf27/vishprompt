@@ -7,6 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var setupWindow: SetupWindowController?
     private var settingsWindow: SettingsWindowController?
     private var homeWindow: HomeWindowController?
+    private let pruner = HistoryPruner()
     private var permissionPoll: Timer?
 
     /// Objective-C exceptions unwind straight past Swift's `catch`, so a throw inside AppKit or
@@ -43,6 +44,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } catch {
             Log.db.error("Database failed to open: \(error.localizedDescription, privacy: .public)")
         }
+        // At launch and daily: removes what the retention setting no longer keeps, never a
+        // pinned row, and nothing at all under Forever.
+        pruner.start()
 
         state.refreshPermissions()
         Log.app.info("Startup permissions: \(self.state.permissions.description, privacy: .public), allGranted=\(self.state.permissions.allGranted, privacy: .public)")

@@ -92,6 +92,28 @@ struct SettingsPageView: View {
     private var appearanceCard: some View {
         SettingsCard(title: "Appearance") {
             ChoiceRow(options: AppearanceChoice.allCases, selection: $library.appearance, title: \.title)
+            VStack(alignment: .leading, spacing: 8) {
+                RowText(title: "Keep history for", note: library.retention.note)
+                ChoiceRow(options: RetentionPeriod.allCases, selection: Binding(
+                    get: { library.retention },
+                    set: { library.requestRetention($0) }
+                ), title: \.title)
+                if let size = library.databaseSize {
+                    Text(size).font(.system(size: 12)).foregroundStyle(theme.muted.color)
+                }
+            }
+            .padding(.top, 10)
+            .overlay(alignment: .top) { theme.line.color.frame(height: 1) }
+        }
+        .alert(
+            "Remove older history?",
+            isPresented: Binding(get: { library.pendingRetention != nil }, set: { if !$0 { library.cancelRetention() } }),
+            presenting: library.pendingRetention
+        ) { pending in
+            Button("Remove \(pending.count.formatted())", role: .destructive) { library.confirmRetention() }
+            Button("Cancel", role: .cancel) { library.cancelRetention() }
+        } message: { pending in
+            Text(HistoryRetention.confirmation(count: pending.count, period: pending.period))
         }
     }
 }

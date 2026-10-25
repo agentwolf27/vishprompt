@@ -5,7 +5,6 @@
 | # | Task | Owner | VERIFY |
 |---|---|---|---|
 | 2 | Chassis tap: the detector; waiting on task 5 for real taps before it is done | Claude | `make test-class C=TapDetectorTests` |
-| 9 | Home window: history retention | Claude | `make test-class C=RetentionTests` |
 
 ## Queued
 
@@ -23,3 +22,4 @@
 | 6 | Home window: window, sidebar, theme | Claude | `make test-class C=HomeWindowTests` |
 | 7 | Home window: cards, copy, pin, delete, search | Claude | `make test-class C=HistoryCardTests` |
 | 8 | Home window: Dictionary and Settings cards | Claude | `make test-class C=SettingsCardTests` |
+| 9 | Home window: history retention | Claude | `make test-class C=RetentionTests` |
