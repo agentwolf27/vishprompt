@@ -237,3 +237,46 @@ pressure. The sensor's clock matches uptime (`sensor t 32153.821  uptime 32154.1
 
 Evidence: `make test-class C=TapInputGuardTests` — `test-class: TapInputGuardTests passed` (4 tests).
 
+## 2026-10-25 — Claude (chassis tap fix 2a: Vish's recordings, the click veto, handling)
+
+Vish recorded all seven scenarios on his Mac14,7, sitting on a bed under a blanket. Measured
+with a 13 Hz high-pass:
+- Left-side taps: mostly 10–17 mg, the same size as the resting noise (idle reaches 8.6 mg),
+  with three firm hits of 0.06–0.37 g that ring for 0.4–0.9 s.
+- Right-side taps: 0.03–0.19 g, one at 0.54 g, ringing 0.2–0.6 s.
+- Trackpad clicks: 0.016–0.055 g.
+
+On the bed no band from 13 to 200 Hz separates the light taps from noise (the ratio of the
+weakest tap to the idle maximum is 0.98–1.07). The clicks shake mostly sideways (z share
+0.05–0.36), while firm palm-rest taps push down (z 0.69–0.96). An attack-based prototype
+caught some doubles but also fired on a bump in idle and in handling, so it is not shipped
+without desk data.
+
+**Clicks:** `clicks.csv` holds 20 s of trackpad clicks with the left-click age polled every
+5 ms, and has not one mark. The same poll caught 101 key presses in `typing.csv`. Trackpad
+clicks never reached the hardware-level counter the old veto read. `TapInputGuard` now also reads
+the session-level counters and watches mouse releases, on top of fix 1's touch and Force Touch
+events. Whether a click now reaches the veto needs a recording made with the new recorder,
+which marks touches.
+
+**Handling:** the one false fire on the negative files ("handling", 10.2 s, live rate) was a
+knock 1.2 s after the Mac was moved. The quiet period after handling goes from 0.8 s to 1.5 s.
+
+The detector's synthetic tests now use the quiet desk idle (`idle-desk.csv`), because Vish's idle
+has a bump in it.
+
+Evidence: `make test-class C=TapRecordingTests` — `test-class: TapRecordingTests passed`:
+```
+PROBE live idle: 0 before the input veto, 0 after
+PROBE live single: 0 before the input veto, 0 after
+PROBE live typing: 1 before the input veto, 0 after
+PROBE live clicks: 0 before the input veto, 0 after
+PROBE live handling: 0 before the input veto, 0 after
+PROBE live double-left: 0 fired
+PROBE live double-right: 0 fired
+```
+The two positive files fire nothing on the bed. Tap fix 2 stays unticked until desk recordings
+show doubles firing.
+
+Evidence: `make test` — `Executed 537 tests, with 22 tests skipped and 0 failures`; `make release` — `** BUILD SUCCEEDED **`.
+

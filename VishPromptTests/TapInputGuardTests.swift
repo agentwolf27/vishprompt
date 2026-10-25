@@ -11,6 +11,7 @@ final class TapInputGuardTests: XCTestCase {
         XCTAssertTrue(watched.contains(29), "trackpad touch (gesture): a tap or hold raises no click")
         XCTAssertTrue(watched.contains(34), "Force Touch pressure: its Taptic Engine is a clean knock")
         XCTAssertTrue(watched.contains(22), "scroll")
+        XCTAssertTrue(watched.isSuperset(of: [2, 4]), "a click's release thumps too")
         XCTAssertFalse(watched.contains(5), "moving an external mouse does not shake the palm rest")
     }
 

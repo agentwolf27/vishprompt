@@ -85,6 +85,7 @@ Tick one only when its VERIFY passes, not when someone says it is done.
 - [x] Home 3: Dictionary shows the words VishPrompt spells your way; Settings is cards wired to the real trigger, palm-rest, provider and appearance settings — `make test-class C=SettingsCardTests`
 - [x] Home 4: history is kept for 30, 60 or 90 days or forever; pinned items are never pruned; this install keeps everything and new installs keep 90 days; a shorter period confirms with the real count first — `make test-class C=RetentionTests`
 - [x] Tap fix 1: a trackpad tap, hold, scroll or Force Touch press near the knocks stops a double tap, as keys and clicks already did — `make test-class C=TapInputGuardTests`
+- [x] Tap fix 2a: on Vish's five negative recordings (idle, single, typing, clicks, handling) nothing fires, at 800 Hz and at the live sample rate after the input veto — `make test-class C=TapRecordingTests`
 - [ ] Tap fix 2: tuned on Vish's own recordings, double taps beside the trackpad fire on both sides, and nothing fires from the trackpad, typing, clicks or handling — `make test-class C=TapRecordingTests`
 
 ## Later
