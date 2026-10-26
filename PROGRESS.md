@@ -520,3 +520,24 @@ Evidence: `make test-class C=AppIdentityTests` — passed (7 tests), including
 both columns present) and a v3-shaped database migrated the same way.
 Evidence: `make test` — `Executed 594 tests, with 22 tests skipped and 0 failures`; `make release` — `** BUILD SUCCEEDED **`.
 
+## 2026-10-25 — Claude (Step 0, part 2: the outcome signals)
+
+Migration v5 adds to every dictation row what the app already saw but dropped: the first key on
+the preview (Return, Tab, ⇧Tab, R, Esc, or a level number), every level tried in order and the
+one inserted, ⌘Z within 30 s in the app the text went into, copies of the output and of what
+was said and paste-again from History (counted onto the row), and where the text came from
+(spoken, clip, selection, screenshot). Short Escape cancels, which write no row, are counted per
+day in the defaults. "Accepted as-is" is defined on the row: inserted, Return first (or no
+preview), one level, no undo.
+
+⌘Z needs no new permission: the event tap already receives every key-down, and the key is never
+swallowed. The app cannot know the undo was of its paste, so the column is `undoWithin30s`, named
+as the signal it is. Not done, and said so: reading the field back after a paste. The menu bar's
+"Last dictation → Copy / Paste again" is not counted (it does not know the row).
+
+Evidence: `make test-class C=OutcomeSignalTests` — passed (9 tests): the first decisive key and
+not scrolling; levels tried once in order; provenance; accepted-as-is; the undo window; signals
+counted on their row and undo marked once; a v4 row migrates with no signals and retention takes
+them with the row; short cancels per day with the ninety-day drop; a card's copy names its row.
+Evidence: `make test` — `Executed 603 tests, with 22 tests skipped and 0 failures`; `make release` — `** BUILD SUCCEEDED **`.
+

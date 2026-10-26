@@ -114,6 +114,21 @@ enum Database {
                 t.add(column: "urlHost", .text)
             }
         }
+        // What happened after: the first key on the preview, the levels tried and the one
+        // inserted, ⌘Z within 30 s, copies and paste-again from History, and where the text
+        // came from. Measurement only (PLAN.md, "Step 0"). Deleted with the row.
+        migrator.registerMigration("v5-outcome-signals") { db in
+            try db.alter(table: "dictation") { t in
+                t.add(column: "firstAction", .text)
+                t.add(column: "levelsTried", .text)
+                t.add(column: "insertedLevel", .text)
+                t.add(column: "undoWithin30s", .boolean).notNull().defaults(to: false)
+                t.add(column: "copiedOutput", .integer).notNull().defaults(to: 0)
+                t.add(column: "copiedSaid", .integer).notNull().defaults(to: 0)
+                t.add(column: "pastedAgain", .integer).notNull().defaults(to: 0)
+                t.add(column: "provenance", .text)
+            }
+        }
         return migrator
     }
 }
@@ -152,6 +167,33 @@ struct DictationRecord: Codable, FetchableRecord, PersistableRecord, Equatable {
 
     /// Which app or site this went to, for per-app settings and stats.
     var identity: AppIdentity { AppIdentity(bundleID: bundleId, host: urlHost) }
+
+    // Outcome signals (v5). Nil or zero on rows from before they were recorded.
+    /// The first key on the preview: insert, cycleLevel, cycleBack, rerecord, cancel or level.
+    var firstAction: String? = nil
+    /// Every level tried, in order, comma-separated.
+    var levelsTried: String? = nil
+    var insertedLevel: String? = nil
+    var undoWithin30s: Bool = false
+    var copiedOutput: Int = 0
+    var copiedSaid: Int = 0
+    var pastedAgain: Int = 0
+    /// Where the text came from: spoken, clip, selection or screenshot.
+    var provenance: String? = nil
+
+    /// Accepted as-is: inserted, Return as the first key (or no preview at all), one level, no
+    /// undo. What Home's "How each app is going" counts.
+    var acceptedAsIs: Bool {
+        guard status == .inserted || status == .rawFallback, !undoWithin30s else { return false }
+        guard firstAction == nil || firstAction == "insert" else { return false }
+        return (levelsTried ?? "").split(separator: ",").count <= 1
+    }
+
+    static func provenance(isEdit: Bool, isPaste: Bool, isScreenshot: Bool) -> String {
+        if isEdit { return "selection" }
+        if isPaste { return "clip" }
+        return isScreenshot ? "screenshot" : "spoken"
+    }
 }
 
 struct StageTimingRecord: Codable, FetchableRecord, PersistableRecord, Equatable {

@@ -42,16 +42,22 @@ final class HistoryReuse {
         targetName = app.localizedName
     }
 
-    func copy(_ text: String) {
+    /// Counted onto the row when a history row is named: a copy of the output, or of what was
+    /// said. Measurement only.
+    var onSignal: ((OutcomeSignal) -> Void)?
+
+    func copy(_ text: String, id: String? = nil, ofWhatWasSaid said: Bool = false) {
         TextRescue.copy(text)
         show(.copied)
+        if let id { onSignal?(said ? .copiedSaid(id: id) : .copiedOutput(id: id)) }
     }
 
-    func pasteAgain(_ text: String) {
+    func pasteAgain(_ text: String, id: String? = nil) {
         guard !inFlight else { return }
         guard let target, !target.isTerminated else {
             TextRescue.copy(text)
             show(.copiedNoTarget)
+            if let id { onSignal?(.copiedOutput(id: id)) }
             return
         }
         let name = target.localizedName ?? "the app"
@@ -76,6 +82,7 @@ final class HistoryReuse {
             do {
                 try await Inserter().insert(text, strategy: .paste)
                 show(.pasted(app: name))
+                if let id { onSignal?(.pastedAgain(id: id)) }
             } catch {
                 TextRescue.copy(text)
                 show(.failed(app: name, reason: error.localizedDescription))

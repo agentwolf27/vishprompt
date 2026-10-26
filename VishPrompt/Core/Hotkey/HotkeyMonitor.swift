@@ -33,6 +33,8 @@ final class HotkeyMonitor: @unchecked Sendable {
     private let previewMode = Mutex(false)
     /// Set while the setup window is waiting for the user to press their chosen key.
     private let recorder = Mutex<(@Sendable (TriggerKey) -> Void)?>(nil)
+    /// Told of every ⌘Z, for the undo signal on a recent insert. The key always goes through.
+    private let undoHandler = Mutex<(@Sendable () -> Void)?>(nil)
     private var tap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
     private var watchdog: Timer?
@@ -145,6 +147,10 @@ final class HotkeyMonitor: @unchecked Sendable {
 
     var isRecordingKey: Bool { recorder.withLock { $0 != nil } }
 
+    func setUndoHandler(_ handler: @escaping @Sendable () -> Void) {
+        undoHandler.withLock { $0 = handler }
+    }
+
     /// Reports a pressed key to a waiting recorder. Returns true when the event was consumed.
     private func captureIfRecording(type: CGEventType, event: CGEvent) -> Bool {
         guard let handler = recorder.withLock({ $0 }) else { return false }
@@ -246,6 +252,13 @@ final class HotkeyMonitor: @unchecked Sendable {
         case .keyDown:
             let keyCode = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
 
+            // ⌘Z, for the undo signal. Never swallowed, never anything but a note.
+            if keyCode == undoKeyCode, event.flags.contains(.maskCommand),
+               event.flags.intersection([.maskControl, .maskAlternate]).isEmpty,
+               let handler = undoHandler.withLock({ $0 }) {
+                handler()
+            }
+
             // A non-modifier trigger starts the gesture here. autorepeat is ignored so holding
             // the key does not restart the capture over and over.
             let trigger = self.trigger
@@ -323,6 +336,8 @@ final class HotkeyMonitor: @unchecked Sendable {
     private let pasteKeyCode: CGKeyCode = KeycodeResolver.keyCode(for: "v") ?? KeycodeResolver.qwertyV
     /// The key that types "r", for editing the selection.
     private let editKeyCode: CGKeyCode = KeycodeResolver.keyCode(for: "r") ?? KeycodeResolver.qwertyR
+    /// The key that types "z", for the undo signal.
+    private let undoKeyCode: CGKeyCode = KeycodeResolver.keyCode(for: "z") ?? CGKeyCode(kVK_ANSI_Z)
 
     /// True when a key-down is the Smart Paste key: V, with no ⌘ or ⌃ beyond what the trigger
     /// itself holds. Option and Shift are ignored, because with Right Option as the trigger

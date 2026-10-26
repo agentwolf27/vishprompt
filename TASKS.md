@@ -10,7 +10,6 @@
 
 | # | Task | Owner | VERIFY |
 |---|---|---|---|
-| 17 | Step 0: outcome signals on each row | Claude | `make test-class C=OutcomeSignalTests` |
 | 18 | Step 0: "How each app is going" on Home | Claude | `make test-class C=AppStatsTests` |
 | 19 | Step 0: per-app writing rules in Settings | Claude | `make test-class C=AppRulesTests` |
 | 4 | Chassis tap: README section, after the LinkedIn post (2026-10-24 10:00 PT) | Claude | `grep -q "palm rest" README.md` |
@@ -33,3 +32,4 @@
 | 14 | Trigger safety: shortcut modifiers refused, shortcuts pass through, overlap audit | Claude | `make test-class C=TriggerSafetyTests` |
 | 15 | Hands-free stop: when I stop talking (pause length) or when I tap again | Claude | `make test-class C=HandsFreeStopTests` |
 | 16 | Step 0: app identity on each row, migration v4 | Claude | `make test-class C=AppIdentityTests` |
+| 17 | Step 0: outcome signals on each row | Claude | `make test-class C=OutcomeSignalTests` |
