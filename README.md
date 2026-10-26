@@ -89,7 +89,12 @@ or the battery is under 10%, and costs well under 1% of a core while on.
 - It needs an M2 or later MacBook. On a Mac without the sensor the card says so.
 
 It was tuned on real recordings; on a soft surface such as a bed, light taps are the size of the
-Mac's own resting noise, so tap firmly there.
+Mac's own resting noise, so tap firmly there. On such a surface a bump can also read as a tap and
+start a session on its own, so a tap-started session always waits in the preview card and needs
+Return, drops itself if it hears nothing in its first three seconds, ends after a minute without
+new words, and plays a short sound when it starts. The Palm rest card says, in numbers, how often
+the Mac left alone started a session in the recordings it was measured on, until that is under
+one an hour over at least two hours of them.
 
 ## The trigger key
 

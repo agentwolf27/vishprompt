@@ -100,7 +100,7 @@ Tick one only when its VERIFY passes, not when someone says it is done.
 - [x] Unwanted sessions 1: every dictation row and the log say what started it (fn held, fn double-tapped, or which palm gesture), and every accepted palm gesture is logged with its timing and knock strengths — `make test-class C=StartSourceTests`
 - [x] Unwanted sessions 2: a tap-started session always ends in the preview card; nothing it heard is typed into an app without Return — `make test-class C=TapSessionPreviewTests`
 - [x] Unwanted sessions 3: a tap-started session that hears nothing in its first 3 s cancels silently; in "When I tap again" it still ends after 60 s without new words; a tap start makes a sound — `make test-class C=TapSessionGuardTests`
-- [ ] Unwanted sessions 4: the false double-tap rate is measured on long idle recordings on a bed and a lap, the detector passes only under 1 an hour over at least 2 hours of them, and until then the Palm rest card warns and the setting is off by default — `make test-class C=TapFalseTriggerTests`
+- [x] Unwanted sessions 4: the false double-tap rate is measured on long idle recordings on a bed and a lap, the detector passes only under 1 an hour over at least 2 hours of them, and until then the Palm rest card warns and the setting is off by default — `make test-class C=TapFalseTriggerTests`
 
 ## Later
 

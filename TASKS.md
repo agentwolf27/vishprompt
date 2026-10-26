@@ -10,8 +10,7 @@
 
 | # | Task | Owner | VERIFY |
 |---|---|---|---|
-| 23 | Unwanted sessions: false-rate gate on long idle recordings, card warning | Claude | `make test-class C=TapFalseTriggerTests` |
-| 5 | Record at a table (all scenarios, SURFACE=desk), and the trackpad scenario (hold, Force Touch, scroll); there is no desk data yet | Vish | a person tapping a MacBook; no command can do it |
+| 5 | Record `idle-long` (10 min, the Mac left alone) on the bed and on the lap, at least 2 hours in all, with `make record-taps SURFACE=bed ONLY=idle-long`; then a table session and the trackpad scenario | Vish | a person tapping a MacBook; no command can do it |
 
 ## Done
 
@@ -37,3 +36,4 @@
 | 20 | Unwanted sessions: start source on every row, gesture logging | Claude | `make test-class C=StartSourceTests` |
 | 21 | Unwanted sessions: a tap-started session always previews | Claude | `make test-class C=TapSessionPreviewTests` |
 | 22 | Unwanted sessions: no-speech cancel, 60 s end in tap-again mode, start sound | Claude | `make test-class C=TapSessionGuardTests` |
+| 23 | Unwanted sessions: false-rate gate on long idle recordings, card warning | Claude | `make test-class C=TapFalseTriggerTests` |
