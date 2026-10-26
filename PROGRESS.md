@@ -541,3 +541,17 @@ counted on their row and undo marked once; a v4 row migrates with no signals and
 them with the row; short cancels per day with the ninety-day drop; a card's copy names its row.
 Evidence: `make test` — `Executed 603 tests, with 22 tests skipped and 0 failures`; `make release` — `** BUILD SUCCEEDED **`.
 
+## 2026-10-25 — Claude (Step 0, part 3: "How each app is going" on Home)
+
+Under the recent cards, Home shows per app or site with ten or more dictations in the last
+seven days: how many, and the share taken as they came (inserted, Return first or no preview,
+one level, no undo within 30 s). Real rows only; rows from before identities were stored group
+by the app's name. Below it, in plain words, what "as they came" means and how many short
+cancels there were that week. With fewer than ten for every app, it says when it will show.
+
+Evidence: `make test-class C=AppStatsTests` — passed (6 tests): counts and shares from the last
+seven days, most used first; fewer than ten hidden; cancelled and undone rows count as dictations
+but not as accepted; older rows group by name; a site splits from its browser; Home renders the
+section in both themes and the empty state.
+Evidence: `make test` — `Executed 609 tests, with 22 tests skipped and 0 failures`; `make release` — `** BUILD SUCCEEDED **`.
+

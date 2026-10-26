@@ -168,10 +168,59 @@ private struct HomePageView: View {
                         .font(.system(size: 13))
                     }
                 }
+                AppsSection(stats: library.appStats(now: now), shortCancels: library.shortCancelsThisWeek(now: now))
             }
             .padding(.horizontal, 36).padding(.top, 40).padding(.bottom, 28)
         }
         .scrollContentBackground(.hidden)
+    }
+}
+
+/// "How each app is going": the last seven days, per app with ten or more dictations.
+private struct AppsSection: View {
+    @Environment(\.homeTheme) private var theme
+    let stats: [AppWeekStats]
+    let shortCancels: Int
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            SectionLabel(text: "How each app is going")
+            if stats.isEmpty {
+                EmptyNote(text: "Shows an app once it has ten dictations in a week: how many, and how many you took as they came.")
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(stats) { app in
+                        HStack(spacing: 12) {
+                            Text(app.name).font(.system(size: 14, weight: .medium))
+                            Spacer()
+                            Text("\(app.dictations) this week").font(.system(size: 13)).foregroundStyle(theme.muted.color)
+                            Text(app.acceptedShare.map { "\($0)% as they came" } ?? "")
+                                .font(.system(size: 13, weight: .semibold)).monospacedDigit()
+                                .frame(width: 150, alignment: .trailing)
+                        }
+                        .padding(.horizontal, 16)
+                        .frame(minHeight: 44)
+                        .accessibilityElement(children: .combine)
+                        if app.id != stats.last?.id {
+                            theme.line.color.frame(height: 1).padding(.horizontal, 16)
+                        }
+                    }
+                }
+                .homeCard(radius: 14)
+                Text(footer)
+                    .font(.system(size: 12)).foregroundStyle(theme.muted.color)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(.top, 8)
+    }
+
+    private var footer: String {
+        var text = "Taken as it came: Return first, one level, no undo within 30 seconds."
+        if shortCancels > 0 {
+            text += " \(shortCancels) \(shortCancels == 1 ? "dictation was" : "dictations were") cancelled before they were worth keeping."
+        }
+        return text
     }
 }
 

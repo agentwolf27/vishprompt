@@ -303,6 +303,8 @@ final class HomeLibrary {
 
     @ObservationIgnored private let queue: () -> DatabaseQueue?
     @ObservationIgnored private let defaults: UserDefaults
+    /// The same defaults, for the extensions in this file.
+    var libraryDefaults: UserDefaults { defaults }
 
     init(queue: @escaping () -> DatabaseQueue? = { Database.queue }, defaults: UserDefaults = .standard) {
         self.queue = queue
@@ -445,5 +447,54 @@ enum RewriteChoice {
     /// "What can leave this Mac" → your words.
     static func wordsLeave(_ policy: ProviderPolicy) -> String {
         policy.fastPath == .local && policy.compilePath == .local ? "Nothing leaves" : "Only when a rewrite needs it"
+    }
+}
+
+/// "How each app is going": per app, the dictations in the last seven days and the share
+/// accepted as-is. Real rows only; an app with fewer than ten is not shown, because a share of
+/// three is not a share.
+struct AppWeekStats: Equatable, Sendable, Identifiable {
+    var key: String
+    var name: String
+    var dictations: Int
+    var acceptedAsIs: Int
+
+    var id: String { key }
+
+    /// The share, as a whole percent, or nil when there is nothing to divide by.
+    var acceptedShare: Int? {
+        dictations > 0 ? Int((Double(acceptedAsIs) / Double(dictations) * 100).rounded()) : nil
+    }
+
+    static let minimumDictations = 10
+    static let days = 7
+
+    /// Grouped by the app or site (`AppIdentity.key`); rows from before identities were stored
+    /// group by the app's name. Newest-heavy first.
+    static func compute(_ records: [DictationRecord], now: Date = Date(), calendar: Calendar = .current) -> [AppWeekStats] {
+        guard let since = calendar.date(byAdding: .day, value: -days, to: now) else { return [] }
+        var byKey: [String: AppWeekStats] = [:]
+        for record in records where record.createdAt >= since && record.createdAt <= now {
+            guard let key = record.identity.key ?? record.app ?? Optional(record.destination) else { continue }
+            var stats = byKey[key] ?? AppWeekStats(key: key, name: HistoryFormat.appName(record), dictations: 0, acceptedAsIs: 0)
+            stats.dictations += 1
+            if record.acceptedAsIs { stats.acceptedAsIs += 1 }
+            byKey[key] = stats
+        }
+        return byKey.values
+            .filter { $0.dictations >= minimumDictations }
+            .sorted { ($0.dictations, $0.name) > ($1.dictations, $1.name) }
+    }
+}
+
+extension HomeLibrary {
+    func appStats(now: Date = Date()) -> [AppWeekStats] {
+        AppWeekStats.compute(entries.map(\.record), now: now)
+    }
+
+    /// Short Escape cancels in the last seven days: dictations abandoned before they were worth
+    /// keeping. Shown beside the apps so the week is not flattered.
+    func shortCancelsThisWeek(now: Date = Date()) -> Int {
+        ShortCancelCounter(defaults: libraryDefaults).lastWeek(ending: now)
     }
 }
