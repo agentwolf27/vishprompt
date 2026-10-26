@@ -528,7 +528,8 @@ final class DictationController {
             spokenForThisRun = transcript.text
             let context = await contextForThisRun?.value ?? fallbackContext
             recordedIdentity = AppIdentity.make(context)
-            let destination = settings.apply(to: DestinationResolver.resolve(context))
+            // The family's settings, then this app's own writing rule if it has one.
+            let destination = AppRules().apply(to: settings.apply(to: DestinationResolver.resolve(context)), for: recordedIdentity)
             // From here the capsule names the destination ("into Claude Code"), not the app.
             hudContext.app = destination.displayName
 

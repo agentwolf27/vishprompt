@@ -19,6 +19,9 @@ struct SettingsPageView: View {
                     GridRow {
                         PalmRestCard(library: library).gridCellColumns(2)
                     }
+                    GridRow {
+                        WritingRulesCard(library: library).gridCellColumns(2)
+                    }
                     GridRow(alignment: .top) {
                         leavesCard
                         appearanceCard

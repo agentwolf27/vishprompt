@@ -103,6 +103,50 @@ final class HomeLibrary {
         didSet { HandsFreeSettings(defaults: defaults).pause = handsFreePause }
     }
 
+    // MARK: Writing rules per app
+
+    /// An app or site dictated into, with the family its text is shaped for.
+    struct DictatedApp: Identifiable, Equatable {
+        var key: String
+        var name: String
+        var family: String
+        var count: Int
+        var id: String { key }
+    }
+
+    /// The apps and sites with an identity on their rows, most used first.
+    var dictatedApps: [DictatedApp] {
+        var byKey: [String: DictatedApp] = [:]
+        for entry in entries {
+            guard let key = entry.record.identity.key else { continue }
+            if var app = byKey[key] {
+                app.count += 1
+                byKey[key] = app
+            } else {
+                byKey[key] = DictatedApp(key: key, name: HistoryFormat.appName(entry.record), family: entry.record.destination, count: 1)
+            }
+        }
+        return byKey.values.sorted { ($0.count, $0.name) > ($1.count, $1.name) }
+    }
+
+    private(set) var appRulesVersion = 0
+
+    func appRule(for key: String) -> String {
+        _ = appRulesVersion
+        return AppRules(defaults: defaults).all()[key] ?? ""
+    }
+
+    func setAppRule(_ text: String, for key: String) {
+        AppRules(defaults: defaults).set(text, for: key)
+        appRulesVersion += 1
+    }
+
+    /// The family's own rule, which an app without one falls back to.
+    func familyRule(for family: String) -> String? {
+        let base = Destination.all.first { $0.id == family } ?? .document
+        return DestinationSettings(defaults: defaults).apply(to: base).instructions?.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     /// Shown on Home once, after a saved trigger had to be replaced at launch.
     var triggerNote: String?
     @ObservationIgnored var onDismissTriggerNote: () -> Void = {}

@@ -555,3 +555,20 @@ but not as accepted; older rows group by name; a site splits from its browser; H
 section in both themes and the empty state.
 Evidence: `make test` — `Executed 609 tests, with 22 tests skipped and 0 failures`; `make release` — `** BUILD SUCCEEDED **`.
 
+## 2026-10-25 — Claude (Step 0, part 4: writing rules per app)
+
+Settings has a "Writing rules per app" card: every app or site with an identity on its rows,
+most used first, each with a free-text rule ("no greetings, lowercase is fine") saved under its
+`AppIdentity.key`. `AppRules.apply` swaps the rule into the destination's existing `instructions`
+slot at the one place the run picks its destination, so the rewrite and a Smart Paste both carry
+it; an app with no rule keeps its family's, and the field's placeholder says which. Nothing
+automatic writes here, and nothing new leaves the Mac: the rule travels where the family's
+instruction already did.
+
+Evidence: `make test-class C=AppRulesTests` — passed (5 tests): a rule is saved trimmed and blank
+removes it; an app's rule replaces the family's and nothing else, and Messages keeps the family's;
+the rule reaches `<instructions>` in the rewrite and `<destination_instructions>` in a Smart
+Paste; the card lists apps most used first with their families and saves where the run reads;
+the card renders in both themes.
+Evidence: `make test` — `Executed 614 tests, with 22 tests skipped and 0 failures`; `make release` — `** BUILD SUCCEEDED **`.
+
