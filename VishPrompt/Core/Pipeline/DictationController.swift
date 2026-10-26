@@ -118,8 +118,10 @@ final class DictationController {
         var historyResult: SmartPasteResult { result.showing(asCopied: showingAsCopied) }
     }
 
-    /// How long hands-free recording tolerates silence before stopping on its own.
-    private let silenceStopAfter: TimeInterval = 1.2
+    /// How long hands-free recording tolerates silence before stopping on its own, or nil when
+    /// only a tap, the trigger or Escape ends it. Read at each key-down from Settings → How
+    /// you start talking, so a change applies to the next session, not one in progress.
+    @ObservationIgnored private var silenceLimit: TimeInterval? = 1.2
 
     /// A hold longer than this finishes the dictation by itself.
     ///
@@ -391,12 +393,14 @@ final class DictationController {
         capturedContext = frontmost
         listeningApp = NSWorkspace.shared.frontmostApplication?.localizedName
         isScreenshotFix = false
+        silenceLimit = HandsFreeSettings().silenceLimit
         hudContext = HUDContext(
             mode: .dictate,
             app: listeningApp,
             takeSeconds: nil,
             triggerName: currentTrigger.displayName,
             startedByTap: monitor.startedByTap,
+            stopsOnPause: silenceLimit != nil,
             notch: NotchGeometry.pointerScreen.flatMap(NotchGeometry.layout(for:))
         )
         // Open the API connection while the user talks, if a rewrite may go there. Detached:
@@ -1329,7 +1333,7 @@ final class DictationController {
                     app: self.listeningApp
                 )
                 // Hands-free stops itself once the room goes quiet.
-                if locked, self.capture.silenceSeconds >= self.silenceStopAfter {
+                if HandsFreeSettings.shouldStop(locked: locked, silenceSeconds: self.capture.silenceSeconds, limit: self.silenceLimit) {
                     self.monitor.reportSilenceTimeout()
                 }
                 // A key-up that never arrives would otherwise record forever. Escape cannot

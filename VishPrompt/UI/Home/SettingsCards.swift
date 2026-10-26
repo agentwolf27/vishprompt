@@ -53,6 +53,16 @@ struct SettingsPageView: View {
             } trailing: {
                 Text(library.palmRestEnabled ? "On" : "Off").font(.system(size: 13)).foregroundStyle(theme.muted.color)
             }
+            VStack(alignment: .leading, spacing: 8) {
+                RowText(title: "When hands-free stops", note: library.handsFreeStopMode.note)
+                ChoiceRow(options: HandsFreeStopMode.allCases, selection: $library.handsFreeStopMode, title: \.title)
+                if library.handsFreeStopMode == .whenIStopTalking {
+                    Text("After a pause of").font(.system(size: 12)).foregroundStyle(theme.muted.color).padding(.top, 4)
+                    ChoiceRow(options: HandsFreePause.allCases, selection: $library.handsFreePause, title: \.title)
+                }
+            }
+            .padding(.top, 10)
+            .overlay(alignment: .top) { theme.line.color.frame(height: 1) }
         }
     }
 

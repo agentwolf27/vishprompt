@@ -67,9 +67,9 @@ final class ChassisTapGestureTests: XCTestCase {
     func testTheCapsuleSaysATapStartedItAndHowToStop() throws {
         let state = HUDState.listening(level: 0.3, seconds: 2, locked: true)
         let tap = try XCTUnwrap(CapsuleModel.make(state, context: HUDContext(triggerName: "fn", startedByTap: true)))
-        XCTAssertEqual(tap.status, "Started by a tap · double-tap again to stop · esc")
+        XCTAssertEqual(tap.status, "Started by a tap · stops when you pause · esc")
         let key = try XCTUnwrap(CapsuleModel.make(state, context: HUDContext(triggerName: "fn")))
-        XCTAssertEqual(key.status, "Hands-free · tap fn to stop · esc")
+        XCTAssertEqual(key.status, "Hands-free · stops when you pause · esc")
     }
 
     // MARK: When the sensor is sampled
