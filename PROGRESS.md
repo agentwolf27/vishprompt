@@ -572,3 +572,17 @@ Paste; the card lists apps most used first with their families and saves where t
 the card renders in both themes.
 Evidence: `make test` — `Executed 614 tests, with 22 tests skipped and 0 failures`; `make release` — `** BUILD SUCCEEDED **`.
 
+## 2026-10-25 — Claude (README for launch)
+
+The hold is lifted (the LinkedIn post is being prepared, and its first comment links the repo).
+The README now describes what is built: the Home window (History cards with Copy, What you
+said, pin, delete and search; Return pastes again; Dictionary read-only; keep history 30, 60, 90
+days or forever), the Settings cards, the palm-rest gestures (motion sensor, never the mic; off
+by default; left and right only after calibration; when hands-free stops), writing rules per
+app, the trigger-key safety, and what the local file keeps about each dictation. Test counts are
+gone from it; the status table lists nothing unbuilt as working, and names "learning from your
+edits" as deliberately not built. Visitors see `dev`, GitHub's default branch, so the README is
+live on merge; `main` is untouched.
+
+Evidence: a link check over the README found every image and file present; `grep -q "palm rest" README.md` exits 0.
+

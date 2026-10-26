@@ -78,7 +78,7 @@ Tick one only when its VERIFY passes, not when someone says it is done.
 - [ ] Tap 2: on recorded samples a double tap fires once, and single taps, typing, trackpad clicks, setting the Mac down and lifting it fire nothing — `make test-class C=TapDetectorTests`
 - [x] Tap 3: a double tap starts hands-free recording; a second double tap, the trigger key, Escape or silence ends it; off by default and hidden without the sensor; the capsule says a tap started it — `make test-class C=ChassisTapGestureTests`
 - [x] Tap 3: sampling stops on screen lock, display sleep and battery under 10%, and idle sampling costs under 1% of a core — `make verify-tap-cpu`
-- [ ] Tap 4: the README explains the tap trigger, held until the LinkedIn post is out — `grep -q "palm rest" README.md`
+- [x] Tap 4: the README explains the tap trigger, held until the LinkedIn post is out — `grep -q "palm rest" README.md`
 
 - [x] Home 1: one VishPrompt window (at least 1040×700) with Home, History, Dictionary and Settings in a sidebar opens from the menu and ⌘Y, in a warm light and a warm dark theme that follow the Mac unless Settings says otherwise — `make test-class C=HomeWindowTests`
 - [x] Home 2: each saved dictation is a card with its time, app, mode and where the words went, a Copy that says Copied, what you said with its own Copy, pin and delete; Home counts today from real rows; History searches and groups by day; Return still pastes again — `make test-class C=HistoryCardTests`
