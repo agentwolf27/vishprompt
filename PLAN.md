@@ -95,7 +95,7 @@ Tick one only when its VERIFY passes, not when someone says it is done.
 - [x] Hands-free stop: a hands-free session ends after a pause of 1.2, 3 or 5 s, or only when you tap again, whatever started it; the capsule says which; the five-minute ceiling holds in both modes — `make test-class C=HandsFreeStopTests`
 - [x] Step 0.1: every dictation row keeps the app's bundle id and, in a browser, the site, so Slack is told from Messages and claude.ai from ChatGPT; older databases migrate with no row lost; destinations stay the formatting families — `make test-class C=AppIdentityTests`
 - [x] Step 0.2: each row keeps the outcome signals the app already sees: the first key on the preview, the levels tried and the one inserted, ⌘Z within 30 s in the same app, copies of the output and of what was said, paste-again, and where the text came from; short Escape cancels are counted — `make test-class C=OutcomeSignalTests`
-- [ ] Step 0.3: Home shows, per app with ten or more dictations this week, how many and the share accepted as-is, from real rows only — `make test-class C=AppStatsTests`
+- [x] Step 0.3: Home shows, per app with ten or more dictations this week, how many and the share accepted as-is, from real rows only — `make test-class C=AppStatsTests`
 - [ ] Step 0.4: Settings lists the apps dictated into, each with its own writing rules, which reach the prompt for that app and fall back to the family's — `make test-class C=AppRulesTests`
 
 ## Later
