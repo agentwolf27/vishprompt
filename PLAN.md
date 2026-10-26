@@ -93,6 +93,10 @@ Tick one only when its VERIFY passes, not when someone says it is done.
 - [x] Gestures 3: the Palm rest card (gesture rows, sensitivity, a Test area that lights up the gesture it heard) renders in light and dark — `make test-class C=PalmRestCardTests`
 - [x] Trigger safety: the shortcut modifiers (Left Command, Left Option, both Controls, both Shifts) are refused as the trigger with the reason, a saved one is replaced by fn with a note, a key right after the trigger passes through as a shortcut, and fn+V still works — `make test-class C=TriggerSafetyTests`
 - [x] Hands-free stop: a hands-free session ends after a pause of 1.2, 3 or 5 s, or only when you tap again, whatever started it; the capsule says which; the five-minute ceiling holds in both modes — `make test-class C=HandsFreeStopTests`
+- [x] Step 0.1: every dictation row keeps the app's bundle id and, in a browser, the site, so Slack is told from Messages and claude.ai from ChatGPT; older databases migrate with no row lost; destinations stay the formatting families — `make test-class C=AppIdentityTests`
+- [ ] Step 0.2: each row keeps the outcome signals the app already sees: the first key on the preview, the levels tried and the one inserted, ⌘Z within 30 s in the same app, copies of the output and of what was said, paste-again, and where the text came from; short Escape cancels are counted — `make test-class C=OutcomeSignalTests`
+- [ ] Step 0.3: Home shows, per app with ten or more dictations this week, how many and the share accepted as-is, from real rows only — `make test-class C=AppStatsTests`
+- [ ] Step 0.4: Settings lists the apps dictated into, each with its own writing rules, which reach the prompt for that app and fall back to the family's — `make test-class C=AppRulesTests`
 
 ## Later
 
@@ -463,4 +467,16 @@ Vish: "we need it so like a person can setup right or left side which they want 
 - **Tests:** mapping and persistence, triple vs double, the calibration gate (an inseparable fixture must not unlock the side rows), and the card's light and dark snapshots.
 
 PLAN FROZEN: 2026-10-25 — palm-rest gestures section, building blocked on Tap fix 2. Signed Vish (chat, relayed by the leader session: "we need it so like a person can setup right or left side which they want to use for what feature").
+
+### Step 0: measure first · 2026-10-25
+
+Vish declined a self-improving system ("i dont like this self improving thing i dont think its worth it") and approved Step 0 of the brief at `/Users/vish/apply jobs setup/briefs/vishprompt-self-improving-2026-10-25.md` ("ya lets go with steo 0"): no learning, no embeddings, nothing new leaves the Mac.
+
+- **Identity on every row.** Migration v4 adds the bundle id and, for a browser, the front tab's host. The destination id stays the formatting family (`message`, `chat`); the split is for settings and stats, not new prompts.
+- **Outcome signals**, recorded from what the app already sees: the first key on the preview (Return, Tab, ⇧Tab, R, Esc), the levels tried and the one inserted, ⌘Z within 30 s in the same app (the event tap already sees every key, so no new permission; it cannot know whether the undo was ours, and is named as a signal), Copy of the output against Copy of what was said, paste-again, and where the text came from (spoken, clip, screenshot). Short Escape cancels are counted per day.
+- **Home:** "How each app is going", per app with ten or more dictations this week: how many, and the share accepted as-is (Return as the first key, no redo, no undo). Real rows only.
+- **Settings:** the apps dictated into, each with its own writing rules in the existing `instructions` slot, keyed per app and falling back to the family's.
+- **Not in scope:** reading the text field back after a paste, examples or retrieval, profiles, bandits, any automatic change to the prompt. Retention deletes the new columns with the row.
+
+PLAN FROZEN: 2026-10-25 — Step 0 section. Signed Vish (chat, relayed by the leader session: "ya lets go with steo 0").
 

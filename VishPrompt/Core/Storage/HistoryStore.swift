@@ -199,9 +199,10 @@ enum WhereItWent: Equatable, Sendable {
 }
 
 extension HistoryFormat {
-    /// The app a card names: the app in front at the time, or for older rows, the destination.
+    /// The app a card names: the site in a browser ("claude.ai", not "Google Chrome"), the app
+    /// by name, or for older rows the destination.
     static func appName(_ record: DictationRecord) -> String {
-        record.app ?? destinationName(record.destination)
+        AppIdentity.displayName(key: record.identity.key, fallback: record.app) ?? destinationName(record.destination)
     }
 
     /// Whether a row matches a History search: what came out, what was said, the app or the mode.

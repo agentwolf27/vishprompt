@@ -105,6 +105,15 @@ enum Database {
                 t.add(column: "pinned", .boolean).notNull().defaults(to: false)
             }
         }
+        // Which app or site each dictation went to, finer than the destination: the bundle id,
+        // and for a browser the front tab's host, so Slack is told from Messages and claude.ai
+        // from ChatGPT. Null on older rows. Deleted with the row, like everything else.
+        migrator.registerMigration("v4-app-identity") { db in
+            try db.alter(table: "dictation") { t in
+                t.add(column: "bundleId", .text)
+                t.add(column: "urlHost", .text)
+            }
+        }
         return migrator
     }
 }
@@ -136,6 +145,13 @@ struct DictationRecord: Codable, FetchableRecord, PersistableRecord, Equatable {
     var mode: String? = nil
     /// Pinned rows come first in History and are never pruned.
     var pinned: Bool = false
+    /// The focused app's bundle identifier, and for a browser the front tab's host. Nil on
+    /// rows from before they were stored.
+    var bundleId: String? = nil
+    var urlHost: String? = nil
+
+    /// Which app or site this went to, for per-app settings and stats.
+    var identity: AppIdentity { AppIdentity(bundleID: bundleId, host: urlHost) }
 }
 
 struct StageTimingRecord: Codable, FetchableRecord, PersistableRecord, Equatable {

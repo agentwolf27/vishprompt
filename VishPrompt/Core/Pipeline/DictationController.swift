@@ -85,6 +85,9 @@ final class DictationController {
     @ObservationIgnored private var lastPreview: PreviewHUD?
     /// The app in front at key-down, named while listening so the user sees where it will go.
     @ObservationIgnored private var listeningApp: String?
+    /// Which app or site this dictation went to: the bundle id from key-down, the browser host
+    /// once the slow context is joined. Written to the history row.
+    @ObservationIgnored private var recordedIdentity = AppIdentity.unknown
     /// The capsule waiting to appear, for triggers that may turn out to be a shortcut.
     @ObservationIgnored private var revealTask: Task<Void, Never>?
     /// Set while the dictation in flight is a screenshot turned into a prompt, so History can
@@ -391,6 +394,7 @@ final class DictationController {
         // callback makes macOS disable the tap, which loses the key-up and the dictation.
         let frontmost = FocusContextProvider.frontmost()
         capturedContext = frontmost
+        recordedIdentity = AppIdentity.make(frontmost)
         listeningApp = NSWorkspace.shared.frontmostApplication?.localizedName
         isScreenshotFix = false
         silenceLimit = HandsFreeSettings().silenceLimit
@@ -498,6 +502,7 @@ final class DictationController {
             trace.mark(.transcriptReady)
             spokenForThisRun = transcript.text
             let context = await contextForThisRun?.value ?? fallbackContext
+            recordedIdentity = AppIdentity.make(context)
             let destination = settings.apply(to: DestinationResolver.resolve(context))
             // From here the capsule names the destination ("into Claude Code"), not the app.
             hudContext.app = destination.displayName
@@ -1244,6 +1249,8 @@ final class DictationController {
             provider: compiled.sentTo?.rawValue ?? "local"
         )
         record.app = listeningApp
+        record.bundleId = recordedIdentity.bundleID
+        record.urlHost = recordedIdentity.host
         record.mode = (paste.map { $0.isEdit ? DictationMode.edit : .smartPaste }
             ?? (isScreenshotFix ? .screenshotFix : .dictate)).rawValue
         let saved = record

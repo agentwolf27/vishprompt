@@ -10,6 +10,9 @@
 
 | # | Task | Owner | VERIFY |
 |---|---|---|---|
+| 17 | Step 0: outcome signals on each row | Claude | `make test-class C=OutcomeSignalTests` |
+| 18 | Step 0: "How each app is going" on Home | Claude | `make test-class C=AppStatsTests` |
+| 19 | Step 0: per-app writing rules in Settings | Claude | `make test-class C=AppRulesTests` |
 | 4 | Chassis tap: README section, after the LinkedIn post (2026-10-24 10:00 PT) | Claude | `grep -q "palm rest" README.md` |
 | 5 | Record at a table (all scenarios, SURFACE=desk), and the trackpad scenario (hold, Force Touch, scroll); there is no desk data yet | Vish | a person tapping a MacBook; no command can do it |
 
@@ -29,3 +32,4 @@
 | 13 | Palm-rest gestures: the Palm rest card and Test area | Claude | `make test-class C=PalmRestCardTests` |
 | 14 | Trigger safety: shortcut modifiers refused, shortcuts pass through, overlap audit | Claude | `make test-class C=TriggerSafetyTests` |
 | 15 | Hands-free stop: when I stop talking (pause length) or when I tap again | Claude | `make test-class C=HandsFreeStopTests` |
+| 16 | Step 0: app identity on each row, migration v4 | Claude | `make test-class C=AppIdentityTests` |
