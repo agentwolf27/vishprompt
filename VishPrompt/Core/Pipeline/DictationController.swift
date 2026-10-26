@@ -88,6 +88,10 @@ final class DictationController {
     /// Which app or site this dictation went to: the bundle id from key-down, the browser host
     /// once the slow context is joined. Written to the history row.
     @ObservationIgnored private var recordedIdentity = AppIdentity.unknown
+    /// What happened on the preview card, for the history row.
+    @ObservationIgnored private var previewSignals = PreviewSignals()
+    /// The last insert, for the 30 s ⌘Z window.
+    @ObservationIgnored private var lastInsert: (id: String, bundle: String?, at: Date)?
     /// The capsule waiting to appear, for triggers that may turn out to be a shortcut.
     @ObservationIgnored private var revealTask: Task<Void, Never>?
     /// Set while the dictation in flight is a screenshot turned into a prompt, so History can
@@ -164,6 +168,25 @@ final class DictationController {
         }
         self.selfBox = box
         box.controller = self
+        monitor.setUndoHandler {
+            MainActor.assumeIsolated { box.controller?.noteUndoKey() }
+        }
+    }
+
+    /// ⌘Z anywhere. Within 30 s of an insert, in the app the text went into, the row is marked.
+    /// The app cannot know the undo was of its paste; the column is named as the signal it is.
+    private func noteUndoKey() {
+        guard let last = lastInsert,
+              UndoWindow.counts(insertedAt: last.at, now: Date(), insertedInto: last.bundle,
+                                frontmost: NSWorkspace.shared.frontmostApplication?.bundleIdentifier)
+        else { return }
+        lastInsert = nil
+        guard let queue = Database.queue else { return }
+        Task.detached {
+            do { try await HistoryStore.markUndo(id: last.id, in: queue) } catch {
+                Log.db.error("Could not mark undo: \(error.localizedDescription, privacy: .public)")
+            }
+        }
     }
 
     // MARK: Lifecycle
@@ -364,6 +387,8 @@ final class DictationController {
             case .escape, .resynchronise:
                 pasteRead = nil
                 editRead = nil
+                // A short cancel writes no row; it is counted, so Home can say how often.
+                if reason == .escape { ShortCancelCounter().increment() }
                 show(.cancelled)
                 hide(after: 0.8)
             case .tooLong:
@@ -562,6 +587,7 @@ final class DictationController {
             if destination.requiresPreview {
                 var levels = PreviewLevels()
                 levels.store(compiled, requested: attempted)
+                previewSignals = PreviewSignals(levelsTried: [attempted])
                 pending = Pending(
                     transcript: transcript,
                     compiled: compiled,
@@ -688,6 +714,7 @@ final class DictationController {
         trace.mark(.compileDone)
 
         let fix = FixPreview(result: result, showingWithout: false, heard: transcript.text)
+        previewSignals = PreviewSignals()
         pending = Pending(
             transcript: transcript,
             compiled: CompiledPrompt(
@@ -827,6 +854,7 @@ final class DictationController {
         trace.mark(.compileDone)
 
         let paste = PastePreview(result: result, showingAsCopied: false, purpose: purpose)
+        previewSignals = PreviewSignals()
         pending = Pending(
             transcript: transcript,
             compiled: CompiledPrompt(text: result.insertText, level: .medium, requestJSON: result.requestJSON),
@@ -1020,6 +1048,7 @@ final class DictationController {
         show(.inserted(into: destination.displayName, pasted: paste.map { !$0.isEdit } ?? false, landing: Landing(destinationID: destination.id)))
         hide(after: 1.0)
         record(transcript: transcript, compiled: compiled, destination: destination, status: .inserted, paste: paste)
+        lastInsert = (id: trace.id.uuidString, bundle: bundleIdentifier, at: Date())
         Log.timing.info("Dictation timings: \(self.trace.summary(), privacy: .public)")
     }
 
@@ -1030,6 +1059,7 @@ final class DictationController {
             monitor.setPreviewMode(false)
             return
         }
+        previewSignals.noteKey(key)
         switch key {
         case .insert:
             clearPending()
@@ -1105,6 +1135,7 @@ final class DictationController {
     /// Recompiles the same transcript at a different level, so a wrong guess costs one key
     /// rather than another recording.
     private func recompile(_ pending: Pending, at level: EditLevel) {
+        previewSignals.noteLevel(level)
         // Already compiled at this level: instant, nothing sent again.
         if let cached = pending.levels.cached(level) {
             var updated = pending
@@ -1253,6 +1284,12 @@ final class DictationController {
         record.urlHost = recordedIdentity.host
         record.mode = (paste.map { $0.isEdit ? DictationMode.edit : .smartPaste }
             ?? (isScreenshotFix ? .screenshotFix : .dictate)).rawValue
+        record.firstAction = previewSignals.firstAction
+        record.levelsTried = previewSignals.levelsText(including: compiled.level)
+        record.insertedLevel = status == .inserted ? compiled.level.rawValue : nil
+        record.provenance = DictationRecord.provenance(isEdit: paste?.isEdit ?? false, isPaste: paste != nil, isScreenshot: isScreenshotFix)
+        // Each row is written once; the signals that follow it are counted onto it.
+        previewSignals = PreviewSignals()
         let saved = record
         let timings = StageTimingRecord.rows(for: trace, dictationId: record.id)
         Task.detached {

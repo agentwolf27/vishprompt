@@ -89,6 +89,14 @@ final class HomeWindowController: NSWindowController {
 
     init(library: HomeLibrary = HomeLibrary()) {
         let reuse = HistoryReuse()
+        reuse.onSignal = { signal in
+            guard let queue = Database.queue else { return }
+            Task.detached {
+                do { try await HistoryStore.bump(signal, in: queue) } catch {
+                    Log.db.error("Could not count a history signal: \(error.localizedDescription, privacy: .public)")
+                }
+            }
+        }
         self.reuse = reuse
         self.library = library
         let host = NSHostingController(rootView: HomeView(library: library, reuse: reuse))

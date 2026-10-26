@@ -42,7 +42,7 @@ struct DictationCard: View {
                     .textSelection(.enabled)
                 HStack(spacing: 6) {
                     if let text {
-                        CopyButton(text: text, prominent: true, reuse: reuse)
+                        CopyButton(text: text, prominent: true, reuse: reuse, id: entry.id)
                     }
                     IconButton(symbol: record.pinned ? "pin.slash" : "pin", label: record.pinned ? "Unpin" : "Pin to top") {
                         library.setPinned(!record.pinned, entry)
@@ -68,7 +68,7 @@ struct DictationCard: View {
                             .foregroundStyle(theme.muted.color)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .textSelection(.enabled)
-                        CopyButton(text: record.rawTranscript, prominent: false, reuse: reuse)
+                        CopyButton(text: record.rawTranscript, prominent: false, reuse: reuse, id: entry.id, said: true)
                     }
                     .padding(.horizontal, 12).padding(.vertical, 10)
                     .background(RoundedRectangle(cornerRadius: 10).fill(theme.sunk.color))
@@ -94,13 +94,16 @@ struct CopyButton: View {
     let text: String
     let prominent: Bool
     let reuse: HistoryReuse
+    /// The row this text belongs to, so the copy is counted on it.
+    var id: String? = nil
+    var said = false
     @State private var copied = false
 
     static let copiedFor: Duration = .milliseconds(1400)
 
     var body: some View {
         Button {
-            reuse.copy(text)
+            reuse.copy(text, id: id, ofWhatWasSaid: said)
             copied = true
             Task {
                 try? await Task.sleep(for: Self.copiedFor)
@@ -231,7 +234,7 @@ struct HistoryPageView: View {
                 // Return pastes the selected card again into the app you came from (v2 step 4).
                 .onKeyPress(.return) {
                     guard let text = library.selectedText else { return .ignored }
-                    reuse.pasteAgain(text)
+                    reuse.pasteAgain(text, id: library.selection)
                     return .handled
                 }
                 .onKeyPress(.downArrow) {
@@ -245,7 +248,7 @@ struct HistoryPageView: View {
                     return .handled
                 }
                 .onCopyCommand {
-                    if let text = library.selectedText { reuse.copy(text) }
+                    if let text = library.selectedText { reuse.copy(text, id: library.selection) }
                     return []
                 }
             }
