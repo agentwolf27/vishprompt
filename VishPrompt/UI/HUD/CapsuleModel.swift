@@ -10,6 +10,8 @@ struct HUDContext: Equatable, Sendable {
     var triggerName: String = "fn"
     /// The recording was started by a double tap on the palm rest.
     var startedByTap = false
+    /// Whether a hands-free session ends on its own after a pause, or only on a tap.
+    var stopsOnPause = true
     /// Set on a notched built-in display: the capsule splits into lobes beside the housing.
     var notch: NotchLayout?
 }
@@ -95,9 +97,12 @@ struct CapsuleModel: Equatable, Sendable {
         case let .listening(level, seconds, locked, partial, mode, app):
             let status: String
             if locked {
-                status = context.startedByTap
-                    ? "Started by a tap · double-tap again to stop · esc"
-                    : "Hands-free · tap \(context.triggerName) to stop · esc"
+                // Says how this session ends, as set in Settings → How you start talking.
+                let how = context.startedByTap ? "Started by a tap" : "Hands-free"
+                let stop = context.stopsOnPause
+                    ? "stops when you pause"
+                    : (context.startedByTap ? "double-tap again to stop" : "tap \(context.triggerName) to stop")
+                status = "\(how) · \(stop) · esc"
             } else {
                 switch mode {
                 case .paste: status = "say how, or just release · esc"

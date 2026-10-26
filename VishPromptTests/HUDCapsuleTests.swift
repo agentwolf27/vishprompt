@@ -21,7 +21,7 @@ final class HUDCapsuleTests: XCTestCase {
 
     func testHandsFreeNamesTheKey() throws {
         let model = try XCTUnwrap(CapsuleModel.make(.listening(level: 0, seconds: 3, locked: true), context: slack))
-        XCTAssertEqual(model.status, "Hands-free · tap fn to stop · esc")
+        XCTAssertEqual(model.status, "Hands-free · stops when you pause · esc")
     }
 
     func testPasteAndEditSayWhatToSay() throws {

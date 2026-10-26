@@ -94,6 +94,15 @@ final class HomeLibrary {
     }
     @ObservationIgnored var onSetPalmRest: (Bool) -> Void = { _ in }
 
+    /// How a hands-free session ends, and after how long a pause. Read by the controller at the
+    /// next key-down, so no wiring is needed.
+    var handsFreeStopMode: HandsFreeStopMode {
+        didSet { HandsFreeSettings(defaults: defaults).mode = handsFreeStopMode }
+    }
+    var handsFreePause: HandsFreePause {
+        didSet { HandsFreeSettings(defaults: defaults).pause = handsFreePause }
+    }
+
     /// Shown on Home once, after a saved trigger had to be replaced at launch.
     var triggerNote: String?
     @ObservationIgnored var onDismissTriggerNote: () -> Void = {}
@@ -300,6 +309,8 @@ final class HomeLibrary {
         self.defaults = defaults
         appearance = AppearanceChoice.saved(in: defaults)
         palmSensitivity = PalmSensitivity.saved(in: defaults)
+        handsFreeStopMode = HandsFreeSettings(defaults: defaults).mode
+        handsFreePause = HandsFreeSettings(defaults: defaults).pause
         sideCalibration = SideCalibration.saved(in: defaults)
         providerPolicy = ProviderSettings(defaults: defaults).policy()
     }

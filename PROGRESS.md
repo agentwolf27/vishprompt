@@ -487,3 +487,21 @@ for fn and ordinary keys; a key right after the trigger, with Right Command at a
 silently; fn keeps dictating; hands-free typing is left alone; fn+V still works; the hint copy.
 Evidence: `make test` — `Executed 581 tests, with 22 tests skipped and 0 failures`; `make release` — `** BUILD SUCCEEDED **`.
 
+## 2026-10-25 — Claude (hands-free stop: when I stop talking, or when I tap again)
+
+Vish, using the palm-rest tap: "it stops when I stop talking… Can we also add a customization
+where the user can choose whether it just stops right after they stop talking or they have to
+double tap it again". Settings → How you start talking → "When hands-free stops":
+- When I stop talking: the silence timeout ends it after a pause of 1.2 s (what the app always
+  did, and the default), 3 s or 5 s.
+- When I tap again: no silence stop at all. It ends on the stop gesture, the trigger key, Escape,
+  or the five-minute ceiling, which already ends a locked session through the gesture machine.
+It applies to every hands-free start (the fn double-tap and the palm-rest gestures), is read at
+each key-down, and the capsule says which: "stops when you pause" or "double-tap again to stop" /
+"tap fn to stop". Nothing about audio leaving the Mac changes.
+
+Evidence: `make test-class C=HandsFreeStopTests` — passed (8 tests): the default; saving; the pause
+length honoured at 1.2, 3 and 5 s and never in tap-again mode; both modes end from each start; the
+ceiling ends a tap-again session; the four capsule statuses; the card drives the setting.
+Evidence: `make test` — `Executed 589 tests, with 22 tests skipped and 0 failures`; `make release` — `** BUILD SUCCEEDED **`.
+
