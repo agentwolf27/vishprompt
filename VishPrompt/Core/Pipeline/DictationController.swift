@@ -88,6 +88,10 @@ final class DictationController {
     /// Which app or site this dictation went to: the bundle id from key-down, the browser host
     /// once the slow context is joined. Written to the history row.
     @ObservationIgnored private var recordedIdentity = AppIdentity.unknown
+    /// What started the dictation in progress, for the history row and the log.
+    @ObservationIgnored private var startSource: StartSource = .fnHold
+    /// The palm gesture about to start a session, set just before its tap is reported.
+    @ObservationIgnored private var pendingPalmSource: StartSource?
     /// What happened on the preview card, for the history row.
     @ObservationIgnored private var previewSignals = PreviewSignals()
     /// The last insert, for the 30 s ⌘Z window.
@@ -259,6 +263,7 @@ final class DictationController {
         case .stop:
             monitor.reportChassisTap()
         case let .start(chord):
+            pendingPalmSource = StartSource(palm: gesture)
             monitor.reportChassisTap(chord: chord)
         case .needsScreenshot:
             show(.failed(message: PalmDispatch.noScreenshot))
@@ -309,9 +314,16 @@ final class DictationController {
             break
 
         case .startCapture:
+            startSource = monitor.startedByTap ? (pendingPalmSource ?? .palmDouble) : .fnHold
+            pendingPalmSource = nil
+            Log.app.info("Dictation started: \(self.startSource.rawValue, privacy: .public)")
             beginCapture()
 
         case .lockedOn:
+            if !monitor.startedByTap {
+                startSource = .fnDoubleTap
+                Log.app.info("Dictation started: \(self.startSource.rawValue, privacy: .public)")
+            }
             show(.listening(
                 level: capture.currentLevel,
                 seconds: elapsed,
@@ -1289,6 +1301,7 @@ final class DictationController {
         record.levelsTried = previewSignals.levelsText(including: compiled.level)
         record.insertedLevel = status == .inserted ? compiled.level.rawValue : nil
         record.provenance = DictationRecord.provenance(isEdit: paste?.isEdit ?? false, isPaste: paste != nil, isScreenshot: isScreenshotFix)
+        record.startSource = startSource.rawValue
         // Each row is written once; the signals that follow it are counted onto it.
         previewSignals = PreviewSignals()
         let saved = record

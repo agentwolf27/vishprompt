@@ -97,6 +97,10 @@ Tick one only when its VERIFY passes, not when someone says it is done.
 - [x] Step 0.2: each row keeps the outcome signals the app already sees: the first key on the preview, the levels tried and the one inserted, ⌘Z within 30 s in the same app, copies of the output and of what was said, paste-again, and where the text came from; short Escape cancels are counted — `make test-class C=OutcomeSignalTests`
 - [x] Step 0.3: Home shows, per app with ten or more dictations this week, how many and the share accepted as-is, from real rows only — `make test-class C=AppStatsTests`
 - [x] Step 0.4: Settings lists the apps dictated into, each with its own writing rules, which reach the prompt for that app and fall back to the family's — `make test-class C=AppRulesTests`
+- [x] Unwanted sessions 1: every dictation row and the log say what started it (fn held, fn double-tapped, or which palm gesture), and every accepted palm gesture is logged with its timing and knock strengths — `make test-class C=StartSourceTests`
+- [ ] Unwanted sessions 2: a tap-started session always ends in the preview card; nothing it heard is typed into an app without Return — `make test-class C=TapSessionPreviewTests`
+- [ ] Unwanted sessions 3: a tap-started session that hears nothing in its first 3 s cancels silently; in "When I tap again" it still ends after 60 s without new words; a tap start makes a sound — `make test-class C=TapSessionGuardTests`
+- [ ] Unwanted sessions 4: the false double-tap rate is measured on long idle recordings on a bed and a lap, the detector passes only under 1 an hour over at least 2 hours of them, and until then the Palm rest card warns and the setting is off by default — `make test-class C=TapFalseTriggerTests`
 
 ## Later
 
@@ -479,4 +483,25 @@ Vish declined a self-improving system ("i dont like this self improving thing i 
 - **Not in scope:** reading the text field back after a paste, examples or retrieval, profiles, bandits, any automatic change to the prompt. Retention deletes the new columns with the row.
 
 PLAN FROZEN: 2026-10-25 — Step 0 section. Signed Vish (chat, relayed by the leader session: "ya lets go with steo 0").
+
+### Unwanted sessions · 2026-10-26
+
+Vish: "why app fires up automatically when im not even doing anything im not even touching it".
+Five rows on 2026-10-26 (00:03 to 01:17 UTC, the Mac on his bed) transcribe the television and
+other people's talk, and several were inserted into Claude and Safari. His settings: the palm
+rest on, double-tap → Dictate, "When I tap again", trigger fn. Nothing recorded what started
+those sessions, so the cause is the likeliest one, not a proven one: false double taps on a soft
+surface, kept open by tap-again mode until the ceiling, then inserted into an app that needs no
+preview.
+
+- **Trace first.** Every row and the log say what started a dictation; every accepted palm
+  gesture is logged with its timing and knock strengths.
+- **Never type unheard.** A tap-started session always ends in the preview card and needs Return.
+- **End unattended sessions.** No speech in the first 3 s: cancel silently. In tap-again mode, 60
+  s without new words ends it. A tap start makes a short sound.
+- **Measure the false rate.** A 10-minute "leave it on the bed or your lap" recorder step; the
+  detector passes only under 1 false double an hour over at least 2 hours of such recordings;
+  until it passes, the card warns and the setting stays off by default.
+
+PLAN FROZEN: 2026-10-26 — unwanted sessions section. Signed Vish (chat, relayed by the leader session: "why app fires up automatically when im not even doing anything").
 

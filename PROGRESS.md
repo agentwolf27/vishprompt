@@ -586,3 +586,16 @@ live on merge; `main` is untouched.
 
 Evidence: a link check over the README found every image and file present; `grep -q "palm rest" README.md` exits 0.
 
+## 2026-10-26 — Claude (unwanted sessions, part 1: what started it)
+
+Vish's five unwanted sessions on 2026-10-26 could not be traced: no row and no log line said
+what started a dictation. Now migration v6 adds `startSource` to every row (fnHold, fnDoubleTap,
+palmDouble, palmTriple, palmLeft, palmRight), the log says "Dictation started: <source>" at each
+start, and every accepted palm gesture is logged with how many knocks, how long they spanned and
+each knock's peak in mg. The cause of his sessions stays the likeliest one, not a proven one.
+
+Evidence: `make test-class C=StartSourceTests` — passed (4 tests): each gesture its own source;
+the gesture machine tells a tap start from a key start; a row keeps its source and older rows
+have none; every kept knock carries the strength the detector measured.
+Evidence: `make test` — `Executed 618 tests, with 22 tests skipped and 0 failures`; `make release` — `** BUILD SUCCEEDED **`.
+

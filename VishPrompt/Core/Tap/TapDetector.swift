@@ -15,6 +15,8 @@ struct KnockShape: Equatable, Sendable {
     var energy: SIMD3<Float>
     /// The average sign of each axis over the first six samples: which way the chassis first moved.
     var early: SIMD3<Float> = .zero
+    /// The knock's strongest high-passed magnitude, in g, for the log.
+    var peak: Float = 0
 
     var vector: [Float] { [direction.x, direction.y, direction.z, energy.x, energy.y, energy.z, early.x, early.y, early.z] }
 }
@@ -279,7 +281,7 @@ struct TapDetector: Sendable {
         }
         let total = max(attackEnergy.x + attackEnergy.y + attackEnergy.z, 1e-12)
         let shape = KnockShape(direction: attackPeak / max(simd_length(attackPeak), 1e-9), energy: attackEnergy / total,
-                               early: attackSigns / Float(max(attackSamples, 1)))
+                               early: attackSigns / Float(max(attackSamples, 1)), peak: peak)
         knocks.append((captureStart, peak, gravityBefore, leadIn, shape))
         heard.append((captureStart, peak))
         heardShapes.append(shape)
