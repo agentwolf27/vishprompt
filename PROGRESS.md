@@ -599,3 +599,16 @@ the gesture machine tells a tap start from a key start; a row keeps its source a
 have none; every kept knock carries the strength the detector measured.
 Evidence: `make test` — `Executed 618 tests, with 22 tests skipped and 0 failures`; `make release` — `** BUILD SUCCEEDED **`.
 
+## 2026-10-26 — Claude (unwanted sessions, part 2: a tap-started session always previews)
+
+The run now snapshots whether a palm-rest tap started it and, if so, ends in the preview card
+whatever the destination: Safari, a chat window and Messages inserted straight away before.
+Return inserts; Escape drops; an unanswered card copies the text, says so and goes away. Smart
+Paste and screenshot fixes already previewed. A session the key started behaves as before.
+
+Evidence: `make test-class C=TapSessionPreviewTests` — passed (4 tests): the decision for all
+four cases; every palm source counts as a tap start and no key source does; the destinations
+that insert straight away are the ones his sessions landed in; an unanswered card says the text
+was kept, not inserted.
+Evidence: `make test` — `Executed 622 tests, with 22 tests skipped and 0 failures`; `make release` — `** BUILD SUCCEEDED **`.
+

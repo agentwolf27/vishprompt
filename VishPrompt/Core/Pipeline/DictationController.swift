@@ -510,6 +510,8 @@ final class DictationController {
         // dictation the workspace of the one that superseded it.
         let contextForThisRun = contextTask
         let fallbackContext = capturedContext
+        // Snapshotted too: the next key-down replaces `startSource` while this run awaits.
+        let startedByTapForThisRun = startSource.isPalm
         let pasteForThisRun = pasteRead
         pasteRead = nil
         let editForThisRun = editRead
@@ -597,7 +599,7 @@ final class DictationController {
             trace.mark(.compileDone)
             compiled.sentTo = Self.sentTo(attempted: attempted, transcript: transcript.text)
 
-            if destination.requiresPreview {
+            if Self.needsPreview(destinationRequires: destination.requiresPreview, startedByTap: startedByTapForThisRun) {
                 var levels = PreviewLevels()
                 levels.store(compiled, requested: attempted)
                 previewSignals = PreviewSignals(levelsTried: [attempted])
@@ -630,6 +632,14 @@ final class DictationController {
             // The words were heard; a provider failing must not lose them.
             report(error, rescuing: pasteForThisRun == nil ? spokenForThisRun : nil)
         }
+    }
+
+    /// Whether the result waits in the preview card for Return. A destination may ask for it;
+    /// a session a palm-rest tap started always gets it, because a tap can be a false one on a
+    /// soft surface, and what the room said must never be typed into an app without a key press
+    /// (Vish, 2026-10-26). The card copies the text and expires on its own; it never inserts.
+    nonisolated static func needsPreview(destinationRequires: Bool, startedByTap: Bool) -> Bool {
+        destinationRequires || startedByTap
     }
 
     /// Transcribes a long recording the user cancelled, saves it as cancelled and copies it.
