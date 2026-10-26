@@ -23,6 +23,12 @@ struct PalmRestCard: View {
                     .disabled(!library.palmRestAvailable)
             }
 
+            if library.palmRestAvailable, let warning = PalmRestGate.warning {
+                Text(warning)
+                    .font(.system(size: 12)).foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 4)
+            }
             if library.palmRestAvailable {
                 HStack(alignment: .top, spacing: 24) {
                     VStack(alignment: .leading, spacing: 0) {

@@ -25,6 +25,7 @@ let scenarios = [
     Scenario(name: "clicks", seconds: 20, prompt: "Click the trackpad, single and double clicks, every second or so."),
     Scenario(name: "trackpad", seconds: 20, prompt: "On the trackpad itself: double-tap and hold, press hard (Force Touch), scroll with two fingers. Repeat."),
     Scenario(name: "handling", seconds: 20, prompt: "Lift the front of the Mac an inch and set it down, then slide it, then nudge the lid. Repeat."),
+    Scenario(name: "idle-long", seconds: 600, prompt: "Ten minutes: leave the Mac on the bed or your lap and watch something. Don't touch it. This measures how often it starts on its own."),
 ]
 
 final class Recorder: @unchecked Sendable {

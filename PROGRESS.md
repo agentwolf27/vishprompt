@@ -626,3 +626,18 @@ and the preview card (part 2) is what stops what the room said from landing.
 Evidence: `make test-class C=TapSessionGuardTests` — passed (7 tests).
 Evidence: `make test` — `Executed 629 tests, with 22 tests skipped and 0 failures`; `make release` — `** BUILD SUCCEEDED **`.
 
+## 2026-10-26 — Claude (unwanted sessions, part 4: the false-start rate, measured and gated)
+
+`PalmRestGate` pins the false double-tap rate over every `idle*` recording in `Fixtures/taps`,
+replayed as the app samples with its input veto, and `TapFalseTriggerTests` recomputes it from
+the files, so the pinned numbers cannot go stale. The gate passes only under one false start an
+hour over at least two hours of such recordings. Today: two recordings, 20 s in all, one false
+double (the real double knock in Vish's first bed idle), so the gate fails, the Palm rest card
+says so in those numbers, the setting stays off by default, and the README says it. The recorder
+gains a ten-minute `idle-long` step: the Mac left alone on the bed or a lap.
+
+Evidence: `make test-class C=TapFalseTriggerTests` — passed (4 tests), with
+`PROBE idle recordings: bed1/idle idle-quiet, 20.0 s, 1 false double taps` (give or take the
+sample clock), the gate logic at its edges, the warning's numbers, and the default off.
+Evidence: `make test` — `Executed 633 tests, with 22 tests skipped and 0 failures`; `make release` — `** BUILD SUCCEEDED **`.
+
