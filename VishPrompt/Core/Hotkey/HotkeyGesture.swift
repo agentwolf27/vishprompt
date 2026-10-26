@@ -27,6 +27,8 @@ enum HotkeyEvent: Equatable, Sendable {
     case escape
     /// Silence ran long enough to end a hands-free session.
     case silenceTimeout
+    /// A tap-started session heard nothing in its first seconds: drop it silently.
+    case quietStart
     /// The trigger has been held past the safety ceiling; finish what was captured.
     case holdTimeout(at: TimeInterval)
     /// The event tap was disabled and re-enabled; any in-flight gesture is unreliable.
@@ -86,6 +88,8 @@ enum DiscardReason: String, Equatable, Sendable {
     /// Another key was pressed right after the trigger: a shortcut such as ⌘C or fn+Delete, not
     /// a dictation. Nothing is shown; the key goes through to the app.
     case shortcut
+    /// A tap-started session heard nothing: probably a false tap. Nothing is shown.
+    case noSpeech
 }
 
 /// Push-to-talk with double-tap-to-lock for the trigger key.
@@ -173,6 +177,8 @@ struct HotkeyGesture: Sendable {
             cancel(reason: .escape)
         case .silenceTimeout:
             handleSilence()
+        case .quietStart:
+            handleQuietStart()
         case let .holdTimeout(at):
             handleHoldTimeout(at: at)
         case .resynchronise:
@@ -327,6 +333,15 @@ struct HotkeyGesture: Sendable {
             chord = nil
             return .finishCapture(modifiers: modifiers, locked: true)
         }
+    }
+
+    /// Only a hands-free session, and only one a tap started: a held key is the user's hand.
+    private mutating func handleQuietStart() -> HotkeyAction {
+        guard startedByTap, state == .locked || state == .lockArming else { return .none }
+        state = .idle
+        lastShortTapEnded = nil
+        chord = nil
+        return .discardCapture(reason: .noSpeech)
     }
 
     private mutating func handleSilence() -> HotkeyAction {

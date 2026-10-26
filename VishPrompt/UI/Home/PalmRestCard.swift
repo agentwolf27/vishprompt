@@ -34,6 +34,15 @@ struct PalmRestCard: View {
                             }
                         }
                         sensitivity
+                        SettingsRow {
+                            RowText(title: "Play a sound when a tap starts",
+                                    note: "So a start you didn't mean is noticed. A tap-started session also waits in the preview card, drops itself if it hears nothing in 3 s, and ends after a minute without new words.")
+                        } trailing: {
+                            Toggle("Play a sound when a tap starts", isOn: $library.tapStartSound)
+                                .toggleStyle(.switch)
+                                .tint(theme.accent.color)
+                                .labelsHidden()
+                        }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     VStack(alignment: .leading, spacing: 16) {

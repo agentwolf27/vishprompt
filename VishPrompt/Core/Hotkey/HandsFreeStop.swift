@@ -63,6 +63,15 @@ struct HandsFreeSettings: @unchecked Sendable {
         nonmutating set { defaults.set(newValue.rawValue, forKey: Self.pauseKey) }
     }
 
+    static let soundKey = "tapStartSound"
+
+    /// Whether a palm-rest tap that starts a session plays a short sound, so a start nobody
+    /// meant is noticed. On unless turned off.
+    var tapStartSound: Bool {
+        get { defaults.object(forKey: Self.soundKey) == nil ? true : defaults.bool(forKey: Self.soundKey) }
+        nonmutating set { defaults.set(newValue, forKey: Self.soundKey) }
+    }
+
     /// Seconds of silence that end a hands-free session, or nil when only a tap does.
     var silenceLimit: TimeInterval? {
         mode == .whenIStopTalking ? pause.rawValue : nil

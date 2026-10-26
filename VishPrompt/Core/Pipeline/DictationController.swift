@@ -94,6 +94,8 @@ final class DictationController {
     @ObservationIgnored private var pendingPalmSource: StartSource?
     /// What happened on the preview card, for the history row.
     @ObservationIgnored private var previewSignals = PreviewSignals()
+    /// Whether anything has been heard since the capture began, for the tap-session guard.
+    @ObservationIgnored private var heardSpeech = false
     /// The last insert, for the 30 s ⌘Z window.
     @ObservationIgnored private var lastInsert: (id: String, bundle: String?, at: Date)?
     /// The capsule waiting to appear, for triggers that may turn out to be a shortcut.
@@ -317,6 +319,11 @@ final class DictationController {
             startSource = monitor.startedByTap ? (pendingPalmSource ?? .palmDouble) : .fnHold
             pendingPalmSource = nil
             Log.app.info("Dictation started: \(self.startSource.rawValue, privacy: .public)")
+            heardSpeech = false
+            if startSource.isPalm, HandsFreeSettings().tapStartSound {
+                // A short system sound, so a session a false tap started is noticed at once.
+                NSSound(named: NSSound.Name("Tink"))?.play()
+            }
             beginCapture()
 
         case .lockedOn:
@@ -395,6 +402,9 @@ final class DictationController {
                 hide(after: 0)
             case .shortcut:
                 // ⌘C with Right Command, fn+Delete: the key went through; nothing to say.
+                hide(after: 0)
+            case .noSpeech:
+                // A tap nobody meant, most likely. Nothing to say either.
                 hide(after: 0)
             case .escape, .resynchronise:
                 pasteRead = nil
@@ -1402,6 +1412,23 @@ final class DictationController {
                 )
                 // Hands-free stops itself once the room goes quiet.
                 if HandsFreeSettings.shouldStop(locked: locked, silenceSeconds: self.capture.silenceSeconds, limit: self.silenceLimit) {
+                    self.monitor.reportSilenceTimeout()
+                }
+                // A tap-started session nobody is attending: dropped if it heard nothing at all,
+                // finished after a minute without new words even in tap-again mode.
+                if !self.heardSpeech, TapSessionGuard.heardSpeech(elapsed: self.elapsed, silenceSeconds: self.capture.silenceSeconds) {
+                    self.heardSpeech = true
+                }
+                switch TapSessionGuard.verdict(startedByTap: self.startSource.isPalm, elapsed: self.elapsed,
+                                               silenceSeconds: self.capture.silenceSeconds, heardSpeech: self.heardSpeech,
+                                               silenceLimit: self.silenceLimit) {
+                case .keep:
+                    break
+                case .cancelQuietStart:
+                    Log.app.info("Tap-started session heard nothing in \(Int(TapSessionGuard.quietStart), privacy: .public) s; dropped")
+                    self.monitor.reportQuietStart()
+                case .endIdle:
+                    Log.app.info("Tap-started session had no new words for \(Int(TapSessionGuard.idleEnd), privacy: .public) s; finishing")
                     self.monitor.reportSilenceTimeout()
                 }
                 // A key-up that never arrives would otherwise record forever. Escape cannot

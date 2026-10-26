@@ -102,6 +102,9 @@ final class HomeLibrary {
     var handsFreePause: HandsFreePause {
         didSet { HandsFreeSettings(defaults: defaults).pause = handsFreePause }
     }
+    var tapStartSound: Bool {
+        didSet { HandsFreeSettings(defaults: defaults).tapStartSound = tapStartSound }
+    }
 
     // MARK: Writing rules per app
 
@@ -357,6 +360,7 @@ final class HomeLibrary {
         palmSensitivity = PalmSensitivity.saved(in: defaults)
         handsFreeStopMode = HandsFreeSettings(defaults: defaults).mode
         handsFreePause = HandsFreeSettings(defaults: defaults).pause
+        tapStartSound = HandsFreeSettings(defaults: defaults).tapStartSound
         sideCalibration = SideCalibration.saved(in: defaults)
         providerPolicy = ProviderSettings(defaults: defaults).policy()
     }

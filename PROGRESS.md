@@ -612,3 +612,17 @@ that insert straight away are the ones his sessions landed in; an unanswered car
 was kept, not inserted.
 Evidence: `make test` — `Executed 622 tests, with 22 tests skipped and 0 failures`; `make release` — `** BUILD SUCCEEDED **`.
 
+## 2026-10-26 — Claude (unwanted sessions, part 3: ending a session nobody is attending)
+
+`TapSessionGuard`, checked by the meter loop thirty times a second, on tap-started sessions only:
+nothing heard in the first 3 s drops the session silently (a new gesture event, `quietStart`,
+and a new discard reason, `noSpeech`); in "When I tap again", 60 s without new words finishes it
+through the ordinary silence stop, so it reaches the preview card. A key-started session is never
+touched. A tap start plays the system "Tink" sound unless the new switch on the Palm rest card
+turns it off. "Heard anything" is read from the capture's silence clock, which resets on any
+sound above the threshold: a television counts as sound, so the 3 s rule ends silent false starts,
+and the preview card (part 2) is what stops what the room said from landing.
+
+Evidence: `make test-class C=TapSessionGuardTests` — passed (7 tests).
+Evidence: `make test` — `Executed 629 tests, with 22 tests skipped and 0 failures`; `make release` — `** BUILD SUCCEEDED **`.
+
