@@ -127,9 +127,13 @@ final class ChassisTapTrigger {
     /// typing and clicking shake the palm rest too.
     private func accept(_ event: TapEvent, shapes: [KnockShape]) {
         guard sensor != nil else { return }
-        let first = switch event {
-        case let .tripleTap(start, _), let .doubleTap(start, _): start
+        let (first, last) = switch event {
+        case let .tripleTap(start, end), let .doubleTap(start, end): (start, end)
         }
+        // Every accepted gesture, with its timing and how hard each knock was, so a session
+        // nobody meant to start can be matched to what the sensor heard.
+        let peaks = shapes.map { String(format: "%.0f", $0.peak * 1000) }.joined(separator: "/")
+        Log.tap.info("Palm rest heard \(shapes.count, privacy: .public) knocks over \(String(format: "%.2f", last - first), privacy: .public) s, peaks \(peaks, privacy: .public) mg")
         let now = Double(DispatchTime.now().uptimeNanoseconds) / 1_000_000_000
         let lastInput = now - TapInputGuard.lastInputAge()
         let route = PalmRoute.resolve(

@@ -129,6 +129,12 @@ enum Database {
                 t.add(column: "provenance", .text)
             }
         }
+        // What started each dictation, so an unwanted session can be traced to its cause.
+        migrator.registerMigration("v6-start-source") { db in
+            try db.alter(table: "dictation") { t in
+                t.add(column: "startSource", .text)
+            }
+        }
         return migrator
     }
 }
@@ -180,6 +186,8 @@ struct DictationRecord: Codable, FetchableRecord, PersistableRecord, Equatable {
     var pastedAgain: Int = 0
     /// Where the text came from: spoken, clip, selection or screenshot.
     var provenance: String? = nil
+    /// A `StartSource` raw value. Nil on rows from before it was recorded.
+    var startSource: String? = nil
 
     /// Accepted as-is: inserted, Return as the first key (or no preview at all), one level, no
     /// undo. What Home's "How each app is going" counts.
