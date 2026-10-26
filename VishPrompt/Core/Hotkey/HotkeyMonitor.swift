@@ -191,6 +191,11 @@ final class HotkeyMonitor: @unchecked Sendable {
         actions.forEach(deliver)
     }
 
+    /// Drops a tap-started session that heard nothing in its first seconds.
+    func reportQuietStart() {
+        deliver(gesture.withLock { $0.handle(.quietStart) })
+    }
+
     /// Ends a hands-free session because the microphone heard nothing for a while.
     func reportSilenceTimeout() {
         deliver(gesture.withLock { $0.handle(.silenceTimeout) })
