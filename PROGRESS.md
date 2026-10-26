@@ -505,3 +505,18 @@ length honoured at 1.2, 3 and 5 s and never in tap-again mode; both modes end fr
 ceiling ends a tap-again session; the four capsule statuses; the card drives the setting.
 Evidence: `make test` — `Executed 589 tests, with 22 tests skipped and 0 failures`; `make release` — `** BUILD SUCCEEDED **`.
 
+## 2026-10-25 — Claude (Step 0, part 1: which app or site each dictation went to)
+
+Migration v4 adds `bundleId` and `urlHost` to every dictation row: the focused app's bundle id
+from key-down, and for a browser the front tab's host once the slow context is joined. The
+destination id stays the formatting family. `AppIdentity` groups per-app settings and stats by
+the site in a browser and the bundle id elsewhere, and names them (Slack, Messages, claude.ai,
+ChatGPT, Gemini; an unknown site by its host; an unknown app by the name macOS gives it, never a
+bundle id). History cards now say "claude.ai" rather than "Google Chrome". Older rows have no
+identity and keep reading as before. Retention deletes the columns with the row.
+
+Evidence: `make test-class C=AppIdentityTests` — passed (7 tests), including
+`PROBE migrated a copy of the real history: 30 rows` (a copy of Vish's own file, every row kept,
+both columns present) and a v3-shaped database migrated the same way.
+Evidence: `make test` — `Executed 594 tests, with 22 tests skipped and 0 failures`; `make release` — `** BUILD SUCCEEDED **`.
+
